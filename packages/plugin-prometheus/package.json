@@ -1,6 +1,6 @@
 {
   "name": "@goopil/clusterkit-prometheus",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0",
   "description": "Prometheus metrics plugin for @goopil/clusterkit: orchestration counters/gauges on the primary plus per-worker default metrics aggregated via prom-client cluster IPC.",
   "keywords": [
     "prometheus",
