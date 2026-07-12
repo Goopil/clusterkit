@@ -1,0 +1,67 @@
+# ============================================================================
+# Release automation (changesets)
+#
+# On every push to main:
+#   - if there are pending changesets → opens/updates the "Version Packages" PR
+#     (version bumps + CHANGELOG entries, lockfile refreshed)
+#   - if the Version Packages PR was just merged (no pending changesets) →
+#     builds, publishes every bumped package to npm in topological order via
+#     `pnpm publish -r` (rewrites workspace:^ ranges), creates git tags
+#
+# Publishing uses npm TRUSTED PUBLISHING (OIDC) — no NPM_TOKEN secret needed.
+# One-time setup on npmjs.com for EACH package (Settings → Trusted publisher):
+#   organization: Goopil · repository: clusterkit · workflow: release.yml
+# Provenance attestations are generated automatically by trusted publishing.
+# ============================================================================
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency: release-${{ github.ref }}
+
+permissions:
+  contents: write # push the Version Packages branch + git tags
+  pull-requests: write # open/update the Version Packages PR
+  id-token: write # npm trusted publishing (OIDC)
+
+jobs:
+  release:
+    name: Version or publish
+    runs-on: ubuntu-latest
+    # never run on forks — OIDC trust is bound to Goopil/clusterkit
+    if: github.repository == 'Goopil/clusterkit'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: "https://registry.npmjs.org"
+
+      - run: pnpm install --frozen-lockfile
+
+      # Publish only what passes the full gate
+      - run: pnpm build
+      - run: pnpm test
+
+      - name: Create Version Packages PR or publish to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: pnpm run version-packages
+          publish: pnpm run ci:publish
+          commit: "chore(release): version packages"
+          title: "chore(release): version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push release tags
+        if: steps.changesets.outputs.published == 'true' || steps.changesets.outputs.hasChangesets == 'false'
+        run: git push origin --tags
