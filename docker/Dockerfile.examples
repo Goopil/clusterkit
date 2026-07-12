@@ -22,8 +22,9 @@ RUN corepack enable && corepack prepare pnpm@10.30.1 --activate
 # ---- dependency layer --------------------------------------------------
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 
-COPY packages/worker-manager/package.json    packages/worker-manager/
-COPY packages/plugin-prometheus/package.json packages/plugin-prometheus/
+COPY packages/worker-manager/package.json           packages/worker-manager/
+COPY packages/plugin-prometheus/package.json        packages/plugin-prometheus/
+COPY packages/plugin-container-sizing/package.json  packages/plugin-container-sizing/
 COPY examples/express/package.json          examples/express/
 COPY examples/fastify/package.json          examples/fastify/
 COPY examples/hono/package.json             examples/hono/
