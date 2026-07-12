@@ -1,0 +1,53 @@
+# ============================================================================
+# Examples — builds all packages + examples and starts all servers
+#
+# Ports exposed:
+#   App servers:     3000 (express) · 3001 (fastify) · 3005 (hono)
+#                    3006 (koa)     · 3007 (nestjs-express) · 3008 (nestjs-fastify)
+#   Metrics servers: 9090–9095 (one per app, sequential)
+# ============================================================================
+FROM node:22-slim
+
+ENV TURBO_DAEMON=false
+ENV TURBO_TELEMETRY_DISABLED=1
+
+WORKDIR /app
+
+# bash is needed for start-examples.sh (wait -n requires bash, not dash)
+RUN apt-get update && apt-get install -y --no-install-recommends bash && rm -rf /var/lib/apt/lists/*
+
+# ---- pnpm setup --------------------------------------------------------
+RUN corepack enable && corepack prepare pnpm@10.30.1 --activate
+
+# ---- dependency layer --------------------------------------------------
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
+COPY packages/worker-manager/package.json    packages/worker-manager/
+COPY packages/plugin-prometheus/package.json packages/plugin-prometheus/
+COPY examples/express/package.json          examples/express/
+COPY examples/fastify/package.json          examples/fastify/
+COPY examples/hono/package.json             examples/hono/
+COPY examples/koa/package.json              examples/koa/
+COPY examples/nestjs-express/package.json   examples/nestjs-express/
+COPY examples/nestjs-fastify/package.json   examples/nestjs-fastify/
+
+RUN pnpm install --frozen-lockfile
+
+# ---- source + config ---------------------------------------------------
+COPY packages/  packages/
+COPY examples/  examples/
+COPY turbo.json ./
+
+# Build publishable packages first, then NestJS examples (need tsc)
+RUN pnpm turbo run build --filter="./packages/**"
+RUN pnpm turbo run build --filter="./examples/nestjs-*"
+
+# ---- startup script ----------------------------------------------------
+COPY docker/start-examples.sh /start-examples.sh
+RUN chmod +x /start-examples.sh
+
+# Expose all app + metrics ports
+EXPOSE 3000 3001 3005 3006 3007 3008
+EXPOSE 9090 9091 9092 9093 9094 9095
+
+CMD ["/start-examples.sh"]

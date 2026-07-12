@@ -1,0 +1,9 @@
+node_modules
+.git
+.turbo
+**/dist
+coverage
+*.md
+.idea
+.pnpm-store
+.claude

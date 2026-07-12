@@ -1,0 +1,44 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "tsup.config.ts", "tsconfig*.json", "package.json"],
+      "outputs": ["dist/**"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "persistent": true,
+      "cache": false
+    },
+    "serve": {
+      "dependsOn": ["^serve"],
+      "persistent": true,
+      "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build", "build"],
+      "inputs": ["src/**", "test/**", "vitest.config.ts", "package.json"],
+      "outputs": [],
+      "cache": false
+    },
+    "test:watch": {
+      "dependsOn": ["^build"],
+      "persistent": true,
+      "cache": false
+    },
+    "test:coverage": {
+      "dependsOn": ["^build", "build"],
+      "inputs": ["src/**", "test/**", "vitest.config.ts", "package.json"],
+      "outputs": ["coverage/**"]
+    },
+    "start": {
+      "dependsOn": ["^build", "build"],
+      "persistent": true,
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

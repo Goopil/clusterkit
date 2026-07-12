@@ -1,0 +1,62 @@
+services:
+  # -------------------------------------------------------------------------
+  # test — run the full test suite on Linux (SO_REUSEPORT available)
+  #
+  # Usage:
+  #   pnpm test:linux                # build image + run tests (from root)
+  #   docker compose run --rm test   # same, manual
+  #   docker compose build test      # pre-build only
+  # -------------------------------------------------------------------------
+  test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    environment:
+      CI: "true"
+      TURBO_DAEMON: "false"
+      TURBO_TELEMETRY_DISABLED: "1"
+    tty: false
+
+  # -------------------------------------------------------------------------
+  # examples — starts all 6 example servers simultaneously
+  #
+  # App servers:
+  #   http://localhost:3000  express
+  #   http://localhost:3001  fastify
+  #   http://localhost:3005  hono
+  #   http://localhost:3006  koa
+  #   http://localhost:3007  nestjs-express
+  #   http://localhost:3008  nestjs-fastify
+  #
+  # Prometheus metrics (one per app):
+  #   http://localhost:9090  express     http://localhost:9093  koa
+  #   http://localhost:9091  fastify     http://localhost:9094  nestjs-express
+  #   http://localhost:9092  hono        http://localhost:9095  nestjs-fastify
+  #
+  # Usage:
+  #   pnpm examples:start                   # build image + start all servers
+  #   docker compose up examples            # same, manual
+  #   docker compose up examples --build    # force rebuild
+  # -------------------------------------------------------------------------
+  examples:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.examples
+    ports:
+      # App servers
+      - "3000:3000"
+      - "3001:3001"
+      - "3005:3005"
+      - "3006:3006"
+      - "3007:3007"
+      - "3008:3008"
+      # Metrics servers
+      - "9090:9090"
+      - "9091:9091"
+      - "9092:9092"
+      - "9093:9093"
+      - "9094:9094"
+      - "9095:9095"
+    environment:
+      TURBO_DAEMON: "false"
+      TURBO_TELEMETRY_DISABLED: "1"

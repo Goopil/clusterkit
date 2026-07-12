@@ -1,0 +1,73 @@
+{
+  "name": "@goopil/clusterkit-prometheus",
+  "version": "0.1.0",
+  "description": "Prometheus metrics plugin for @goopil/clusterkit: orchestration counters/gauges on the primary plus per-worker default metrics aggregated via prom-client cluster IPC.",
+  "keywords": [
+    "prometheus",
+    "metrics",
+    "prom-client",
+    "cluster",
+    "clusterkit",
+    "monitoring",
+    "observability"
+  ],
+  "homepage": "https://github.com/Goopil/clusterkit#readme",
+  "bugs": {
+    "url": "https://github.com/Goopil/clusterkit/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Goopil/clusterkit.git",
+    "directory": "packages/plugin-prometheus"
+  },
+  "license": "LGPL-3.0-or-later",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "bench:metrics-cache": "node ./scripts/metrics-cache-benchmark.mjs",
+    "prepublishOnly": "pnpm build",
+    "clean": "rm -rf dist coverage"
+  },
+  "peerDependencies": {
+    "@goopil/clusterkit": "workspace:^",
+    "prom-client": ">=14 <16"
+  },
+  "devDependencies": {
+    "@goopil/clusterkit": "workspace:*",
+    "@types/node": "^20.19.27",
+    "@vitest/coverage-v8": "^2.1.8",
+    "prom-client": "^15.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.2",
+    "vitest": "^2.1.8"
+  }
+}

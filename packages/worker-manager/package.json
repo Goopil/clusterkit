@@ -1,0 +1,69 @@
+{
+  "name": "@goopil/clusterkit",
+  "version": "1.0.0",
+  "description": "Zero-dependency Node.js cluster orchestrator for containers: SO_REUSEPORT detection, graceful shutdown with ACK protocol, crash circuit breaker, worker recycling and cgroup-aware sizing.",
+  "keywords": [
+    "cluster",
+    "worker",
+    "orchestrator",
+    "docker",
+    "kubernetes",
+    "cgroup",
+    "so_reuseport",
+    "graceful-shutdown",
+    "circuit-breaker",
+    "process-manager"
+  ],
+  "homepage": "https://github.com/Goopil/clusterkit#readme",
+  "bugs": {
+    "url": "https://github.com/Goopil/clusterkit/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Goopil/clusterkit.git",
+    "directory": "packages/worker-manager"
+  },
+  "license": "LGPL-3.0-or-later",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "pnpm build",
+    "clean": "rm -rf dist coverage"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.27",
+    "@vitest/coverage-v8": "^2.1.8",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.2",
+    "vitest": "^2.1.8"
+  }
+}

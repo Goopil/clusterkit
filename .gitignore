@@ -1,0 +1,12 @@
+.idea
+.junie
+.DS_Store
+**/.DS_Store
+.pnpm-store
+node_modules
+.turbo
+.worktrees
+**/node_modules
+**/dist
+**/.turbo/*
+**/coverage

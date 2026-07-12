@@ -1,0 +1,22 @@
+{
+  "name": "express",
+  "private": true,
+  "main": "src/index.mjs",
+  "scripts": {
+    "start": "node src/index.mjs",
+    "serve": "node --watch src/index.mjs"
+  },
+  "license": "LGPL-3.0-or-later",
+  "packageManager": "pnpm@10.30.1",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "type": "module",
+  "dependencies": {
+    "express": "^5",
+    "@goopil/clusterkit": "workspace:*",
+    "@goopil/clusterkit-sizing": "workspace:*",
+    "@goopil/clusterkit-prometheus": "workspace:*",
+    "prom-client": "^15"
+  }
+}

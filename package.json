@@ -1,0 +1,25 @@
+{
+  "name": "clusterkit",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "serve": "turbo run serve",
+    "test": "turbo run test --filter=./packages/**",
+    "test:coverage": "turbo run test:coverage --filter=./packages/**",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test:linux": "docker-compose run --build --rm test",
+    "examples:start": "docker-compose up examples --build"
+  },
+  "license": "LGPL-3.0-or-later",
+  "packageManager": "pnpm@10.30.1",
+  "type": "module",
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.11",
+    "turbo": "^2.5.4"
+  }
+}

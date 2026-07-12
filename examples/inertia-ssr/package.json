@@ -1,0 +1,29 @@
+{
+  "name": "inertia-ssr",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "vite build",
+    "start": "node src/index.mjs",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@goopil/clusterkit": "workspace:*",
+    "@goopil/clusterkit-prometheus": "workspace:*",
+    "@inertiajs/vue3": "^2",
+    "@vue/server-renderer": "^3",
+    "express": "^4",
+    "prom-client": "^15",
+    "vue": "^3"
+  },
+  "devDependencies": {
+    "@types/express": "^4",
+    "@types/node": "^20",
+    "@vitejs/plugin-vue": "^5",
+    "typescript": "~5.9",
+    "vite": "^6"
+  }
+}

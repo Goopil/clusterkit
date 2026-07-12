@@ -1,0 +1,220 @@
+import type { Worker } from "node:cluster";
+import type { Logger, ResolvedConfig, WorkerMetrics } from "./types";
+import { isTypedMessage } from "./types";
+
+/**
+ * Coordinates graceful shutdown of workers and cleanup.
+ * Handles the full shutdown sequence: notify, wait, kill, cleanup.
+ */
+export class ShutdownCoordinator {
+  private readonly cfg: ResolvedConfig;
+  private readonly log: Logger | null;
+  private readonly metrics: WorkerMetrics;
+
+  // State
+  private isShuttingDown = false;
+  private readonly pendingShutdownWorkers = new Set<Worker>();
+
+  // IPC message types
+  private readonly shutdownType: string;
+  private readonly shutdownAckType: string;
+
+  // Callbacks (injected from Orchestrator)
+  private onShutdownStart?: (signal: string) => void;
+  private onShutdownComplete?: (metrics: WorkerMetrics) => void;
+
+  constructor(cfg: ResolvedConfig, log: Logger | null, metrics: WorkerMetrics, messagePrefix: string) {
+    this.cfg = cfg;
+    this.log = log;
+    this.metrics = metrics;
+    this.shutdownType = `${messagePrefix}:shutdown`;
+    this.shutdownAckType = `${messagePrefix}:shutdown-ack`;
+  }
+
+  /**
+   * Set up event callbacks.
+   */
+  setupCallbacks(onStart: (signal: string) => void, onComplete: (metrics: WorkerMetrics) => void): void {
+    this.onShutdownStart = onStart;
+    this.onShutdownComplete = onComplete;
+  }
+
+  /**
+   * Check if shutdown is in progress.
+   */
+  isShutdownInProgress(): boolean {
+    return this.isShuttingDown;
+  }
+
+  /**
+   * Initiate coordinated shutdown of workers.
+   */
+  async initiateShutdown(workers: Worker[], signal: string): Promise<void> {
+    if (this.isShuttingDown) return;
+    this.isShuttingDown = true;
+
+    this.log?.info("Shutdown coordinator initiated", { signal });
+    this.onShutdownStart?.(signal);
+
+    // 1. Send shutdown message and wait for ACKs
+    await this.sendShutdownAndWaitAcks(workers);
+
+    // 2. Wait for workers to exit
+    await this.waitForWorkersToExit(workers);
+
+    // 3. Force-kill any survivors
+    const survivors = workers.filter((w) => !w.isDead());
+    if (survivors.length > 0) {
+      this.log?.warn("Force killing survivors", { count: survivors.length });
+      await Promise.all(survivors.map((w) => this.killWorkerGradually(w)));
+    }
+
+    this.log?.info("All workers terminated");
+    this.onShutdownComplete?.({ ...this.metrics });
+  }
+
+  /**
+   * Send shutdown message to workers and wait for ACKs.
+   */
+  private async sendShutdownAndWaitAcks(workers: Worker[]): Promise<void> {
+    const ackPromises = workers.map((worker) => this.waitForWorkerAck(worker));
+    await Promise.all(ackPromises);
+
+    if (this.pendingShutdownWorkers.size > 0) {
+      this.log?.warn("Some workers did not ACK shutdown", {
+        pending: Array.from(this.pendingShutdownWorkers).map((w) => w.id),
+      });
+    }
+  }
+
+  /**
+   * Wait for a single worker to ACK shutdown.
+   */
+  private waitForWorkerAck(worker: Worker): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (worker.isDead() || !worker.isConnected()) {
+        resolve();
+        return;
+      }
+
+      let ackTimeoutId: NodeJS.Timeout | undefined;
+
+      const disconnectWorker = (): void => {
+        if (!worker.isDead() && worker.isConnected()) {
+          worker.disconnect();
+        }
+      };
+
+      const cleanup = (): void => {
+        worker.off("message", ackHandler);
+        worker.off("exit", terminalHandler);
+        worker.off("disconnect", terminalHandler);
+        if (ackTimeoutId) {
+          clearTimeout(ackTimeoutId);
+          ackTimeoutId = undefined;
+        }
+      };
+
+      const sendShutdown = (): void => {
+        try {
+          worker.send({ type: this.shutdownType });
+          this.pendingShutdownWorkers.add(worker);
+        } catch (err) {
+          this.log?.debug("Failed to send shutdown to worker", {
+            workerId: worker.id,
+            error: err,
+          });
+          cleanup();
+          disconnectWorker();
+          resolve();
+        }
+      };
+
+      const ackHandler = (msg: unknown): void => {
+        if (this.isShutdownAck(msg)) {
+          cleanup();
+          this.pendingShutdownWorkers.delete(worker);
+          disconnectWorker();
+          this.log?.info("Worker ACK received", { workerId: worker.id });
+          resolve();
+        }
+      };
+
+      const terminalHandler = (): void => {
+        cleanup();
+        this.pendingShutdownWorkers.delete(worker);
+        this.log?.info("Worker terminated before shutdown ACK", { workerId: worker.id });
+        resolve();
+      };
+
+      worker.on("message", ackHandler);
+      worker.once("exit", terminalHandler);
+      worker.once("disconnect", terminalHandler);
+
+      // Individual timeout per worker
+      ackTimeoutId = setTimeout(() => {
+        cleanup();
+        this.pendingShutdownWorkers.delete(worker);
+        disconnectWorker();
+        this.log?.warn("Worker ACK timeout", { workerId: worker.id });
+        resolve();
+      }, this.cfg.shutdown.ackTimeoutMs);
+
+      // Send shutdown message
+      sendShutdown();
+    });
+  }
+
+  /**
+   * Wait for all workers to exit (with timeout).
+   */
+  private waitForWorkersToExit(workers: Worker[]): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, this.cfg.shutdown.timeoutMs);
+
+      const checkAllDead = (): void => {
+        if (workers.every((w) => w.isDead())) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      };
+
+      checkAllDead();
+
+      for (const worker of workers) {
+        if (!worker.isDead()) worker.once("exit", checkAllDead);
+      }
+    });
+  }
+
+  /**
+   * Kill a worker gradually: SIGTERM → SIGINT → SIGKILL.
+   */
+  private async killWorkerGradually(worker: Worker): Promise<void> {
+    const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+    if (!worker.isDead()) {
+      worker.process.kill("SIGTERM");
+      await delay(this.cfg.shutdown.sigtermDelayMs);
+    }
+
+    if (!worker.isDead()) {
+      this.log?.warn("Escalating to SIGINT", { workerId: worker.id });
+      worker.process.kill("SIGINT");
+      await delay(this.cfg.shutdown.sigintDelayMs);
+    }
+
+    if (!worker.isDead()) {
+      this.log?.error("Forced SIGKILL", { workerId: worker.id });
+      worker.process.kill("SIGKILL");
+      this.metrics.forcedKills++;
+    }
+  }
+
+  /**
+   * Type guard for shutdown ACK messages.
+   */
+  private isShutdownAck(msg: unknown): msg is { type: string } {
+    return isTypedMessage(msg, this.shutdownAckType);
+  }
+}
