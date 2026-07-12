@@ -60,10 +60,10 @@
     "clean": "rm -rf dist coverage"
   },
   "devDependencies": {
-    "@types/node": "^20.19.27",
-    "@vitest/coverage-v8": "^2.1.8",
-    "tsup": "^8.5.1",
-    "typescript": "~5.9.2",
-    "vitest": "^3.2.6"
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
