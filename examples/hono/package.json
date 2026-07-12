@@ -1,5 +1,5 @@
 {
-  "name": "hono",
+  "name": "example-hono",
   "private": true,
   "main": "src/index.mjs",
   "scripts": {

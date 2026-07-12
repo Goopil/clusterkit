@@ -1,5 +1,5 @@
 {
-  "name": "inertia-ssr-react",
+  "name": "example-inertia-ssr-react",
   "type": "module",
   "private": true,
   "engines": {
