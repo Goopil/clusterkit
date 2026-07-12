@@ -4,8 +4,8 @@ packages:
   - 'examples/**'
 
 catalog:
-  "@types/node": "^20.19.27"
-  "@vitest/coverage-v8": "^2.1.8"
+  "@types/node": "^26.1.1"
+  "@vitest/coverage-v8": "^4.1.10"
   tsup: "^8.5.1"
-  typescript: "~5.9.2"
-  vitest: "^3.2.6"
+  typescript: "^5.7.3"
+  vitest: "^4.1.10"

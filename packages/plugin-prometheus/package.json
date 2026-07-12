@@ -58,7 +58,7 @@
     "clean": "rm -rf dist coverage"
   },
   "peerDependencies": {
-    "@goopil/clusterkit": "workspace:^",
+    "@goopil/clusterkit": "workspace:*",
     "prom-client": ">=14 <16"
   },
   "devDependencies": {

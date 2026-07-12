@@ -25,8 +25,8 @@
   },
   "devDependencies": {
     "@types/express": "^5",
-    "@types/node": "^20",
+    "@types/node": "catalog:",
     "ts-node": "^10",
-    "typescript": "~5.9"
+    "typescript": "catalog:"
   }
 }
