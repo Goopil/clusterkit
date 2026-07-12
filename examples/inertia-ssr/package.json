@@ -1,5 +1,5 @@
 {
-  "name": "inertia-ssr",
+  "name": "example-inertia-ssr",
   "type": "module",
   "private": true,
   "engines": {

@@ -1,5 +1,5 @@
 {
-  "name": "fastify",
+  "name": "example-fastify",
   "private": true,
   "main": "src/index.mjs",
   "scripts": {

@@ -1,5 +1,5 @@
 {
-  "name": "koa",
+  "name": "example-koa",
   "private": true,
   "main": "src/index.mjs",
   "scripts": {
