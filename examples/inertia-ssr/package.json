@@ -21,9 +21,9 @@
   },
   "devDependencies": {
     "@types/express": "^4",
-    "@types/node": "^20",
-    "@vitejs/plugin-vue": "^5",
-    "typescript": "~5.9",
-    "vite": "^6"
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "^6",
+    "typescript": "catalog:",
+    "vite": "catalog:"
   }
 }

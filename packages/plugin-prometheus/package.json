@@ -23,8 +23,8 @@
   "license": "LGPL-3.0-or-later",
   "type": "module",
   "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "sideEffects": false,
   "engines": {
     "node": ">=22.12.0"
@@ -32,8 +32,8 @@
   "exports": {
     ".": {
       "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
       },
       "require": {
         "types": "./dist/index.d.cts",
@@ -48,8 +48,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -58,16 +58,16 @@
     "clean": "rm -rf dist coverage"
   },
   "peerDependencies": {
-    "@goopil/clusterkit": "workspace:^",
+    "@goopil/clusterkit": "workspace:*",
     "prom-client": ">=14 <16"
   },
   "devDependencies": {
     "@goopil/clusterkit": "workspace:*",
-    "@types/node": "^20.19.27",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "prom-client": "^15.0.0",
-    "tsup": "^8.5.1",
-    "typescript": "~5.9.2",
-    "vitest": "^3.2.6"
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

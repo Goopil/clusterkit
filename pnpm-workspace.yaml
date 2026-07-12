@@ -2,3 +2,11 @@ injectWorkspacePackages: true
 packages:
   - 'packages/**'
   - 'examples/**'
+
+catalog:
+  "@types/node": "^26.1.1"
+  "@vitest/coverage-v8": "^4.1.10"
+  tsdown: "^0.22.5"
+  typescript: "^7.0.2"
+  vitest: "^4.1.10"
+  vite: "^8.1.4"
