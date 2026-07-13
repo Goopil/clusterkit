@@ -6,7 +6,8 @@
 #     (version bumps + CHANGELOG entries, lockfile refreshed)
 #   - if the Version Packages PR was just merged (no pending changesets) →
 #     builds, publishes every bumped package to npm in topological order via
-#     `pnpm publish -r` (rewrites workspace:^ ranges), creates git tags
+#     `pnpm pack` (rewrites workspace protocol ranges), then npm publishes with OIDC
+#     provenance, and the workflow creates git tags
 #
 # Publishing uses npm TRUSTED PUBLISHING (OIDC) — no NPM_TOKEN secret needed.
 # One-time setup on npmjs.com for EACH package (Settings → Trusted publisher):

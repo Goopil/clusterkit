@@ -20,9 +20,9 @@ no npm token stored in the repo).
    version bumps, CHANGELOG entries and the refreshed lockfile.
 
 3. Merging that PR triggers the actual publish: full build + tests, then
-   `pnpm publish -r` publishes every bumped package in topological order
-   (core before plugins, `workspace:^` ranges rewritten to real semver), and
-   git tags (`@goopil/clusterkit@x.y.z`) are pushed.
+   pnpm creates package tarballs in topological order (core before plugins,
+   workspace protocol ranges rewritten to real semver), then npm publishes those
+   tarballs through OIDC and pushes git tags (`@goopil/clusterkit@x.y.z`).
 
 That's it — no manual npm command is ever needed after the bootstrap below.
 
@@ -55,7 +55,7 @@ publishing access to "Require two-factor authentication or automation".
 > **Until this bootstrap is done**, pushes to `main` without pending changesets
 > make the Release workflow attempt a publish and fail on npm authentication —
 > that is expected and harmless. Once the RCs exist on the registry,
-> `pnpm publish -r` skips already-published versions, so the job goes green.
+> The release script skips already-published versions, so the job goes green.
 
 ## Graduating the RC to stable
 
