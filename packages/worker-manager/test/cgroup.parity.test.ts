@@ -45,44 +45,77 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
-describe("cgroup sync/async cpu parity", () => {
-  it("returns the same v2 CPU limit on equivalent inputs", async () => {
-    setPlatform("linux");
-
-    mockSyncFiles({
-      "/sys/fs/cgroup/cpu.max": "200000 100000",
-    });
-
-    mockAsyncFiles({
+const cases = [
+  {
+    name: "reads canonical v2 limits",
+    files: {
       "/sys/fs/cgroup/cgroup.controllers": "cpu memory",
       "/sys/fs/cgroup/cpu.max": "200000 100000",
       "/sys/fs/cgroup/memory.max": "268435456",
-    });
-
-    const syncCpuLimit = getCgroupCpuLimit();
-    const asyncLimits = await readCgroupLimits();
-
-    expect(syncCpuLimit).toBe(2);
-    expect(asyncLimits.cpuLimit).toBe(syncCpuLimit);
-  });
-
-  it("returns the same v1 CPU limit on equivalent inputs", async () => {
-    setPlatform("linux");
-
-    const files = {
-      "/proc/self/cgroup": "2:cpu,cpuacct:/kubepods/burstable/pod123/container456",
+    },
+    expectedSyncCpu: 2,
+    expectedAsync: { cpuLimit: 2, memoryLimitBytes: 268435456 },
+  },
+  {
+    name: "reads resolved v2 paths and preserves fractional CPU limits asynchronously",
+    files: {
+      "/sys/fs/cgroup/cgroup.controllers": "cpu memory",
+      "/proc/self/cgroup": "0::/kubepods.slice/pod123/container456",
+      "/sys/fs/cgroup/kubepods.slice/pod123/container456/cpu.max": "150000 100000",
+      "/sys/fs/cgroup/kubepods.slice/pod123/container456/memory.max": "536870912",
+    },
+    expectedSyncCpu: 1,
+    expectedAsync: { cpuLimit: 1.5, memoryLimitBytes: 536870912 },
+  },
+  {
+    name: "handles unlimited v2 CPU and memory",
+    files: {
+      "/sys/fs/cgroup/cgroup.controllers": "cpu memory",
+      "/sys/fs/cgroup/cpu.max": "max 100000",
+      "/sys/fs/cgroup/memory.max": "max",
+    },
+    expectedSyncCpu: null,
+    expectedAsync: { cpuLimit: null, memoryLimitBytes: null },
+  },
+  {
+    name: "reads resolved v1 paths",
+    files: {
+      "/proc/self/cgroup": [
+        "2:cpu,cpuacct:/kubepods/burstable/pod123/container456",
+        "5:memory:/kubepods/burstable/pod123/container456",
+      ].join("\n"),
       "/sys/fs/cgroup/cpu/kubepods/burstable/pod123/container456/cpu.cfs_quota_us": "400000",
       "/sys/fs/cgroup/cpu/kubepods/burstable/pod123/container456/cpu.cfs_period_us": "100000",
-      "/sys/fs/cgroup/memory/memory.limit_in_bytes": "536870912",
-    };
+      "/sys/fs/cgroup/memory/kubepods/burstable/pod123/container456/memory.limit_in_bytes": "536870912",
+    },
+    expectedSyncCpu: 4,
+    expectedAsync: { cpuLimit: 4, memoryLimitBytes: 536870912 },
+  },
+  {
+    name: "handles unlimited v1 CPU and memory",
+    files: {
+      "/sys/fs/cgroup/cpu/cpu.cfs_quota_us": "-1",
+      "/sys/fs/cgroup/cpu/cpu.cfs_period_us": "100000",
+      "/sys/fs/cgroup/memory/memory.limit_in_bytes": "9223372036854771712",
+    },
+    expectedSyncCpu: null,
+    expectedAsync: { cpuLimit: null, memoryLimitBytes: null },
+  },
+  {
+    name: "returns null limits when cgroup files are absent",
+    files: {},
+    expectedSyncCpu: null,
+    expectedAsync: { cpuLimit: null, memoryLimitBytes: null },
+  },
+] as const;
 
+describe("cgroup sync/async contract", () => {
+  it.each(cases)("$name", async ({ files, expectedSyncCpu, expectedAsync }) => {
+    setPlatform("linux");
     mockSyncFiles(files);
     mockAsyncFiles(files);
 
-    const syncCpuLimit = getCgroupCpuLimit();
-    const asyncLimits = await readCgroupLimits();
-
-    expect(syncCpuLimit).toBe(4);
-    expect(asyncLimits.cpuLimit).toBe(syncCpuLimit);
+    expect(getCgroupCpuLimit()).toBe(expectedSyncCpu);
+    await expect(readCgroupLimits()).resolves.toEqual(expectedAsync);
   });
 });
