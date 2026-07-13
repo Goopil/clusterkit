@@ -1,13 +1,9 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const packages = [
-  "packages/worker-manager",
-  "packages/plugin-container-sizing",
-  "packages/plugin-prometheus",
-];
+const packages = ["packages/worker-manager", "packages/plugin-container-sizing", "packages/plugin-prometheus"];
 const dryRun = process.argv.includes("--dry-run");
 const tarballsDirectory = mkdtempSync(join(tmpdir(), "clusterkit-publish-"));
 
