@@ -16,14 +16,14 @@
   },
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
-    "@nestjs/common": "^11",
-    "@nestjs/core": "^11",
-    "@nestjs/platform-fastify": "^11",
-    "reflect-metadata": "^0.2",
-    "rxjs": "^7",
-    "@goopil/clusterkit-sizing": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
-    "prom-client": "^15"
+    "@goopil/clusterkit-sizing": "workspace:*",
+    "@nestjs/common": "^11.1.28",
+    "@nestjs/core": "^11.1.28",
+    "@nestjs/platform-fastify": "^11.1.28",
+    "prom-client": "^15",
+    "reflect-metadata": "^0.2",
+    "rxjs": "^7"
   },
   "devDependencies": {
     "@types/node": "catalog:",
