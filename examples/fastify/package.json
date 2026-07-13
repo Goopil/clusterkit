@@ -13,10 +13,10 @@
   },
   "type": "module",
   "dependencies": {
-    "fastify": "^5.8.4",
     "@goopil/clusterkit": "workspace:*",
-    "@goopil/clusterkit-sizing": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
+    "@goopil/clusterkit-sizing": "workspace:*",
+    "fastify": "^5.10.0",
     "prom-client": "^15"
   }
 }
