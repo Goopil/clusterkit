@@ -13,7 +13,7 @@
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
-    "@inertiajs/react": "^2",
+    "@inertiajs/react": "^3",
     "express": "^5.2.1",
     "prom-client": "^15",
     "react": "^18",
