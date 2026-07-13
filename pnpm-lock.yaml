@@ -149,8 +149,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-prometheus
       '@inertiajs/react':
-        specifier: ^2
-        version: 2.3.21(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^3
+        version: 3.5.0(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       express:
         specifier: ^5.2.1
         version: 5.2.1
@@ -556,11 +556,19 @@ packages:
   '@inertiajs/core@2.3.21':
     resolution: {integrity: sha512-grHSCUiWDBWqpRxaobyxUJu0FV6HLkkuJwvoNLVkHwkexLvoaLhb9BmtoQydlIYL5pk2O3jcKaGtWJ83JwTB4A==}
 
-  '@inertiajs/react@2.3.21':
-    resolution: {integrity: sha512-puyk610JRni/ex8T3Di3dyz2c1eYU/u5bmef2BdKhMnn2nrC2hITXtpcFf0emk1yR8Q3+rdO6aaq68Lwk+P3Rw==}
+  '@inertiajs/core@3.5.0':
+    resolution: {integrity: sha512-k0RpPULYD6d+FsYUIaSkUbvLbMGBRkzMc+qHhwfTVrMwCvXd6FyQ+O99PT5AN4j3BKy96XT45AKDwBhhti8Tgg==}
     peerDependencies:
-      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      axios: ^1.15.2
+    peerDependenciesMeta:
+      axios:
+        optional: true
+
+  '@inertiajs/react@3.5.0':
+    resolution: {integrity: sha512-LDayMX+nUyrmCKqEAWOELwlqLTONT/iA50U94Sb2w6x8XEZGPweLhmSlr4jUXde1znV3p7n67MHUVs7s8Vjpbg==}
+    peerDependencies:
+      react: ^19.0.0
+      react-dom: ^19.0.0
 
   '@inertiajs/vue3@2.3.21':
     resolution: {integrity: sha512-gJuOD9HrB6WXpTCUB6yLDHA2yI5YGzhYcGlHCPB6mzt6Lvm7CsQA06CNOyk8eEooz0MYJhFF2V092hU1i866qg==}
@@ -1529,6 +1537,9 @@ packages:
     resolution: {integrity: sha512-j6vWzfrGVfyXxge+O0x5sh6cvxAog0a/4Rdd2K36zCMV5eJ+/+tOAngRO8cODMNWbVRdVlmGZQL2YS3yR8bIUA==}
     engines: {node: '>= 0.4'}
 
+  es-toolkit@1.49.0:
+    resolution: {integrity: sha512-G5iZ6Pc/FNRY/soKZHC+TxGDD83rHUDXxzaWhGCX44vAv/tMs56WMusnm/KMNK+luUPsgA9U28cGr4RDlSzL2g==}
+
   escape-html@1.0.3:
     resolution: {integrity: sha512-NiSupZ4OeuGwr68lGIeym/ksIZMJodUGOSCZ/FSnTxcrekbvqrgdUxlJOMpijaKZVjAJrWrGs/6Jy8OMuyj9ow==}
 
@@ -1858,6 +1869,14 @@ packages:
 
   laravel-precognition@1.0.2:
     resolution: {integrity: sha512-0H08JDdMWONrL/N314fvsO3FATJwGGlFKGkMF3nNmizVFJaWs17816iM+sX7Rp8d5hUjYCx6WLfsehSKfaTxjg==}
+
+  laravel-precognition@2.0.0:
+    resolution: {integrity: sha512-dmA4HGc9m+TsVNsJs9/XQBI8u6j7coilN+qKkBuhuXQzH3HypwS/c5dFQ4UqUGjBbcxIM7zdk91kM/SRZwIvWQ==}
+    peerDependencies:
+      axios: ^1.4.0
+    peerDependenciesMeta:
+      axios:
+        optional: true
 
   light-my-request@6.6.0:
     resolution: {integrity: sha512-CHYbu8RtboSIoVsHZ6Ye4cj4Aw/yg2oAFimlF7mNvfDV192LR7nDiKtSIfCuLT7KokPSTn/9kfVLm5OGN0A28A==}
@@ -2991,16 +3010,23 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  '@inertiajs/react@2.3.21(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@inertiajs/core@3.5.0(axios@1.16.0)':
     dependencies:
-      '@inertiajs/core': 2.3.21
-      '@types/lodash-es': 4.17.12
-      laravel-precognition: 1.0.2
-      lodash-es: 4.18.1
+      '@jridgewell/trace-mapping': 0.3.31
+      es-toolkit: 1.49.0
+      laravel-precognition: 2.0.0(axios@1.16.0)
+    optionalDependencies:
+      axios: 1.16.0
+
+  '@inertiajs/react@3.5.0(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@inertiajs/core': 3.5.0(axios@1.16.0)
+      es-toolkit: 1.49.0
+      laravel-precognition: 2.0.0(axios@1.16.0)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     transitivePeerDependencies:
-      - debug
+      - axios
 
   '@inertiajs/vue3@2.3.21(vue@3.5.39(typescript@7.0.2))':
     dependencies:
@@ -3792,6 +3818,8 @@ snapshots:
       has-tostringtag: 1.0.2
       hasown: 2.0.4
 
+  es-toolkit@1.49.0: {}
+
   escape-html@1.0.3: {}
 
   esprima@4.0.1: {}
@@ -4188,6 +4216,12 @@ snapshots:
       lodash-es: 4.18.1
     transitivePeerDependencies:
       - debug
+
+  laravel-precognition@2.0.0(axios@1.16.0):
+    dependencies:
+      es-toolkit: 1.49.0
+    optionalDependencies:
+      axios: 1.16.0
 
   light-my-request@6.6.0:
     dependencies:
