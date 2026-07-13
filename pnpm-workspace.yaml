@@ -4,7 +4,7 @@ packages:
   - 'examples/**'
 
 catalog:
-  "@types/node": "^26.1.1"
+  "@types/node": "^26.0.1"
   "@vitest/coverage-v8": "^4.1.10"
   tsdown: "^0.22.5"
   typescript: "^7.0.2"
