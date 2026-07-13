@@ -17,7 +17,7 @@
     "examples:start": "docker-compose up examples --build",
     "changeset": "changeset",
     "version-packages": "changeset version && pnpm install --lockfile-only",
-    "ci:publish": "pnpm build && pnpm publish -r --no-git-checks && changeset tag"
+    "ci:publish": "pnpm build && node scripts/publish-with-oidc.mjs && changeset tag"
   },
   "license": "LGPL-3.0-or-later",
   "packageManager": "pnpm@10.30.1",
