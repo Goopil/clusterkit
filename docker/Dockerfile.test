@@ -1,7 +1,7 @@
 # ============================================================================
 # Test harness — runs all package tests on Linux (SO_REUSEPORT available)
 # ============================================================================
-FROM node:22-slim
+FROM node:26-slim
 
 # Disable turbo daemon + telemetry in CI containers
 ENV TURBO_DAEMON=false

@@ -6,7 +6,7 @@
 #                    3006 (koa)     · 3007 (nestjs-express) · 3008 (nestjs-fastify)
 #   Metrics servers: 9090–9095 (one per app, sequential)
 # ============================================================================
-FROM node:22-slim
+FROM node:26-slim
 
 ENV TURBO_DAEMON=false
 ENV TURBO_TELEMETRY_DISABLED=1
