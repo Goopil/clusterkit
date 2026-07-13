@@ -13,7 +13,7 @@
   },
   "type": "module",
   "dependencies": {
-    "fastify": "^5.8.4",
+    "fastify": "^5.10.0",
     "@goopil/clusterkit": "workspace:*",
     "@goopil/clusterkit-sizing": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
