@@ -8,6 +8,7 @@
     "serve": "turbo run serve",
     "test": "turbo run test --filter=./packages/**",
     "test:coverage": "turbo run test:coverage --filter=./packages/**",
+    "test:packages": "node scripts/package-smoke-test.mjs",
     "clean": "turbo run clean && rm -rf node_modules",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
