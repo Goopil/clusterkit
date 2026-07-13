@@ -13,7 +13,7 @@
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
-    "@inertiajs/vue3": "^2",
+    "@inertiajs/vue3": "^3",
     "@vue/server-renderer": "^3",
     "express": "^5.2.1",
     "prom-client": "^15",
