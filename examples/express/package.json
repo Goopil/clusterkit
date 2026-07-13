@@ -13,10 +13,10 @@
   },
   "type": "module",
   "dependencies": {
-    "express": "^5",
     "@goopil/clusterkit": "workspace:*",
-    "@goopil/clusterkit-sizing": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
+    "@goopil/clusterkit-sizing": "workspace:*",
+    "express": "^5.2.1",
     "prom-client": "^15"
   }
 }
