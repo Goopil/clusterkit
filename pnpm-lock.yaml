@@ -110,7 +110,7 @@ importers:
         version: link:../../packages/plugin-prometheus
       '@inertiajs/vue3':
         specifier: ^3
-        version: 3.5.0(axios@1.16.0)(vue@3.5.39(typescript@7.0.2))
+        version: 3.6.0(axios@1.16.0)(vue@3.5.39(typescript@7.0.2))
       '@vue/server-renderer':
         specifier: ^3
         version: 3.5.39(vue@3.5.39(typescript@7.0.2))
@@ -150,7 +150,7 @@ importers:
         version: link:../../packages/plugin-prometheus
       '@inertiajs/react':
         specifier: ^3
-        version: 3.5.0(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 3.6.0(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       express:
         specifier: ^5.2.1
         version: 5.2.1
@@ -553,22 +553,22 @@ packages:
     peerDependencies:
       hono: ^4
 
-  '@inertiajs/core@3.5.0':
-    resolution: {integrity: sha512-k0RpPULYD6d+FsYUIaSkUbvLbMGBRkzMc+qHhwfTVrMwCvXd6FyQ+O99PT5AN4j3BKy96XT45AKDwBhhti8Tgg==}
+  '@inertiajs/core@3.6.0':
+    resolution: {integrity: sha512-56L16uTtv6rtTfSkqqjte39DO4P5nyNf4Df0HCnn8YBteff5rjifO/2bX8he5unXI7udnJj3YWg9KxRyEkYRHQ==}
     peerDependencies:
       axios: ^1.15.2
     peerDependenciesMeta:
       axios:
         optional: true
 
-  '@inertiajs/react@3.5.0':
-    resolution: {integrity: sha512-LDayMX+nUyrmCKqEAWOELwlqLTONT/iA50U94Sb2w6x8XEZGPweLhmSlr4jUXde1znV3p7n67MHUVs7s8Vjpbg==}
+  '@inertiajs/react@3.6.0':
+    resolution: {integrity: sha512-sHt3Vj+sazwam1OYO197VdFJIsXp4eajDKpWqy4TwZHqljIH2ARL2B8avWGwcColS1ri5FgNVUL0amNA8//rxQ==}
     peerDependencies:
       react: ^19.0.0
       react-dom: ^19.0.0
 
-  '@inertiajs/vue3@3.5.0':
-    resolution: {integrity: sha512-QhwjmUG32uDtaSoBfWpOZl5krwK+nqua+hPqNOlahOiRPan+TKtMri5fdhZxOfjdPjbjNX1zL1Oi3ileZWvpvw==}
+  '@inertiajs/vue3@3.6.0':
+    resolution: {integrity: sha512-o5r7J9uXz/bCQjSKccRyYRRd+v4d/ctNigmciIwdDQF+tOT9a1JM9nlq2uyvJur1o7b6CqZ7hkGR+mEj7l0cfw==}
     peerDependencies:
       vue: ^3.0.0
 
@@ -2977,7 +2977,7 @@ snapshots:
     dependencies:
       hono: 4.12.29
 
-  '@inertiajs/core@3.5.0(axios@1.16.0)':
+  '@inertiajs/core@3.6.0(axios@1.16.0)':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       es-toolkit: 1.49.0
@@ -2985,9 +2985,9 @@ snapshots:
     optionalDependencies:
       axios: 1.16.0
 
-  '@inertiajs/react@3.5.0(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@inertiajs/react@3.6.0(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@inertiajs/core': 3.5.0(axios@1.16.0)
+      '@inertiajs/core': 3.6.0(axios@1.16.0)
       es-toolkit: 1.49.0
       laravel-precognition: 2.0.0(axios@1.16.0)
       react: 18.3.1
@@ -2995,9 +2995,9 @@ snapshots:
     transitivePeerDependencies:
       - axios
 
-  '@inertiajs/vue3@3.5.0(axios@1.16.0)(vue@3.5.39(typescript@7.0.2))':
+  '@inertiajs/vue3@3.6.0(axios@1.16.0)(vue@3.5.39(typescript@7.0.2))':
     dependencies:
-      '@inertiajs/core': 3.5.0(axios@1.16.0)
+      '@inertiajs/core': 3.6.0(axios@1.16.0)
       es-toolkit: 1.49.0
       laravel-precognition: 2.0.0(axios@1.16.0)
       vue: 3.5.39(typescript@7.0.2)
