@@ -14,8 +14,8 @@ catalogs:
       specifier: ^4.1.10
       version: 4.1.10
     tsdown:
-      specifier: ^0.22.5
-      version: 0.22.5
+      specifier: ^0.22.7
+      version: 0.22.8
     typescript:
       specifier: ^7.0.2
       version: 7.0.2
@@ -92,10 +92,10 @@ importers:
         version: link:../../packages/plugin-container-sizing
       '@hono/node-server':
         specifier: ^1
-        version: 1.19.13(hono@4.12.29)
+        version: 1.19.13(hono@4.12.30)
       hono:
         specifier: ^4
-        version: 4.12.29
+        version: 4.12.30
       prom-client:
         specifier: ^15
         version: 15.1.3
@@ -110,7 +110,7 @@ importers:
         version: link:../../packages/plugin-prometheus
       '@inertiajs/vue3':
         specifier: ^3
-        version: 3.5.0(axios@1.16.0)(vue@3.5.39(typescript@7.0.2))
+        version: 3.6.1(axios@1.16.0)(vue@3.5.39(typescript@7.0.2))
       '@vue/server-renderer':
         specifier: ^3
         version: 3.5.39(vue@3.5.39(typescript@7.0.2))
@@ -150,7 +150,7 @@ importers:
         version: link:../../packages/plugin-prometheus
       '@inertiajs/react':
         specifier: ^3
-        version: 3.5.0(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 3.6.1(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       express:
         specifier: ^5.2.1
         version: 5.2.1
@@ -300,7 +300,7 @@ importers:
         version: 4.1.10(vitest@4.1.10)
       tsdown:
         specifier: 'catalog:'
-        version: 0.22.5(typescript@7.0.2)
+        version: 0.22.8(typescript@7.0.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -324,7 +324,7 @@ importers:
         version: 15.1.3
       tsdown:
         specifier: 'catalog:'
-        version: 0.22.5(typescript@7.0.2)
+        version: 0.22.8(typescript@7.0.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -342,7 +342,7 @@ importers:
         version: 4.1.10(vitest@4.1.10)
       tsdown:
         specifier: 'catalog:'
-        version: 0.22.5(typescript@7.0.2)
+        version: 0.22.8(typescript@7.0.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -553,22 +553,22 @@ packages:
     peerDependencies:
       hono: ^4
 
-  '@inertiajs/core@3.5.0':
-    resolution: {integrity: sha512-k0RpPULYD6d+FsYUIaSkUbvLbMGBRkzMc+qHhwfTVrMwCvXd6FyQ+O99PT5AN4j3BKy96XT45AKDwBhhti8Tgg==}
+  '@inertiajs/core@3.6.1':
+    resolution: {integrity: sha512-h6+qqkKfpcoZvxWENy/F5yyiD00PIm8lK+ruQkt6HGk4d3N0LMS9GeUbWVQ4+TDZzIxP/vQLurPktnYvDhYeew==}
     peerDependencies:
       axios: ^1.15.2
     peerDependenciesMeta:
       axios:
         optional: true
 
-  '@inertiajs/react@3.5.0':
-    resolution: {integrity: sha512-LDayMX+nUyrmCKqEAWOELwlqLTONT/iA50U94Sb2w6x8XEZGPweLhmSlr4jUXde1znV3p7n67MHUVs7s8Vjpbg==}
+  '@inertiajs/react@3.6.1':
+    resolution: {integrity: sha512-z5TJIj80TmLqhJE6FD6RwfmbcYPFuMT63orrXayLW084yYAKLye4i9aeeCt6+mDxC1hMMP16Uf68ePiLtl0saA==}
     peerDependencies:
       react: ^19.0.0
       react-dom: ^19.0.0
 
-  '@inertiajs/vue3@3.5.0':
-    resolution: {integrity: sha512-QhwjmUG32uDtaSoBfWpOZl5krwK+nqua+hPqNOlahOiRPan+TKtMri5fdhZxOfjdPjbjNX1zL1Oi3ileZWvpvw==}
+  '@inertiajs/vue3@3.6.1':
+    resolution: {integrity: sha512-7M76W7uw1DqxWR5O+OV7Yg23yITTDcRxuO7KCdQhI58rp9+OTv2BZId7ePSBmqahYOeXUZbTfZfVoS2O6/hijA==}
     peerDependencies:
       vue: ^3.0.0
 
@@ -1718,8 +1718,8 @@ packages:
     resolution: {integrity: sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==}
     engines: {node: '>= 0.4'}
 
-  hono@4.12.29:
-    resolution: {integrity: sha512-1hNiRjawYrLq/4m3DQQjPGFg0VZkk4RjQJDff/excI6Dm9BiL75qxGrd7/c6YOxPdq6AscP3LiXhQ6fKFC1Waw==}
+  hono@4.12.30:
+    resolution: {integrity: sha512-emn+JoJjrN9YTpRDS5it/UI2SO9BAE37T6I3d963RxcZ81G9A4pr2SZTEiiaiKbzx+NKRg5BZ89fCL7gCJCUog==}
     engines: {node: '>=16.9.0'}
 
   hookable@6.1.1:
@@ -2247,14 +2247,14 @@ packages:
   rfdc@1.4.1:
     resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
 
-  rolldown-plugin-dts@0.27.7:
-    resolution: {integrity: sha512-wnfMsSsH++pwisTi2NHJYm0FD615C5bpvipcSAS/YP53itc1cm0Mm9mZOooKOVwARJbDIUNi+s6XSgAVD9SGBA==}
+  rolldown-plugin-dts@0.27.9:
+    resolution: {integrity: sha512-d54yt65+ZF/Mk8H6P36As02PAMdaiWRSzVNtJRc1h7nCgUFjuRI4cN2DyTfJyfVpPH6pgy7/2D7YQH1/Rh75Yg==}
     engines: {node: ^22.18.0 || >=24.11.0}
     peerDependencies:
       '@ts-macro/tsc': ^0.3.6
-      '@typescript/native-preview': '>=7.0.0-dev.20260325.1'
+      '@typescript/native-preview': '*'
       rolldown: ^1.0.0
-      typescript: ^5.0.0 || ^6.0.0 || ^7.0.0
+      typescript: ^5.0.0 || ^6.0.0 || ~7.0.0
       vue-tsc: ~3.2.0 || ~3.3.0
     peerDependenciesMeta:
       '@ts-macro/tsc':
@@ -2476,14 +2476,14 @@ packages:
       '@swc/wasm':
         optional: true
 
-  tsdown@0.22.5:
-    resolution: {integrity: sha512-0iEpnuOVBGo7mPW+FlyglErHBExYOAlpLBlCl/QcTrRUJ+TF2prfzl6ipQS5VsjJejFXnmbkdh0Ta53B3stWxg==}
+  tsdown@0.22.8:
+    resolution: {integrity: sha512-6FOLlr1iLcE3LheqQt13hVUWtTduJNwF2akPskPe8Tf1hr+N5UULHzrNZYTMNwL6lr2UyQ8iefVBB6tdqp1PCQ==}
     engines: {node: ^22.18.0 || >=24.11.0}
     hasBin: true
     peerDependencies:
       '@arethetypeswrong/core': ^0.18.1
-      '@tsdown/css': 0.22.5
-      '@tsdown/exe': 0.22.5
+      '@tsdown/css': 0.22.8
+      '@tsdown/exe': 0.22.8
       '@vitejs/devtools': '*'
       publint: ^0.3.8
       tsx: '*'
@@ -2973,11 +2973,11 @@ snapshots:
       '@fastify/forwarded': 3.0.1
       ipaddr.js: 2.4.0
 
-  '@hono/node-server@1.19.13(hono@4.12.29)':
+  '@hono/node-server@1.19.13(hono@4.12.30)':
     dependencies:
-      hono: 4.12.29
+      hono: 4.12.30
 
-  '@inertiajs/core@3.5.0(axios@1.16.0)':
+  '@inertiajs/core@3.6.1(axios@1.16.0)':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       es-toolkit: 1.49.0
@@ -2985,9 +2985,9 @@ snapshots:
     optionalDependencies:
       axios: 1.16.0
 
-  '@inertiajs/react@3.5.0(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@inertiajs/react@3.6.1(axios@1.16.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@inertiajs/core': 3.5.0(axios@1.16.0)
+      '@inertiajs/core': 3.6.1(axios@1.16.0)
       es-toolkit: 1.49.0
       laravel-precognition: 2.0.0(axios@1.16.0)
       react: 18.3.1
@@ -2995,9 +2995,9 @@ snapshots:
     transitivePeerDependencies:
       - axios
 
-  '@inertiajs/vue3@3.5.0(axios@1.16.0)(vue@3.5.39(typescript@7.0.2))':
+  '@inertiajs/vue3@3.6.1(axios@1.16.0)(vue@3.5.39(typescript@7.0.2))':
     dependencies:
-      '@inertiajs/core': 3.5.0(axios@1.16.0)
+      '@inertiajs/core': 3.6.1(axios@1.16.0)
       es-toolkit: 1.49.0
       laravel-precognition: 2.0.0(axios@1.16.0)
       vue: 3.5.39(typescript@7.0.2)
@@ -4023,7 +4023,7 @@ snapshots:
       function-bind: 1.1.2
     optional: true
 
-  hono@4.12.29: {}
+  hono@4.12.30: {}
 
   hookable@6.1.1: {}
 
@@ -4489,7 +4489,7 @@ snapshots:
 
   rfdc@1.4.1: {}
 
-  rolldown-plugin-dts@0.27.7(rolldown@1.1.5)(typescript@7.0.2):
+  rolldown-plugin-dts@0.27.9(rolldown@1.1.5)(typescript@7.0.2):
     dependencies:
       dts-resolver: 3.0.0
       get-tsconfig: 5.0.0-beta.5
@@ -4735,7 +4735,7 @@ snapshots:
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
 
-  tsdown@0.22.5(typescript@7.0.2):
+  tsdown@0.22.8(typescript@7.0.2):
     dependencies:
       ansis: 4.3.1
       cac: 7.0.0
@@ -4746,7 +4746,7 @@ snapshots:
       obug: 2.1.3
       picomatch: 4.0.5
       rolldown: 1.1.5
-      rolldown-plugin-dts: 0.27.7(rolldown@1.1.5)(typescript@7.0.2)
+      rolldown-plugin-dts: 0.27.9(rolldown@1.1.5)(typescript@7.0.2)
       semver: 7.8.5
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
