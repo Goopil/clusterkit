@@ -1,6 +1,6 @@
 {
   "name": "@goopil/clusterkit-sizing",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Container sizing plugin for @goopil/clusterkit: reads cgroup CPU/memory limits and derives worker count plus per-worker --max-old-space-size (NODE_OPTIONS).",
   "keywords": [
     "cgroup",
