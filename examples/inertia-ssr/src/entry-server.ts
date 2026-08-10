@@ -16,8 +16,8 @@ function resolvePage(name: string): unknown {
  * Render an Inertia page server-side and return the HTML string.
  * Called by the ClusterKit HTTP server for every POST /render request.
  */
-export async function render(page: Record<string, unknown>): Promise<void> {
-  await createInertiaApp({
+export async function render(page: Record<string, unknown>): Promise<string> {
+  return createInertiaApp({
     page,
     render: renderToString,
     resolve: resolvePage,
