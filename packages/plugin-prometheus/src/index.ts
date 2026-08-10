@@ -122,6 +122,9 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     };
 
     if (bypassCache) {
+      // Bypass deliberately skips the in-flight dedup: a bypass caller wants a
+      // fresh collection regardless of what is already running, even if that
+      // means a concurrent IPC fan-out alongside a non-bypass scrape.
       return collect();
     }
 
