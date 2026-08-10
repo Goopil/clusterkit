@@ -396,6 +396,27 @@ describe("getMetrics()", () => {
     clusterMetricsSpy.mockRestore();
   });
 
+  it("deduplicates concurrent getMetrics() calls via in-flight promise", async () => {
+    let clusterMetricsCalls = 0;
+    const clusterMetricsSpy = vi.spyOn(AggregatorRegistry.prototype, "clusterMetrics").mockImplementation(async () => {
+      clusterMetricsCalls++;
+      await new Promise((r) => setTimeout(r, 50));
+      return `plugin_cache_probe ${clusterMetricsCalls}`;
+    });
+
+    const plugin = makePlugin({ metricsCacheTtlMs: 1_000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null);
+
+    const [a, b, c] = await Promise.all([plugin.getMetrics(), plugin.getMetrics(), plugin.getMetrics()]);
+
+    expect(a).toBe(b);
+    expect(b).toBe(c);
+    expect(clusterMetricsCalls).toBe(1);
+
+    clusterMetricsSpy.mockRestore();
+  });
+
   it("rejects invalid metricsCacheTtlMs values", () => {
     expect(() => makePlugin({ metricsCacheTtlMs: -1 })).toThrow(
       "prometheus plugin: metricsCacheTtlMs must be a finite number >= 0",

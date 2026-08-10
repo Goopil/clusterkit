@@ -85,9 +85,11 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
   let pluginLog: Logger | null = null;
   const primaryListeners: Array<{ event: PrimaryEvent; listener: () => void }> = [];
   let mergedMetricsCache: { value: string; expiresAt: number } | undefined;
+  let inflightMetrics: Promise<string> | undefined;
 
   const clearMergedMetricsCache = (): void => {
     mergedMetricsCache = undefined;
+    inflightMetrics = undefined;
   };
 
   const clearPrimaryListeners = (): void => {
@@ -109,31 +111,46 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
       return mergedMetricsCache.value;
     }
 
-    // A worker dying mid-scrape (crash loop, recycle) makes clusterMetrics()
-    // reject after prom-client's internal 5s timeout — degrade to
-    // orchestration-only metrics instead of failing the whole scrape.
-    const collectWorkerMetrics = async (): Promise<string> => {
-      try {
-        return await aggregatorRegistry.clusterMetrics();
-      } catch (err) {
-        pluginLog?.warn("Worker metrics aggregation failed — serving orchestration metrics only", {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return "";
-      }
-    };
-
-    const [orchestration, workers] = await Promise.all([registry.metrics(), collectWorkerMetrics()]);
-    const value = workers ? `${orchestration}\n${workers}` : orchestration;
-
-    if (normalizedMetricsCacheTtlMs > 0 && !bypassCache) {
-      mergedMetricsCache = {
-        value,
-        expiresAt: now + normalizedMetricsCacheTtlMs,
-      };
+    if (!bypassCache && inflightMetrics) {
+      return inflightMetrics;
     }
 
-    return value;
+    const collect = async (): Promise<string> => {
+      // A worker dying mid-scrape (crash loop, recycle) makes clusterMetrics()
+      // reject after prom-client's internal 5s timeout — degrade to
+      // orchestration-only metrics instead of failing the whole scrape.
+      const collectWorkerMetrics = async (): Promise<string> => {
+        try {
+          return await aggregatorRegistry.clusterMetrics();
+        } catch (err) {
+          pluginLog?.warn("Worker metrics aggregation failed — serving orchestration metrics only", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return "";
+        }
+      };
+
+      const [orchestration, workers] = await Promise.all([registry.metrics(), collectWorkerMetrics()]);
+      const value = workers ? `${orchestration}\n${workers}` : orchestration;
+
+      if (normalizedMetricsCacheTtlMs > 0) {
+        mergedMetricsCache = {
+          value,
+          expiresAt: Date.now() + normalizedMetricsCacheTtlMs,
+        };
+      }
+
+      return value;
+    };
+
+    if (bypassCache) {
+      return collect();
+    }
+
+    inflightMetrics = collect().finally(() => {
+      inflightMetrics = undefined;
+    });
+    return inflightMetrics;
   }
 
   return {
