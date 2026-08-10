@@ -1,5 +1,17 @@
 # @goopil/clusterkit-sizing
 
+## 0.1.2
+
+### Patch Changes
+
+- [#37](https://github.com/Goopil/clusterkit/pull/37) [`6510eb8`](https://github.com/Goopil/clusterkit/commit/6510eb8fa7f2a27e1eed53d6f446571df7ca7610) Thanks [@Goopil](https://github.com/Goopil)! - Fix axios security advisory (GHSA) by adding a `pnpm.overrides` entry forcing
+  `axios >= 1.18.0`. axios was only pulled in as an optional peer dependency of
+  `@inertiajs/core` and `laravel-precognition` in the Inertia SSR examples; the
+  override ensures no vulnerable version can be resolved and the lockfile no
+  longer resolves axios 1.16.0.
+- Updated dependencies [[`6510eb8`](https://github.com/Goopil/clusterkit/commit/6510eb8fa7f2a27e1eed53d6f446571df7ca7610)]:
+  - @goopil/clusterkit@1.0.2
+
 ## 0.1.1
 
 ### Patch Changes
