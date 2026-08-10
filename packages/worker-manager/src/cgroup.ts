@@ -25,9 +25,15 @@ function normalizeCgroupPath(cgroupPath: string): string {
   return cgroupPath.replace(/^\/+/, "");
 }
 
-function buildCandidatePath(root: string, cgroupPath: string | null, fileName: string): string {
+function buildCandidatePath(root: string, cgroupPath: string | null, fileName: string): string | null {
   const normalized = cgroupPath ? normalizeCgroupPath(cgroupPath) : "";
-  return normalized ? path.join(root, normalized, fileName) : path.join(root, fileName);
+  const joined = normalized ? path.join(root, normalized, fileName) : path.join(root, fileName);
+  const resolvedRoot = path.resolve(root);
+  const resolvedJoined = path.resolve(joined);
+  if (resolvedJoined !== resolvedRoot && !resolvedJoined.startsWith(resolvedRoot + path.sep)) {
+    return null;
+  }
+  return resolvedJoined;
 }
 
 function buildCandidatePaths(
@@ -36,7 +42,11 @@ function buildCandidatePaths(
   fileName: string,
   fallbackPath: string,
 ): string[] {
-  return [buildCandidatePath(root, cgroupPath, fileName), fallbackPath];
+  const candidates: string[] = [];
+  const primary = buildCandidatePath(root, cgroupPath, fileName);
+  if (primary !== null) candidates.push(primary);
+  candidates.push(fallbackPath);
+  return candidates;
 }
 
 function getV2ProcessPath(entries: ProcCgroupEntry[]): string | null {
