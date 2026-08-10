@@ -170,4 +170,17 @@ describe("mergeNodeOptions", () => {
     expect(result).not.toContain("8192");
     expect(result).toContain("--no-warnings");
   });
+
+  it("strips --max-old-space-size from extraNodeOptions to prevent bypassing the computed value", () => {
+    const result = mergeNodeOptions("--max-old-space-size=512", "", "--max-old-space-size=8192 --expose-gc");
+    expect(result).toContain("--max-old-space-size=512");
+    expect(result).not.toContain("8192");
+    expect(result).toContain("--expose-gc");
+  });
+
+  it("strips underscore spelling from extraNodeOptions", () => {
+    const result = mergeNodeOptions("--max-old-space-size=512", "", "--max_old_space_size=8192");
+    expect(result).toContain("--max-old-space-size=512");
+    expect(result).not.toContain("8192");
+  });
 });
