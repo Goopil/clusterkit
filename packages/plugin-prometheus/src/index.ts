@@ -185,8 +185,10 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
         // process without forking — no worker:online event fires, so we
         // seed the gauge to 1 (the primary IS the worker). We use the
         // resolved workerCount (not config.workers.count) because plugins
-        // install before resolveWorkerCount() runs, so config may still
-        // hold "auto". workerCount resolves "auto" via CPU detection.
+        // install before resolveWorkerCount() runs in runPrimary(), so
+        // config may still hold "auto". Reading workerCount here triggers
+        // the sync cgroup read once; the orchestrator's subsequent
+        // resolveWorkerCount() call hits the cache, so no redundant fs I/O.
         const singleWorker = orchestrator.workerCount === 1;
         if (singleWorker) {
           activeWorkers.set(1);
