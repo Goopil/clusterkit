@@ -9,7 +9,7 @@ const examples = [
   { name: "koa", port: 13006, metricsPort: 19093 },
 ];
 
-const running: Array<{ stop: () => void }> = [];
+const running: Array<{ stopAndWait: () => Promise<void> }> = [];
 
 afterEach(async () => {
   for (const r of running) await r.stopAndWait();
