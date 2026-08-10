@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+// cgroup paths are POSIX-only — every entry point guards on
+// process.platform === "linux", so posix.resolve/join is correct
+// even if this module were imported on Windows.
 import { posix as path } from "node:path";
 
 interface ProcCgroupEntry {
