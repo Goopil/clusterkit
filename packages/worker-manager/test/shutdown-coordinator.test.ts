@@ -113,7 +113,7 @@ describe("ShutdownCoordinator", () => {
     const worker = new MockWorker(1);
 
     const promise = coordinator.initiateShutdown([worker as never], "SIGTERM");
-    vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(500);
     await promise;
 
     expect(worker.send).toHaveBeenCalledWith({ type: "app:shutdown" });
@@ -134,7 +134,7 @@ describe("ShutdownCoordinator", () => {
     expect(worker.send).not.toHaveBeenCalled();
   });
 
-  it("resolves immediately when worker is already disconnected", async () => {
+  it("skips sending shutdown message when worker is already disconnected", async () => {
     const coordinator = new ShutdownCoordinator(baseConfig, null, makeMetrics(), "app");
     coordinator.setupCallbacks(vi.fn(), vi.fn());
     const worker = new MockWorker(1);
