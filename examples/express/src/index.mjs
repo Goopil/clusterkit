@@ -25,11 +25,6 @@ import express from "express";
         res.json({ hello: "world", pid: process.pid });
       });
 
-      app.get("/metrics", async (_req, res) => {
-        res.set("Content-Type", prometheus.registry.contentType);
-        res.end(await prometheus.getMetrics());
-      });
-
       const server = app.listen({
         port: +(process.env?.PORT || 3000),
         host: "0.0.0.0",
