@@ -140,7 +140,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     name: "prometheus",
     registry,
 
-    async install(orchestrator: Orchestrator, logger: Logger | null, _config: ResolvedConfig): Promise<void> {
+    async install(orchestrator: Orchestrator, logger: Logger | null, config: ResolvedConfig): Promise<void> {
       const log = withLoggerPrefix(logger, "clusterkit:prometheus");
       pluginLog = log;
 
@@ -185,6 +185,23 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
         });
 
         registry.setDefaultLabels({ pid: process.pid, ...labels });
+
+        // Single-worker mode (workers: 1): the orchestrator runs the app in
+        // the primary process without forking — no worker:online event fires,
+        // so we seed the gauge to 1 (the primary IS the worker). In
+        // multi-worker mode, syncActiveWorkers() reads the current count.
+        const singleWorker = config?.workers.count === 1;
+        if (singleWorker) {
+          activeWorkers.set(1);
+        } else {
+          syncActiveWorkers();
+        }
+
+        // Single-worker mode: collect default process metrics here since
+        // there are no worker processes to collect them via AggregatorRegistry.
+        if (defaultMetrics && singleWorker) {
+          collectDefaultMetrics({ register: registry });
+        }
       } else {
         log?.debug("Plugin installed on worker process");
 

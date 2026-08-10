@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { Logger, Orchestrator } from "@goopil/clusterkit";
+import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import { AggregatorRegistry, Registry } from "prom-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPrometheusPlugin, type PrometheusPlugin, type PrometheusPluginOptions } from "../src/index";
@@ -54,6 +54,30 @@ function mockLogger(): LoggerSpy {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
+  };
+}
+
+/** A minimal ResolvedConfig with workers.count = 1 (single-worker mode). */
+function singleWorkerConfig(): ResolvedConfig {
+  return {
+    logger: null,
+    workers: { count: 1, env: undefined, execArgv: undefined, maxAgeMs: 0 },
+    restart: {
+      crashThreshold: 5,
+      crashWindowMs: 60_000,
+      backoffMs: 1_000,
+      maxBackoffMs: 30_000,
+      backoffMultiplier: 2,
+      stabilityWindowMs: 30_000,
+    },
+    shutdown: {
+      timeoutMs: 12_000,
+      ackTimeoutMs: 3_000,
+      messagePrefix: "__wm",
+      sigtermDelayMs: 2_000,
+      sigintDelayMs: 1_000,
+    },
+    clusterModule: undefined,
   };
 }
 
@@ -372,5 +396,33 @@ describe("getMetrics()", () => {
     expect(() => makePlugin({ metricsCacheTtlMs: Number.NaN })).toThrow(
       "prometheus plugin: metricsCacheTtlMs must be a finite number >= 0",
     );
+  });
+});
+
+// ============================================================================
+// Single-worker mode (cluster.isPrimary with no fork)
+// ============================================================================
+
+describe("single-worker mode", () => {
+  it("sets active_workers to 1 when workers.count is 1 (primary IS the worker)", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator(0);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_active_workers", 1));
+  });
+
+  it("collects default process metrics in the primary in single-worker mode", async () => {
+    const registry = new Registry();
+    const plugin = createPrometheusPlugin({
+      defaultMetrics: true,
+      registry,
+    });
+    const orch = mockOrchestrator(0);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).toContain("process_cpu_user_seconds_total");
   });
 });
