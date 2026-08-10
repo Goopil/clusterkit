@@ -259,4 +259,55 @@ describe("Orchestrator process-level integration", () => {
     expect(metrics.crashLoopBackoffs).toBeGreaterThanOrEqual(1);
     expect(metrics.forcedKills).toBe(0);
   });
+
+  it("should keep stable workers running while one worker crash-loops (crash-loop-single)", async () => {
+    const messagePrefix = randomPrefix();
+    const { logger } = createMemoryLogger();
+
+    cluster.setupPrimary({ exec: WORKER_FIXTURE_PATH });
+
+    const orchestrator = new Orchestrator({
+      clusterModule: cluster,
+      logger,
+      workers: {
+        count: 2,
+        env: {
+          WM_IT_MODE: "crash-loop-single",
+          WM_IT_MESSAGE_PREFIX: messagePrefix,
+        },
+      },
+      restart: {
+        crashThreshold: 3,
+        crashWindowMs: 5_000,
+        backoffMs: 500,
+        maxBackoffMs: 1_000,
+        backoffMultiplier: 2,
+        stabilityWindowMs: 5_000,
+      },
+      shutdown: {
+        timeoutMs: 1_000,
+        ackTimeoutMs: 500,
+        sigtermDelayMs: 100,
+        sigintDelayMs: 100,
+        messagePrefix,
+      },
+    });
+
+    const onlineWorkerIds = new Set<number>();
+    orchestrator.on("worker:online", (event) => {
+      onlineWorkerIds.add(event.workerId);
+    });
+
+    await orchestrator.run();
+    await waitForOnlineWorkers(orchestrator, 2);
+
+    // Wait a bit to let the crash-loop worker crash and restart
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+
+    // At least the initial 2 workers should have come online
+    expect(onlineWorkerIds.size).toBeGreaterThanOrEqual(2);
+
+    const metrics = await triggerSigtermAndWaitForShutdown(orchestrator);
+    expect(metrics.activeWorkers).toBe(0);
+  });
 });
