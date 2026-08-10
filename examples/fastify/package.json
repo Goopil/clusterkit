@@ -16,7 +16,7 @@
     "@goopil/clusterkit": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
     "@goopil/clusterkit-sizing": "workspace:*",
-    "fastify": "^5.10.0",
+    "fastify": "^5.11.3",
     "prom-client": "^15"
   }
 }

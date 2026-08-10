@@ -4,9 +4,9 @@ packages:
   - 'examples/**'
 
 catalog:
-  "@types/node": "^26.0.1"
+  "@types/node": "^26.2.0"
   "@vitest/coverage-v8": "^4.1.10"
-  tsdown: "^0.22.5"
+  tsdown: "^0.22.14"
   typescript: "^7.0.2"
   vitest: "^4.1.10"
-  vite: "^8.1.4"
+  vite: "^8.2.1"

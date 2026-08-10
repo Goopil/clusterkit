@@ -13,7 +13,7 @@
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
-    "@inertiajs/react": "^3",
+    "@inertiajs/react": "^3.6.1",
     "express": "^5.2.1",
     "prom-client": "^15",
     "react": "^18",
@@ -24,7 +24,7 @@
     "@types/node": "catalog:",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "@vitejs/plugin-react": "^6",
+    "@vitejs/plugin-react": "^6.0.5",
     "typescript": "catalog:",
     "vite": "catalog:"
   }
