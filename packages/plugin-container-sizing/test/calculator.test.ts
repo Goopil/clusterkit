@@ -1,6 +1,6 @@
+import type { CgroupLimits } from "@goopil/clusterkit";
 import { describe, expect, it } from "vitest";
 import { calculateSizing, mergeNodeOptions } from "../src/calculator.js";
-import type { CgroupLimits } from "../src/cgroup.js";
 
 const MB = 1024 * 1024;
 
@@ -169,5 +169,18 @@ describe("mergeNodeOptions", () => {
     expect(result).toContain("--max-old-space-size=512");
     expect(result).not.toContain("8192");
     expect(result).toContain("--no-warnings");
+  });
+
+  it("strips --max-old-space-size from extraNodeOptions to prevent bypassing the computed value", () => {
+    const result = mergeNodeOptions("--max-old-space-size=512", "", "--max-old-space-size=8192 --expose-gc");
+    expect(result).toContain("--max-old-space-size=512");
+    expect(result).not.toContain("8192");
+    expect(result).toContain("--expose-gc");
+  });
+
+  it("strips underscore spelling from extraNodeOptions", () => {
+    const result = mergeNodeOptions("--max-old-space-size=512", "", "--max_old_space_size=8192");
+    expect(result).toContain("--max-old-space-size=512");
+    expect(result).not.toContain("8192");
   });
 });

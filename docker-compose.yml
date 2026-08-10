@@ -15,6 +15,10 @@ services:
       CI: "true"
       TURBO_DAEMON: "false"
       TURBO_TELEMETRY_DISABLED: "1"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     tty: false
 
   # -------------------------------------------------------------------------
@@ -60,3 +64,9 @@ services:
     environment:
       TURBO_DAEMON: "false"
       TURBO_TELEMETRY_DISABLED: "1"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tty: false
+

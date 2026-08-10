@@ -34,13 +34,13 @@ jobs:
     # never run on forks — OIDC trust is bound to Goopil/clusterkit
     if: github.repository == 'Goopil/clusterkit'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24.13.0
           cache: pnpm
@@ -54,7 +54,7 @@ jobs:
 
       - name: Create Version Packages PR or publish to npm
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d
         with:
           version: pnpm run version-packages
           publish: pnpm run ci:publish

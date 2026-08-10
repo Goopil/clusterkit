@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { Logger, Orchestrator } from "@goopil/clusterkit";
+import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import { AggregatorRegistry, Registry } from "prom-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPrometheusPlugin, type PrometheusPlugin, type PrometheusPluginOptions } from "../src/index";
@@ -9,13 +9,15 @@ import { createPrometheusPlugin, type PrometheusPlugin, type PrometheusPluginOpt
 // ============================================================================
 
 /** Cast a plain EventEmitter to Orchestrator for testing (plugin only calls .on()). */
-function mockOrchestrator(activeWorkers = 0): Orchestrator {
+function mockOrchestrator(activeWorkers = 0, workerCount = 0): Orchestrator {
   const emitter = new EventEmitter() as EventEmitter & {
     currentActiveWorkers: number;
     getMetrics: () => { activeWorkers: number };
+    workerCount: number;
   };
   emitter.currentActiveWorkers = activeWorkers;
   emitter.getMetrics = () => ({ activeWorkers: emitter.currentActiveWorkers });
+  emitter.workerCount = workerCount;
   return emitter as unknown as Orchestrator;
 }
 
@@ -55,6 +57,35 @@ function mockLogger(): LoggerSpy {
     warn: vi.fn(),
     error: vi.fn(),
   };
+}
+
+/** A minimal ResolvedConfig with workers.count = 1 (single-worker mode). */
+function singleWorkerConfig(): ResolvedConfig {
+  return {
+    logger: null,
+    workers: { count: 1, env: undefined, execArgv: undefined, maxAgeMs: 0 },
+    restart: {
+      crashThreshold: 5,
+      crashWindowMs: 60_000,
+      backoffMs: 1_000,
+      maxBackoffMs: 30_000,
+      backoffMultiplier: 2,
+      stabilityWindowMs: 30_000,
+    },
+    shutdown: {
+      timeoutMs: 12_000,
+      ackTimeoutMs: 3_000,
+      messagePrefix: "__wm",
+      sigtermDelayMs: 2_000,
+      sigintDelayMs: 1_000,
+    },
+    clusterModule: undefined,
+  };
+}
+
+/** A minimal ResolvedConfig with workers.count = 'auto'. */
+function autoWorkerConfig(): ResolvedConfig {
+  return { ...singleWorkerConfig(), workers: { count: "auto", env: undefined, execArgv: undefined, maxAgeMs: 0 } };
 }
 
 // ============================================================================
@@ -365,6 +396,27 @@ describe("getMetrics()", () => {
     clusterMetricsSpy.mockRestore();
   });
 
+  it("deduplicates concurrent getMetrics() calls via in-flight promise", async () => {
+    let clusterMetricsCalls = 0;
+    const clusterMetricsSpy = vi.spyOn(AggregatorRegistry.prototype, "clusterMetrics").mockImplementation(async () => {
+      clusterMetricsCalls++;
+      await new Promise((r) => setTimeout(r, 50));
+      return `plugin_cache_probe ${clusterMetricsCalls}`;
+    });
+
+    const plugin = makePlugin({ metricsCacheTtlMs: 1_000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null);
+
+    const [a, b, c] = await Promise.all([plugin.getMetrics(), plugin.getMetrics(), plugin.getMetrics()]);
+
+    expect(a).toBe(b);
+    expect(b).toBe(c);
+    expect(clusterMetricsCalls).toBe(1);
+
+    clusterMetricsSpy.mockRestore();
+  });
+
   it("rejects invalid metricsCacheTtlMs values", () => {
     expect(() => makePlugin({ metricsCacheTtlMs: -1 })).toThrow(
       "prometheus plugin: metricsCacheTtlMs must be a finite number >= 0",
@@ -372,5 +424,42 @@ describe("getMetrics()", () => {
     expect(() => makePlugin({ metricsCacheTtlMs: Number.NaN })).toThrow(
       "prometheus plugin: metricsCacheTtlMs must be a finite number >= 0",
     );
+  });
+});
+
+// ============================================================================
+// Single-worker mode (cluster.isPrimary with no fork)
+// ============================================================================
+
+describe("single-worker mode", () => {
+  it("sets active_workers to 1 when workerCount resolves to 1 (primary IS the worker)", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator(0, 1);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_active_workers", 1));
+  });
+
+  it("collects default process metrics in the primary in single-worker mode", async () => {
+    const registry = new Registry();
+    const plugin = createPrometheusPlugin({
+      defaultMetrics: true,
+      registry,
+    });
+    const orch = mockOrchestrator(0, 1);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).toContain("process_cpu_user_seconds_total");
+  });
+
+  it("sets active_workers to 1 when workers is 'auto' and resolves to 1", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator(0, 1);
+    await plugin.install(orch, null, autoWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_active_workers", 1));
   });
 });

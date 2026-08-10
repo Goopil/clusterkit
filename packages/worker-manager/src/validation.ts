@@ -106,6 +106,23 @@ export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig 
     if (hasInvalidArg) {
       throw new WorkerManagerValidationError("workers.execArgv", "must contain only non-empty strings");
     }
+
+    const dangerousPatterns = [
+      /^--require(?:[=\s]|$)/,
+      /^--eval(?:[=\s]|$)/,
+      /^--print(?:[=\s]|$)/,
+      /^--inspect(?:-brk|-port|[=\s]|$)/,
+      /^-r(?:$|\s)/,
+      /^-e(?:$|\s)/,
+      /^-p(?:$|\s)/,
+    ];
+    const dangerousArg = workers.execArgv.find((arg) => dangerousPatterns.some((p) => p.test(arg.trim())));
+    if (dangerousArg) {
+      throw new WorkerManagerValidationError(
+        "workers.execArgv",
+        `contains a potentially dangerous flag '${dangerousArg}' (--require, --eval, --inspect, etc. are blocked)`,
+      );
+    }
   }
 
   if (restart.crashThreshold !== undefined) {

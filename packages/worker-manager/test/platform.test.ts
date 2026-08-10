@@ -40,6 +40,13 @@ describe("platform", () => {
       await detectReusePortSupport();
       expect(Date.now() - start).toBeLessThan(50);
     });
+
+    it("should not run detection twice on concurrent calls before cache is populated", async () => {
+      _resetDetectionCache();
+      const results = await Promise.all([detectReusePortSupport(), detectReusePortSupport(), detectReusePortSupport()]);
+      expect(results[0]).toBe(results[1]);
+      expect(results[1]).toBe(results[2]);
+    });
   });
 
   describe("getPlatformCapabilities", () => {

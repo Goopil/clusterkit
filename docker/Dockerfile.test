@@ -36,5 +36,10 @@ COPY turbo.json ./
 # Build only the publishable packages (examples have no unit tests)
 RUN pnpm turbo run build --filter="./packages/**"
 
-# ---- default command: test only packages --------------------------------
+RUN groupadd -r app && useradd -r -g app app -m
+RUN chown -R app:app /app
+ENV COREPACK_HOME=/app/.cache/corepack
+RUN mkdir -p /app/.cache/corepack && chown -R app:app /app/.cache
+USER app
+
 CMD ["pnpm", "turbo", "run", "test", "--filter=./packages/**"]

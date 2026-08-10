@@ -1,31 +1,9 @@
 import cluster from "node:cluster";
-import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
+import { type Logger, type Orchestrator, type ResolvedConfig, withLoggerPrefix } from "@goopil/clusterkit";
 import { AggregatorRegistry, Counter, collectDefaultMetrics, Gauge, Registry } from "prom-client";
 import type { PrometheusMetricsRequestOptions, PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
 
 export type { PrometheusMetricsRequestOptions, PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
-
-function withLoggerPrefix(logger: Logger | null, prefix: string): Logger | null {
-  if (!logger) return null;
-
-  const wrap = (method: (msg: string, data?: Record<string, unknown>) => void) => {
-    return (msg: string, data?: Record<string, unknown>): void => {
-      if (data === undefined) {
-        method(`[${prefix}] ${msg}`);
-        return;
-      }
-
-      method(`[${prefix}] ${msg}`, data);
-    };
-  };
-
-  return {
-    debug: wrap(logger.debug.bind(logger)),
-    info: wrap(logger.info.bind(logger)),
-    warn: wrap(logger.warn.bind(logger)),
-    error: wrap(logger.error.bind(logger)),
-  };
-}
 
 type PrimaryEvent =
   | "worker:online"
@@ -85,9 +63,11 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
   let pluginLog: Logger | null = null;
   const primaryListeners: Array<{ event: PrimaryEvent; listener: () => void }> = [];
   let mergedMetricsCache: { value: string; expiresAt: number } | undefined;
+  let inflightMetrics: Promise<string> | undefined;
 
   const clearMergedMetricsCache = (): void => {
     mergedMetricsCache = undefined;
+    inflightMetrics = undefined;
   };
 
   const clearPrimaryListeners = (): void => {
@@ -109,31 +89,49 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
       return mergedMetricsCache.value;
     }
 
-    // A worker dying mid-scrape (crash loop, recycle) makes clusterMetrics()
-    // reject after prom-client's internal 5s timeout — degrade to
-    // orchestration-only metrics instead of failing the whole scrape.
-    const collectWorkerMetrics = async (): Promise<string> => {
-      try {
-        return await aggregatorRegistry.clusterMetrics();
-      } catch (err) {
-        pluginLog?.warn("Worker metrics aggregation failed — serving orchestration metrics only", {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return "";
-      }
-    };
-
-    const [orchestration, workers] = await Promise.all([registry.metrics(), collectWorkerMetrics()]);
-    const value = workers ? `${orchestration}\n${workers}` : orchestration;
-
-    if (normalizedMetricsCacheTtlMs > 0 && !bypassCache) {
-      mergedMetricsCache = {
-        value,
-        expiresAt: now + normalizedMetricsCacheTtlMs,
-      };
+    if (!bypassCache && inflightMetrics) {
+      return inflightMetrics;
     }
 
-    return value;
+    const collect = async (): Promise<string> => {
+      // A worker dying mid-scrape (crash loop, recycle) makes clusterMetrics()
+      // reject after prom-client's internal 5s timeout — degrade to
+      // orchestration-only metrics instead of failing the whole scrape.
+      const collectWorkerMetrics = async (): Promise<string> => {
+        try {
+          return await aggregatorRegistry.clusterMetrics();
+        } catch (err) {
+          pluginLog?.warn("Worker metrics aggregation failed — serving orchestration metrics only", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return "";
+        }
+      };
+
+      const [orchestration, workers] = await Promise.all([registry.metrics(), collectWorkerMetrics()]);
+      const value = workers ? `${orchestration}\n${workers}` : orchestration;
+
+      if (normalizedMetricsCacheTtlMs > 0) {
+        mergedMetricsCache = {
+          value,
+          expiresAt: Date.now() + normalizedMetricsCacheTtlMs,
+        };
+      }
+
+      return value;
+    };
+
+    if (bypassCache) {
+      // Bypass deliberately skips the in-flight dedup: a bypass caller wants a
+      // fresh collection regardless of what is already running, even if that
+      // means a concurrent IPC fan-out alongside a non-bypass scrape.
+      return collect();
+    }
+
+    inflightMetrics = collect().finally(() => {
+      inflightMetrics = undefined;
+    });
+    return inflightMetrics;
   }
 
   return {
@@ -185,6 +183,27 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
         });
 
         registry.setDefaultLabels({ pid: process.pid, ...labels });
+
+        // Single-worker mode: the orchestrator runs the app in the primary
+        // process without forking — no worker:online event fires, so we
+        // seed the gauge to 1 (the primary IS the worker). We use the
+        // resolved workerCount (not config.workers.count) because plugins
+        // install before resolveWorkerCount() runs in runPrimary(), so
+        // config may still hold "auto". Reading workerCount here triggers
+        // the sync cgroup read once; the orchestrator's subsequent
+        // resolveWorkerCount() call hits the cache, so no redundant fs I/O.
+        const singleWorker = orchestrator.workerCount === 1;
+        if (singleWorker) {
+          activeWorkers.set(1);
+        } else {
+          syncActiveWorkers();
+        }
+
+        // Single-worker mode: collect default process metrics here since
+        // there are no worker processes to collect them via AggregatorRegistry.
+        if (defaultMetrics && singleWorker) {
+          collectDefaultMetrics({ register: registry });
+        }
       } else {
         log?.debug("Plugin installed on worker process");
 

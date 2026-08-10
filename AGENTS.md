@@ -4,31 +4,34 @@ This file applies to the entire repository.
 
 ## Purpose
 
-This repository contains a pnpm workspace for `@goopil/clusterkit` and its first-party plugins. Prefer small, surgical
-changes that preserve the current package boundaries and public API shape.
+pnpm workspace for `@goopil/clusterkit` and its first-party plugins. Prefer small, surgical changes that preserve the
+current package boundaries and public API shape.
 
 ## Working rules
 
-- Use `corepack pnpm`, not bare `pnpm`; the repo documents pnpm via corepack.
+- Use `corepack pnpm`, not bare `pnpm` — pnpm is not in PATH directly; corepack provides it.
+- Node `>=22.12.0` (see `.nvmrc`); CI matrix tests on Node 22, 24, and 26.
 - Keep all source code, comments, tests, and docs in English.
-- Preserve the current monorepo layout. Do not move code between packages unless the task explicitly requires it.
+- Preserve the monorepo layout. Do not move code between packages unless the task requires it.
 - Prefer focused changes in the package that owns the behavior. Avoid cross-package edits unless there is a clear
   contract change.
-- Do not add runtime dependencies to `@goopil/clusterkit` (`packages/worker-manager`). That package should stay
-  runtime-dependency-free.
+- Do not add runtime dependencies to `@goopil/clusterkit` (`packages/worker-manager`); it stays runtime-dependency-free
+  (devDependencies / peerDependencies only).
 - Keep public exports organized in `packages/worker-manager/src/index.ts` by category.
-- Mirror source/test naming conventions: tests live under each package’s `test/` directory and should track the source
-  module they cover.
+- Tests live under each package's `test/` directory and mirror the source module they cover
+  (e.g. `sizing.ts` → `test/sizing.test.ts`).
 - If you change a public API, package behavior visible to users, install instructions, or example usage, update
   `README.md` in the same change.
 
 ## Repository map
 
 - `packages/worker-manager/`: core orchestrator published as `@goopil/clusterkit`
-- `packages/plugin-prometheus/`: Prometheus integration plugin
-- `packages/plugin-container-sizing/`: container-aware sizing plugin
-- `examples/`: standalone framework examples
+- `packages/plugin-prometheus/`: Prometheus integration plugin (`@goopil/clusterkit-prometheus`)
+- `packages/plugin-container-sizing/`: container-aware sizing plugin (`@goopil/clusterkit-sizing`)
+- `examples/`: standalone framework examples (express, fastify, hono, koa, nestjs-express, nestjs-fastify,
+  inertia-ssr, inertia-ssr-react)
 - `docker/`: Linux test harness and example container setup
+- `scripts/`: `package-smoke-test.mjs` (publint packaging check), `publish-with-oidc.mjs` (release publishing)
 
 ## Architecture notes
 
@@ -39,22 +42,44 @@ management, graceful shutdown flow, and plugin installation.
 
 Related support modules:
 
-- `packages/worker-manager/src/platform.ts`: platform capability detection, including `SO_REUSEPORT`
-- `packages/worker-manager/src/sizing.ts`: CPU detection and worker-count resolution
-- `packages/worker-manager/src/validation.ts`: config validation and defaulting
-- `packages/worker-manager/src/crash-tracker.ts`: crash-window / circuit-breaker logic
-- `packages/worker-manager/src/types.ts`: exported types
+- `worker-manager.ts` — `WorkerManager`: fork, tracking, age-based recycling
+- `shutdown-coordinator.ts` — graceful shutdown sequence (SIGTERM → SIGINT → SIGKILL escalation with ACK protocol)
+- `signal-handler.ts` — POSIX signal registration/cleanup
+- `platform.ts` — platform capability detection, including `SO_REUSEPORT` (two-socket same-port bind probe; a single
+  bind is a false positive on Node < 22.12)
+- `sizing.ts` / `cgroup.ts` — CPU detection and cgroup v1/v2 limits for `workers: 'auto'`
+- `crash-tracker.ts` — sliding-window crash counter / circuit-breaker logic
+- `validation.ts` — config validation and defaulting → `ResolvedConfig` (`workers.env`, `workers.execArgv`, and
+  `clusterModule` stay `| undefined` — no meaningful default)
+- `logger.ts` — logger facade
+- `types.ts` — exported types
 
-Use `new Orchestrator(config)` as the single creation path. Query `Orchestrator.getCapabilities()` / `Orchestrator.supportsReusePort()` explicitly when capability insight is needed.
+Use `new Orchestrator(config)` as the single creation path. Query `Orchestrator.getCapabilities()` /
+`Orchestrator.supportsReusePort()` explicitly when capability insight is needed.
+
+### Plugin lifecycle
+
+`run()` installs plugins **before** resolving the worker count and forking, so `overrideWorkerCount` /
+`patchWorkerEnv` from a plugin apply to the initial fleet. Plugins are installed in worker processes too.
+`patchWorkerEnv` / `overrideWorkerCount` throw once workers have been forked. `OrchestratorPlugin` interface: required
+`name` + `install(orchestrator)`, optional `uninstall?(orchestrator)` (called in `shutdownPrimary()`).
 
 ### Prometheus plugin
 
 `packages/plugin-prometheus/src/index.ts` uses a two-registry approach:
 
-- orchestration metrics in the primary process
-- worker metrics aggregated through `prom-client` cluster support
+- orchestration metrics (`Counter`/`Gauge`) in the primary process, driven by orchestrator events
+- worker metrics aggregated through `prom-client` `AggregatorRegistry` cluster IPC
 
-When editing plugin tests, avoid shared global registries and port conflicts.
+There is no built-in HTTP server; the host app exposes the endpoint via `plugin.getMetrics()`. When editing plugin
+tests, use `new Registry()` per test and `defaultMetrics: false` to avoid global metric pollution and port conflicts.
+
+## Build tooling
+
+- **tsdown** builds each package as dual ESM+CJS (`dist/index.mjs` + `dist/index.cjs` + type declarations).
+- **Turborepo** orchestrates tasks; `test` and `test:coverage` depend on `^build` + `build`, so a stale build can cause
+  test failures — run `corepack pnpm build` first if you change public exports or types.
+- Workspace dependency versions use the `catalog:` protocol, pinned in `pnpm-workspace.yaml`.
 
 ## Commands
 
@@ -65,33 +90,81 @@ corepack enable pnpm
 corepack pnpm install
 ```
 
-### Build and test
+### Build, test, lint
 
 ```bash
-corepack pnpm build
-corepack pnpm test
-corepack pnpm lint
+corepack pnpm build                  # build all packages (turbo, dependency order)
+corepack pnpm test                   # all package tests via turbo
+corepack pnpm test:coverage          # tests with coverage
+corepack pnpm test:packages          # publint packaging smoke test (CI runs this)
+corepack pnpm lint                   # biome check .
+corepack pnpm lint:fix              # biome check --write .
+corepack pnpm format                 # biome format --write .
+```
+
+### Single package / single test
+
+```bash
 corepack pnpm --filter @goopil/clusterkit test
+corepack pnpm --filter @goopil/clusterkit build
+corepack pnpm --filter @goopil/clusterkit exec vitest run test/orchestrator.test.ts
+corepack pnpm --filter @goopil/clusterkit test:watch
 corepack pnpm --filter @goopil/clusterkit-prometheus test
 corepack pnpm --filter @goopil/clusterkit-sizing test
 ```
 
-### Focused test examples
+### Linux test harness
 
 ```bash
-corepack pnpm --filter @goopil/clusterkit exec vitest run test/orchestrator.test.ts
-corepack pnpm test:linux
+corepack pnpm test:linux        # docker compose run --build --rm test (full suite on real Linux kernel)
+corepack pnpm examples:start    # docker compose up examples --build (all 8 examples)
 ```
 
 ## Testing guidance
 
 - Start with the narrowest relevant test target, then widen scope if needed.
-- `workers: 1` is single-worker mode; crash/restart behavior needs `workers >= 2`.
+- `workers: 1` is single-worker mode (no cluster fork); crash/restart behavior needs `workers >= 2`.
 - `shutdownTimeoutMs` has a minimum of `1000` ms.
 - macOS is unreliable for `SO_REUSEPORT` assertions. Use the Linux Docker harness for Linux-specific behavior.
-- Use fake timers for shutdown/circuit-breaker timing tests when possible.
+- Use fake timers (`vi.useFakeTimers()` + `vi.runAllTimersAsync()`) for shutdown/circuit-breaker timing tests.
 - For Prometheus plugin tests, prefer isolated registries and disable default metrics unless the test specifically needs
   them.
+
+## CI gate
+
+CI (`.github/workflows/ci.yml`) runs in this order — a change must pass all of it:
+
+1. **Lint** — `pnpm biome check .`
+2. **Build** — `pnpm build`
+3. **Test** — `pnpm test` on Node 22, 24, and 26
+4. **Linux Docker** — `docker compose run --build --rm test` (SO_REUSEPORT)
+5. **Packaging** — `pnpm test:packages` + `publint` on each publishable package
+
+## Changesets and releases
+
+- Add a changeset for any PR that changes a package: `corepack pnpm changeset`. Commit the generated `.changeset/*.md`
+  with the PR.
+- Releases are automated via npm OIDC trusted publishing on merge to `main` — never run `npm publish` manually.
+- See `RELEASING.md` for the full flow and one-time bootstrap.
+
+## Examples
+
+Eight standalone apps in `examples/`, each integrating core + plugins:
+
+| Example           | Port  | Metrics port |
+|-------------------|-------|--------------|
+| express           | 3000  | 9090         |
+| fastify           | 3001  | 9091         |
+| hono              | 3005  | 9092         |
+| koa              | 3006  | 9093         |
+| nestjs-express    | 3007  | 9094         |
+| nestjs-fastify    | 3008  | 9095         |
+| inertia-ssr       | 13714 | 9096         |
+| inertia-ssr-react | 13715 | 9097         |
+
+NestJS examples require `app.init()` (not `app.listen()`) to bind the raw server socket with `reusePort`. The Fastify
+adapter additionally needs `await fastifyInstance.ready()` between `app.init()` and
+`fastifyInstance.server.listen()` — without it Fastify's hook graph is not compiled and requests crash.
 
 ## Change guardrails
 

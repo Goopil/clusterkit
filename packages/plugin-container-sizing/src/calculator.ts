@@ -145,9 +145,16 @@ export function calculateSizing(limits: CgroupLimits, options: SizingOptions = {
  * must be stripped because the LAST occurrence wins over the computed value.
  */
 export function mergeNodeOptions(computed: string, existing: string, extra?: string): string {
+  const maxOldSpaceRe = /--max[-_]old[-_]space[-_]size(?:=|\s+)\d+/g;
   const cleaned = existing
-    .replace(/--max[-_]old[-_]space[-_]size(?:=|\s+)\d+/g, "")
+    .replace(maxOldSpaceRe, "")
     .replace(/\s{2,}/g, " ")
     .trim();
-  return [computed, cleaned, extra].filter(Boolean).join(" ").trim();
+  const cleanedExtra = extra
+    ? extra
+        .replace(maxOldSpaceRe, "")
+        .replace(/\s{2,}/g, " ")
+        .trim()
+    : "";
+  return [computed, cleaned, cleanedExtra].filter(Boolean).join(" ").trim();
 }

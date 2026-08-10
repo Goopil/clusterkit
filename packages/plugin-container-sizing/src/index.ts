@@ -1,33 +1,17 @@
 import cluster from "node:cluster";
-import { type Logger, type Orchestrator, type ResolvedConfig, readCgroupLimits } from "@goopil/clusterkit";
+import {
+  type Logger,
+  type Orchestrator,
+  type ResolvedConfig,
+  readCgroupLimits,
+  withLoggerPrefix,
+} from "@goopil/clusterkit";
 import { calculateSizing, mergeNodeOptions, validateSizingOptions } from "./calculator.js";
 import type { ContainerSizingOptions, ContainerSizingPlugin } from "./types.js";
 
 export type { SizingOptions, SizingResult, SizingStrategy } from "./calculator.js";
 export type { CgroupLimits, ContainerSizingOptions, ContainerSizingPlugin } from "./types.js";
 export { mergeNodeOptions, validateSizingOptions };
-
-function withLoggerPrefix(logger: Logger | null, prefix: string): Logger | null {
-  if (!logger) return null;
-
-  const wrap = (method: (msg: string, data?: Record<string, unknown>) => void) => {
-    return (msg: string, data?: Record<string, unknown>): void => {
-      if (data === undefined) {
-        method(`[${prefix}] ${msg}`);
-        return;
-      }
-
-      method(`[${prefix}] ${msg}`, data);
-    };
-  };
-
-  return {
-    debug: wrap(logger.debug.bind(logger)),
-    info: wrap(logger.info.bind(logger)),
-    warn: wrap(logger.warn.bind(logger)),
-    error: wrap(logger.error.bind(logger)),
-  };
-}
 
 export function createContainerSizingPlugin(options: ContainerSizingOptions = {}): ContainerSizingPlugin {
   const {

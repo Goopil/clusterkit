@@ -121,4 +121,32 @@ describe("cgroup", () => {
       vi.unstubAllGlobals();
     });
   });
+
+  describe("cgroup path traversal guard", () => {
+    it("rejects cgroup paths containing .. components", () => {
+      vi.stubGlobal("process", { ...process, platform: "linux" });
+      mockReadFileSync.mockImplementation((path: unknown) => {
+        if (path === "/proc/self/cgroup") return "0::../../etc/passwd";
+        if (path === "/sys/etc/passwd/cpu.max") return "100000 100000";
+        throw new Error("ENOENT");
+      });
+
+      expect(getCgroupCpuLimit()).toBeNull();
+      vi.unstubAllGlobals();
+    });
+
+    it("rejects cgroup paths with embedded .. in v1 controller path", () => {
+      vi.stubGlobal("process", { ...process, platform: "linux" });
+      mockReadFileSync.mockImplementation((path: unknown) => {
+        if (path === "/sys/fs/cgroup/cpu.max") throw new Error("ENOENT");
+        if (path === "/proc/self/cgroup") return "2:cpu,cpuacct:/../../../etc";
+        if (path === "/sys/etc/cpu.cfs_quota_us") return "100000";
+        if (path === "/sys/etc/cpu.cfs_period_us") return "100000";
+        throw new Error("ENOENT");
+      });
+
+      expect(getCgroupCpuLimit()).toBeNull();
+      vi.unstubAllGlobals();
+    });
+  });
 });

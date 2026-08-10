@@ -11,7 +11,7 @@ import express from "express";
   console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // App server  → :3000  (workers)
-  // Metrics endpoint is exposed by your host app using prometheus.getMetrics().
+  // Metrics server → :9090  (workers, separate port)
   const sizing = createContainerSizingPlugin();
   const prometheus = createPrometheusPlugin({ metricsCacheTtlMs: 250 });
 
@@ -32,6 +32,19 @@ import express from "express";
         reusePort: capabilities.reusePort,
       });
 
-      orchestrator.registerOnShutdown(() => server.close());
+      const metricsApp = express();
+      metricsApp.get("/metrics", async (_req, res) => {
+        res.set("Content-Type", prometheus.registry.contentType);
+        res.end(await prometheus.getMetrics());
+      });
+      const metricsServer = metricsApp.listen({
+        port: +(process.env?.METRICS_PORT || 9090),
+        host: "0.0.0.0",
+      });
+
+      orchestrator.registerOnShutdown(() => {
+        server.close();
+        metricsServer.close();
+      });
     });
 })();

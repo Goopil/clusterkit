@@ -78,6 +78,43 @@ describe("validation", () => {
       expect(() => validateConfig({ workers: { execArgv: [""] } })).toThrow(WorkerManagerValidationError);
       expect(() => validateConfig({ workers: { execArgv: ["   "] } })).toThrow(WorkerManagerValidationError);
     });
+
+    it("should reject dangerous execArgv flags", () => {
+      expect(() => validateConfig({ workers: { execArgv: ["--require=./evil.js"] } })).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ workers: { execArgv: ["--eval=process.exit()"] } })).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ workers: { execArgv: ["--inspect"] } })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ workers: { execArgv: ["-r", "./evil.js"] } })).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ workers: { execArgv: ["-e", "process.exit()"] } })).toThrow(
+        WorkerManagerValidationError,
+      );
+    });
+
+    it("should reject dangerous execArgv flags with space separator", () => {
+      expect(() => validateConfig({ workers: { execArgv: ["--require ./evil.js"] } })).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ workers: { execArgv: ["--eval process.exit()"] } })).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ workers: { execArgv: ["--inspect 9229"] } })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ workers: { execArgv: ["--inspect 0.0.0.0:9229"] } })).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ workers: { execArgv: ["--print 1"] } })).toThrow(WorkerManagerValidationError);
+    });
+
+    it("should accept safe execArgv flags", () => {
+      expect(() => validateConfig({ workers: { execArgv: ["--max-old-space-size=512"] } })).not.toThrow();
+      expect(() => validateConfig({ workers: { execArgv: ["--max-semi-space-size=64"] } })).not.toThrow();
+      expect(() => validateConfig({ workers: { execArgv: ["--no-warnings"] } })).not.toThrow();
+      expect(() => validateConfig({ workers: { execArgv: ["--expose-gc"] } })).not.toThrow();
+    });
   });
 
   describe("restart block", () => {

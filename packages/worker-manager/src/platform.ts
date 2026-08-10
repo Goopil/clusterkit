@@ -6,10 +6,12 @@ import { release } from "node:os";
 // ============================================================================
 
 let cachedReusePortSupport: boolean | undefined;
+let detectionPromise: Promise<boolean> | undefined;
 
 /** @internal — test only */
 export function _resetDetectionCache(): void {
   cachedReusePortSupport = undefined;
+  detectionPromise = undefined;
 }
 
 /**
@@ -103,37 +105,52 @@ function detectRuntimeReusePortSupport(): Promise<boolean> {
  */
 export async function detectReusePortSupport(): Promise<boolean> {
   if (cachedReusePortSupport !== undefined) return cachedReusePortSupport;
+  if (detectionPromise) return detectionPromise;
 
-  // Windows does not support SO_REUSEPORT
-  if (process.platform === "win32") {
-    cachedReusePortSupport = false;
-    return false;
-  }
-
-  // macOS supports the SO_REUSEPORT flag but does not distribute connections
-  // across sockets — the last socket to bind steals all traffic.
-  // Treat it as unsupported so workers fall back to cluster round-robin.
-  if (process.platform === "darwin") {
-    cachedReusePortSupport = false;
-    return false;
-  }
-
-  // Linux: fast check by kernel version (SO_REUSEPORT available since 3.9)
-  if (process.platform === "linux") {
-    const parsed = parseKernelVersion(release());
-    if (parsed) {
-      const supported = parsed.major > 3 || (parsed.major === 3 && parsed.minor >= 9);
-      if (!supported) {
+  detectionPromise = (async () => {
+    try {
+      // Windows does not support SO_REUSEPORT
+      if (process.platform === "win32") {
         cachedReusePortSupport = false;
         return false;
       }
-      // Kernel >= 3.9 — confirm via runtime (some distros patch this behaviour)
-    }
-  }
 
-  // macOS/BSD + Linux >= 3.9: runtime detection
-  cachedReusePortSupport = await detectRuntimeReusePortSupport();
-  return cachedReusePortSupport;
+      // macOS supports the SO_REUSEPORT flag but does not distribute connections
+      // across sockets — the last socket to bind steals all traffic.
+      // Treat it as unsupported so workers fall back to cluster round-robin.
+      if (process.platform === "darwin") {
+        cachedReusePortSupport = false;
+        return false;
+      }
+
+      // Linux: fast check by kernel version (SO_REUSEPORT available since 3.9)
+      if (process.platform === "linux") {
+        const parsed = parseKernelVersion(release());
+        if (parsed) {
+          const supported = parsed.major > 3 || (parsed.major === 3 && parsed.minor >= 9);
+          if (!supported) {
+            cachedReusePortSupport = false;
+            return false;
+          }
+          // Kernel >= 3.9 — confirm via runtime (some distros patch this behaviour)
+        }
+      }
+
+      // macOS/BSD + Linux >= 3.9: runtime detection
+      cachedReusePortSupport = await detectRuntimeReusePortSupport();
+      return cachedReusePortSupport;
+    } catch (err) {
+      // Cache a safe default so the call stays idempotent on the error path
+      // — without this, cachedReusePortSupport stays undefined and every
+      // subsequent caller re-runs detection (and re-throws) indefinitely.
+      cachedReusePortSupport = false;
+      return false;
+    } finally {
+      detectionPromise = undefined;
+    }
+  })();
+
+  return detectionPromise;
 }
 
 // ============================================================================
