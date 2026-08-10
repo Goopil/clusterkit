@@ -640,6 +640,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       // Calling disconnect() again is a no-op on an already-disconnected
       // worker, so we must escalate to signals to prevent a stuck worker
       // from leaking.
+      //
+      // The sigkillTimer's exit listener is registered inside the
+      // forceKillTimer callback — so if the worker exits after SIGTERM
+      // (before the 2s SIGKILL window), the timer is cleared. Both
+      // listeners use once(), so no listener accumulation across recycles.
       const forceKillTimer = setTimeout(() => {
         if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
           try {
