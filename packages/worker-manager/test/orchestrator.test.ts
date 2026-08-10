@@ -516,6 +516,31 @@ describe("Orchestrator", () => {
   });
 
   // --------------------------------------------------------------------------
+  describe("patchWorkerEnv — prototype pollution guard", () => {
+    it("rejects __proto__ key", () => {
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      const env = JSON.parse('{"__proto__": {"polluted": true}}') as NodeJS.ProcessEnv;
+      expect(() => orch.patchWorkerEnv(env)).toThrow(/__proto__/);
+    });
+
+    it("rejects constructor key", () => {
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      expect(() => orch.patchWorkerEnv({ constructor: { foo: "bar" } } as NodeJS.ProcessEnv)).toThrow(/constructor/);
+    });
+
+    it("rejects prototype key", () => {
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      expect(() => orch.patchWorkerEnv({ prototype: { foo: "bar" } } as NodeJS.ProcessEnv)).toThrow(/prototype/);
+    });
+
+    it("does not pollute Object.prototype after valid calls", () => {
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      orch.patchWorkerEnv({ NODE_ENV: "test" });
+      expect((Object.prototype as Record<string, unknown>).polluted).toBeUndefined();
+    });
+  });
+
+  // --------------------------------------------------------------------------
   describe("worker crash and restart", () => {
     // workers must be >= 2 to enter cluster primary mode (workers=1 → single-worker mode)
     async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {

@@ -236,6 +236,12 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     if (this.hasForked) {
       throw new Error("patchWorkerEnv: cannot be called after workers have been forked");
     }
+    const dangerous = ["__proto__", "constructor", "prototype"];
+    for (const key of Object.keys(env)) {
+      if (dangerous.includes(key)) {
+        throw new Error(`patchWorkerEnv: key '${key}' is not allowed (prototype pollution risk)`);
+      }
+    }
     if (!this.cfg.workers.env) {
       this.cfg.workers.env = {};
     }
