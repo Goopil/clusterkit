@@ -108,13 +108,13 @@ export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig 
     }
 
     const dangerousPatterns = [
-      /^--require(=|$)/,
-      /^--eval(=|$)/,
-      /^--print(=|$)/,
-      /^--inspect(-brk|-port|=|$)/,
-      /^-r($|\s)/,
-      /^-e($|\s)/,
-      /^-p($|\s)/,
+      /^--require(?:[=\s]|$)/,
+      /^--eval(?:[=\s]|$)/,
+      /^--print(?:[=\s]|$)/,
+      /^--inspect(?:-brk|-port|[=\s]|$)/,
+      /^-r(?:$|\s)/,
+      /^-e(?:$|\s)/,
+      /^-p(?:$|\s)/,
     ];
     const dangerousArg = workers.execArgv.find((arg) => dangerousPatterns.some((p) => p.test(arg.trim())));
     if (dangerousArg) {
