@@ -1,5 +1,7 @@
 ---
-"clusterkit": patch
+"@goopil/clusterkit": patch
+"@goopil/clusterkit-prometheus": patch
+"@goopil/clusterkit-sizing": patch
 ---
 
 Fix axios security advisory (GHSA) by adding a `pnpm.overrides` entry forcing
