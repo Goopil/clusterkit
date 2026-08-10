@@ -47,7 +47,10 @@ RUN pnpm turbo run build --filter="./examples/nestjs-*"
 COPY docker/start-examples.sh /start-examples.sh
 RUN chmod +x /start-examples.sh
 
-# Expose all app + metrics ports
+RUN groupadd -r app && useradd -r -g app app
+RUN chown -R app:app /app
+USER app
+
 EXPOSE 3000 3001 3005 3006 3007 3008
 EXPOSE 9090 9091 9092 9093 9094 9095
 

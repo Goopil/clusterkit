@@ -36,5 +36,8 @@ COPY turbo.json ./
 # Build only the publishable packages (examples have no unit tests)
 RUN pnpm turbo run build --filter="./packages/**"
 
-# ---- default command: test only packages --------------------------------
+RUN groupadd -r app && useradd -r -g app app
+RUN chown -R app:app /app
+USER app
+
 CMD ["pnpm", "turbo", "run", "test", "--filter=./packages/**"]
