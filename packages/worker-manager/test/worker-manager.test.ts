@@ -1,36 +1,7 @@
-import { EventEmitter } from "node:events";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedConfig, WorkerMetrics } from "../src/types";
 import { WorkerManager } from "../src/worker-manager";
-
-class MockWorker extends EventEmitter {
-  readonly process = { pid: 1_000 };
-  private dead = false;
-
-  constructor(readonly id: number) {
-    super();
-  }
-
-  isDead(): boolean {
-    return this.dead;
-  }
-
-  exit(): void {
-    this.dead = true;
-    this.emit("exit", 0, null);
-  }
-}
-
-class MockCluster extends EventEmitter {
-  workers: Record<number, MockWorker> = {};
-  readonly setupPrimary = vi.fn();
-  private nextId = 1;
-  readonly fork = vi.fn(() => {
-    const worker = new MockWorker(this.nextId++);
-    this.workers[worker.id] = worker;
-    return worker;
-  });
-}
+import { MockCluster } from "./helpers";
 
 const config: ResolvedConfig = {
   logger: null,
@@ -53,16 +24,18 @@ const config: ResolvedConfig = {
   clusterModule: undefined,
 };
 
-function metrics(): WorkerMetrics {
+function makeMetrics(): WorkerMetrics {
   return { workerRestarts: 0, activeWorkers: 0, crashLoopBackoffs: 0, gracefulShutdowns: 0, forcedKills: 0 };
 }
 
-afterEach(() => vi.restoreAllMocks());
-
 describe("WorkerManager", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  // ── forkWorker ───────────────────────────────────────────────────────────
+
   it("configures exec arguments once and tracks forked workers", () => {
     const cluster = new MockCluster();
-    const workerMetrics = metrics();
+    const workerMetrics = makeMetrics();
     const manager = new WorkerManager(cluster as never, config, null, workerMetrics, ["--enable-source-maps"]);
 
     const first = manager.forkWorker();
@@ -75,21 +48,235 @@ describe("WorkerManager", () => {
     expect(workerMetrics.activeWorkers).toBe(2);
   });
 
+  it("does not call setupPrimary when execArgv is undefined", () => {
+    const cluster = new MockCluster();
+    const cfg = { ...config, workers: { ...config.workers, execArgv: undefined } };
+    const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+
+    manager.forkWorker();
+
+    expect(cluster.setupPrimary).not.toHaveBeenCalled();
+  });
+
+  // ── cleanupWorker ─────────────────────────────────────────────────────────
+
   it("cleans worker state when the cluster reports an exit", () => {
     const cluster = new MockCluster();
-    const workerMetrics = metrics();
+    const workerMetrics = makeMetrics();
     const manager = new WorkerManager(cluster as never, config, null, workerMetrics, []);
     const onExit = vi.fn();
     manager.setupEventHandlers(vi.fn(), onExit);
     const worker = manager.forkWorker();
     manager.markForRecycling(worker.id);
 
-    worker.exit();
-    cluster.emit("exit", worker, 0, null);
+    cluster.simulateExit(cluster.workers[1], 0, null);
 
     expect(manager.getActiveWorkers()).toEqual([]);
     expect(manager.isMarkedForRecycling(worker.id)).toBe(false);
     expect(workerMetrics.activeWorkers).toBe(0);
     expect(onExit).toHaveBeenCalledWith(worker, 0, null);
+  });
+
+  it("does not decrement activeWorkers below zero", () => {
+    const cluster = new MockCluster();
+    const workerMetrics = makeMetrics();
+    const manager = new WorkerManager(cluster as never, config, null, workerMetrics, []);
+
+    // Manually call cleanupWorker twice to test clamping
+    manager.cleanupWorker(1);
+    manager.cleanupWorker(1);
+
+    expect(workerMetrics.activeWorkers).toBe(0);
+  });
+
+  // ── getWorkerAge ──────────────────────────────────────────────────────────
+
+  it("returns 0 for an unknown worker id", () => {
+    const cluster = new MockCluster();
+    const manager = new WorkerManager(cluster as never, config, null, makeMetrics(), []);
+
+    expect(manager.getWorkerAge(999)).toBe(0);
+  });
+
+  it("returns the age in milliseconds since fork", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const cluster = new MockCluster();
+    const manager = new WorkerManager(cluster as never, config, null, makeMetrics(), []);
+    manager.forkWorker();
+
+    vi.advanceTimersByTime(5_000);
+
+    expect(manager.getWorkerAge(1)).toBe(5_000);
+    vi.useRealTimers();
+  });
+
+  // ── Recycling ─────────────────────────────────────────────────────────────
+
+  describe("recycling", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("does not start recycling when maxAgeMs is 0", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 0 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      const onRecycle = vi.fn();
+
+      manager.startRecycling(() => false, onRecycle);
+
+      vi.advanceTimersByTime(120_000);
+      expect(onRecycle).not.toHaveBeenCalled();
+    });
+
+    it("recycles aged workers and forks replacements", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      manager.setupEventHandlers(vi.fn(), vi.fn());
+      manager.forkWorker(); // worker id=1
+
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => false, onRecycle);
+
+      // Advance past the 60s interval; worker age (60_001) > maxAgeMs (30_000)
+      vi.advanceTimersByTime(60_001);
+      // The 60s interval fires, finds worker aged > 30_000, schedules it
+      // Stagger is idx*30_000 = 0*30_000 = 0, so it fires on the next tick
+      vi.advanceTimersByTime(1);
+
+      expect(onRecycle).toHaveBeenCalledTimes(1);
+      expect(onRecycle).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 }));
+      expect(manager.isMarkedForRecycling(1)).toBe(true);
+    });
+
+    it("staggers stagger timer by 30s per worker", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      manager.setupEventHandlers(vi.fn(), vi.fn());
+      manager.forkWorker(); // id=1
+      manager.forkWorker(); // id=2
+
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => false, onRecycle);
+
+      vi.advanceTimersByTime(60_001);
+      // First worker (idx=0) fires immediately (0ms stagger)
+      vi.advanceTimersByTime(1);
+      expect(onRecycle).toHaveBeenCalledTimes(1);
+
+      // Second worker (idx=1) fires after 30_000ms stagger
+      vi.advanceTimersByTime(29_997);
+      expect(onRecycle).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(1);
+      expect(onRecycle).toHaveBeenCalledTimes(2);
+    });
+
+    it("skips recycling when worker is already dead", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      manager.setupEventHandlers(vi.fn(), vi.fn());
+      manager.forkWorker(); // id=1
+
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => false, onRecycle);
+
+      // Kill the worker before the interval fires
+      cluster.workers[1].exit(0);
+      vi.advanceTimersByTime(60_001);
+      vi.advanceTimersByTime(1);
+
+      expect(onRecycle).not.toHaveBeenCalled();
+    });
+
+    it("skips recycling when shutdown is in progress", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      manager.setupEventHandlers(vi.fn(), vi.fn());
+      manager.forkWorker();
+
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => true, onRecycle); // isShuttingDown = true
+
+      vi.advanceTimersByTime(120_001);
+      vi.advanceTimersByTime(1);
+
+      expect(onRecycle).not.toHaveBeenCalled();
+    });
+
+    it("stopRecycling clears interval and pending timers", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      manager.setupEventHandlers(vi.fn(), vi.fn());
+      manager.forkWorker();
+      manager.forkWorker();
+
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => false, onRecycle);
+
+      vi.advanceTimersByTime(60_001); // interval fires, schedules 2 recycles
+      vi.advanceTimersByTime(1); // first worker fires
+
+      manager.stopRecycling();
+
+      vi.advanceTimersByTime(60_000); // second worker stagger would have fired
+      expect(onRecycle).toHaveBeenCalledTimes(1); // only the first one
+      expect(manager.getRecyclingCount()).toBe(0);
+    });
+
+    it("does not recycle a worker already marked for recycling", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      manager.setupEventHandlers(vi.fn(), vi.fn());
+      manager.forkWorker(); // id=1
+
+      manager.markForRecycling(1);
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => false, onRecycle);
+
+      vi.advanceTimersByTime(120_001);
+      vi.advanceTimersByTime(1);
+
+      expect(onRecycle).not.toHaveBeenCalled(); // already marked, skipped
+    });
+  });
+
+  // ── dispose ───────────────────────────────────────────────────────────────
+
+  it("removes cluster listeners on dispose", () => {
+    const cluster = new MockCluster();
+    const manager = new WorkerManager(cluster as never, config, null, makeMetrics(), []);
+    manager.setupEventHandlers(vi.fn(), vi.fn());
+
+    expect(cluster.listenerCount("exit")).toBe(1);
+    expect(cluster.listenerCount("online")).toBe(1);
+
+    manager.dispose();
+
+    expect(cluster.listenerCount("exit")).toBe(0);
+    expect(cluster.listenerCount("online")).toBe(0);
+  });
+
+  // ── setupEventHandlers idempotency ─────────────────────────────────────────
+
+  it("replaces previous listeners when setupEventHandlers is called again", () => {
+    const cluster = new MockCluster();
+    const manager = new WorkerManager(cluster as never, config, null, makeMetrics(), []);
+    manager.setupEventHandlers(vi.fn(), vi.fn());
+    manager.setupEventHandlers(vi.fn(), vi.fn());
+
+    expect(cluster.listenerCount("exit")).toBe(1);
+    expect(cluster.listenerCount("online")).toBe(1);
   });
 });
