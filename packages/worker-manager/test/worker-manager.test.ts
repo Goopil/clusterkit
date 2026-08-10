@@ -156,7 +156,7 @@ describe("WorkerManager", () => {
       expect(manager.isMarkedForRecycling(1)).toBe(true);
     });
 
-    it("staggers stagger timer by 30s per worker", () => {
+    it("stagger timer by 30s per worker", () => {
       const cluster = new MockCluster();
       const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
       const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
@@ -179,7 +179,7 @@ describe("WorkerManager", () => {
       expect(onRecycle).toHaveBeenCalledTimes(2);
     });
 
-    it("skips recycling when worker is already dead", () => {
+    it("skips recycling when worker is filtered out as dead by getActiveWorkers", () => {
       const cluster = new MockCluster();
       const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
       const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);

@@ -304,8 +304,8 @@ describe("Orchestrator process-level integration", () => {
     // Wait a bit to let the crash-loop worker crash and restart
     await new Promise((resolve) => setTimeout(resolve, 1_500));
 
-    // At least the initial 2 workers should have come online
-    expect(onlineWorkerIds.size).toBeGreaterThanOrEqual(2);
+    // At least the initial 2 workers + at least 1 restart should have come online
+    expect(onlineWorkerIds.size).toBeGreaterThanOrEqual(3);
 
     const metrics = await triggerSigtermAndWaitForShutdown(orchestrator);
     expect(metrics.activeWorkers).toBe(0);
