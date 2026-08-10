@@ -140,7 +140,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     name: "prometheus",
     registry,
 
-    async install(orchestrator: Orchestrator, logger: Logger | null, config: ResolvedConfig): Promise<void> {
+    async install(orchestrator: Orchestrator, logger: Logger | null, _config: ResolvedConfig): Promise<void> {
       const log = withLoggerPrefix(logger, "clusterkit:prometheus");
       pluginLog = log;
 
@@ -186,11 +186,13 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
 
         registry.setDefaultLabels({ pid: process.pid, ...labels });
 
-        // Single-worker mode (workers: 1): the orchestrator runs the app in
-        // the primary process without forking — no worker:online event fires,
-        // so we seed the gauge to 1 (the primary IS the worker). In
-        // multi-worker mode, syncActiveWorkers() reads the current count.
-        const singleWorker = config?.workers.count === 1;
+        // Single-worker mode: the orchestrator runs the app in the primary
+        // process without forking — no worker:online event fires, so we
+        // seed the gauge to 1 (the primary IS the worker). We use the
+        // resolved workerCount (not config.workers.count) because plugins
+        // install before resolveWorkerCount() runs, so config may still
+        // hold "auto". workerCount resolves "auto" via CPU detection.
+        const singleWorker = orchestrator.workerCount === 1;
         if (singleWorker) {
           activeWorkers.set(1);
         } else {
