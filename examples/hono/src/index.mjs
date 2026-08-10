@@ -43,6 +43,29 @@ import { Hono } from "hono";
         );
       });
 
-      orchestrator.registerOnShutdown(() => server.close());
+      const metricsApp = new Hono();
+      metricsApp.get("/metrics", async (c) => {
+        c.header("Content-Type", prometheus.registry.contentType);
+        return c.body(await prometheus.getMetrics());
+      });
+      const metricsServer = createAdaptorServer({ fetch: metricsApp.fetch });
+      await new Promise((resolve, reject) => {
+        metricsServer.once("error", reject);
+        metricsServer.listen(
+          {
+            port: +(process.env?.METRICS_PORT || 9092),
+            host: "0.0.0.0",
+          },
+          () => {
+            metricsServer.off("error", reject);
+            resolve();
+          },
+        );
+      });
+
+      orchestrator.registerOnShutdown(() => {
+        server.close();
+        metricsServer.close();
+      });
     });
 })();
