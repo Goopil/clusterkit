@@ -1,31 +1,9 @@
 import cluster from "node:cluster";
-import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
+import { type Logger, type Orchestrator, type ResolvedConfig, withLoggerPrefix } from "@goopil/clusterkit";
 import { AggregatorRegistry, Counter, collectDefaultMetrics, Gauge, Registry } from "prom-client";
 import type { PrometheusMetricsRequestOptions, PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
 
 export type { PrometheusMetricsRequestOptions, PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
-
-function withLoggerPrefix(logger: Logger | null, prefix: string): Logger | null {
-  if (!logger) return null;
-
-  const wrap = (method: (msg: string, data?: Record<string, unknown>) => void) => {
-    return (msg: string, data?: Record<string, unknown>): void => {
-      if (data === undefined) {
-        method(`[${prefix}] ${msg}`);
-        return;
-      }
-
-      method(`[${prefix}] ${msg}`, data);
-    };
-  };
-
-  return {
-    debug: wrap(logger.debug.bind(logger)),
-    info: wrap(logger.info.bind(logger)),
-    warn: wrap(logger.warn.bind(logger)),
-    error: wrap(logger.error.bind(logger)),
-  };
-}
 
 type PrimaryEvent =
   | "worker:online"
