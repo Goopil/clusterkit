@@ -636,14 +636,33 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
       if (oldWorker.isDead()) return;
 
-      // Force disconnect after 5s if still alive
-      const forceDisconnectTimer = setTimeout(() => {
+      // Escalate: after 5s send SIGTERM, after 2s more send SIGKILL.
+      // Calling disconnect() again is a no-op on an already-disconnected
+      // worker, so we must escalate to signals to prevent a stuck worker
+      // from leaking.
+      const forceKillTimer = setTimeout(() => {
         if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
-          oldWorker.disconnect();
+          try {
+            oldWorker.process.kill("SIGTERM");
+          } catch {
+            /* already dead */
+          }
+          const sigkillTimer = setTimeout(() => {
+            if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
+              try {
+                oldWorker.process.kill("SIGKILL");
+                this.metrics.forcedKills++;
+              } catch {
+                /* already dead */
+              }
+            }
+          }, 2_000);
+          sigkillTimer.unref();
+          oldWorker.once("exit", () => clearTimeout(sigkillTimer));
         }
       }, 5_000);
-      forceDisconnectTimer.unref();
-      oldWorker.once("exit", () => clearTimeout(forceDisconnectTimer));
+      forceKillTimer.unref();
+      oldWorker.once("exit", () => clearTimeout(forceKillTimer));
     });
   }
 

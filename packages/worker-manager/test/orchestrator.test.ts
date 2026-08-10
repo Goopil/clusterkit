@@ -69,8 +69,12 @@ class MockCluster extends EventEmitter {
   fork(_env?: NodeJS.ProcessEnv): MockWorker {
     const worker = new MockWorker(this.counter++);
     this.workers[worker.id] = worker;
-    // Emit online asynchronously (matches real cluster behaviour)
-    setImmediate(() => this.emit("online", worker));
+    // Emit online asynchronously on both cluster and worker (matches real
+    // Node.js cluster behaviour where both the cluster and the Worker emit).
+    setImmediate(() => {
+      this.emit("online", worker);
+      worker.emit("online");
+    });
     return worker;
   }
 
@@ -821,6 +825,53 @@ describe("Orchestrator", () => {
 
       // Should have emitted recycle events
       expect(recycleEvents.length).toBeGreaterThan(0);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  describe("worker recycle SIGKILL escalation", () => {
+    it("force-kills a recycled worker that does not exit within the timeout", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-12T00:00:00.000Z"));
+
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: { count: 2, maxAgeMs: 150_000 },
+        }),
+      );
+
+      await orch.run(() => {});
+
+      const initialWorkers = Object.values(mockCluster.workers);
+      // Prevent the old worker from auto-exiting on disconnect so it stays
+      // stuck and the kill escalation path is exercised.
+      for (const w of initialWorkers) {
+        w.autoExitOnDisconnect = false;
+      }
+
+      // Advance time to trigger recycling
+      vi.setSystemTime(new Date("2026-04-12T00:02:30.000Z"));
+      await vi.advanceTimersByTimeAsync(60_001);
+
+      // The recycle interval forks a replacement and calls handleWorkerRecycle,
+      // which waits for the new worker's "online" event (emitted via
+      // setImmediate) before sending the shutdown message + disconnect.
+      await vi.advanceTimersByTimeAsync(0);
+
+      const allWorkers = Object.values(mockCluster.workers);
+      // The first worker is the one being recycled (forked first, aged out).
+      const oldWorker = allWorkers[0];
+      // Keep isDead() returning false so the kill escalation triggers
+      vi.spyOn(oldWorker, "isDead").mockReturnValue(false);
+
+      // Advance past 5s (SIGTERM timeout) + 2s (SIGKILL timeout)
+      await vi.advanceTimersByTimeAsync(5_001);
+      await vi.advanceTimersByTimeAsync(2_001);
+
+      expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGTERM");
+      expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGKILL");
+      expect(orch.getMetrics().forcedKills).toBe(1);
     });
   });
 
