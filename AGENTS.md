@@ -11,6 +11,9 @@ current package boundaries and public API shape.
 
 - Use `corepack pnpm`, not bare `pnpm` — pnpm is not in PATH directly; corepack provides it.
 - Node `>=22.12.0` (see `.nvmrc`); CI matrix tests on Node 22, 24, and 26.
+- Always load nvm and switch to the project Node version before running any command:
+  `source ~/.nvm/nvm.sh && nvm use` (reads `.nvmrc`). Without this, the shell defaults to Node 20 and tools like
+  `tsdown` fail (no native TS support → falls back to `unrun` which is not installed).
 - Keep all source code, comments, tests, and docs in English.
 - Preserve the monorepo layout. Do not move code between packages unless the task requires it.
 - Prefer focused changes in the package that owns the behavior. Avoid cross-package edits unless there is a clear

@@ -14,10 +14,10 @@
   "type": "module",
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
-    "@hono/node-server": "^1",
-    "hono": "^4",
-    "@goopil/clusterkit-sizing": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
+    "@goopil/clusterkit-sizing": "workspace:*",
+    "@hono/node-server": "^1",
+    "hono": "^4.13.1",
     "prom-client": "^15"
   }
 }
