@@ -32,6 +32,19 @@ import fastify from "fastify";
         reusePort: capabilities.reusePort,
       });
 
-      orchestrator.registerOnShutdown(() => server.close());
+      const metricsServer = fastify({ logger: false });
+      metricsServer.get("/metrics", async (_req, reply) => {
+        reply.type(prometheus.registry.contentType);
+        return reply.send(await prometheus.getMetrics());
+      });
+      await metricsServer.listen({
+        port: +(process.env?.METRICS_PORT || 9091),
+        host: "0.0.0.0",
+      });
+
+      orchestrator.registerOnShutdown(async () => {
+        await server.close();
+        await metricsServer.close();
+      });
     });
 })();
