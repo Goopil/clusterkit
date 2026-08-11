@@ -1,5 +1,14 @@
 # @goopil/clusterkit-sizing
 
+## 0.1.3
+
+### Patch Changes
+
+- [#40](https://github.com/Goopil/clusterkit/pull/40) [`71e131f`](https://github.com/Goopil/clusterkit/commit/71e131f2f6a4f561c8a5eaa92b1d1d0beb3b8cfd) Thanks [@Goopil](https://github.com/Goopil)! - Expand test coverage with shutdown escalation, worker recycling, crash tracker boundary tests, integration tests, example smoke tests, stress tests, and coverage thresholds
+
+- Updated dependencies [[`71e131f`](https://github.com/Goopil/clusterkit/commit/71e131f2f6a4f561c8a5eaa92b1d1d0beb3b8cfd)]:
+  - @goopil/clusterkit@1.0.3
+
 ## 0.1.2
 
 ### Patch Changes
