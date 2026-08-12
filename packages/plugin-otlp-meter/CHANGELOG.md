@@ -1,0 +1,12 @@
+# @goopil/clusterkit-otlp-meter
+
+## 0.2.0
+
+### Minor Changes
+
+- [#44](https://github.com/Goopil/clusterkit/pull/44) [`93353e3`](https://github.com/Goopil/clusterkit/commit/93353e3ee1629e35dc7f30ff5dcf801242d068b3) Thanks [@Goopil](https://github.com/Goopil)! - Add OpenTelemetry OTLP metrics plugin
+
+### Patch Changes
+
+- Updated dependencies [[`3094a47`](https://github.com/Goopil/clusterkit/commit/3094a470c5dc3d91592c72ce025caa7092841650)]:
+  - @goopil/clusterkit@1.0.4
