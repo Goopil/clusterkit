@@ -22,7 +22,7 @@ services:
     tty: false
 
   # -------------------------------------------------------------------------
-  # examples — starts all 6 example servers simultaneously
+  # examples — starts all example servers simultaneously
   #
   # App servers:
   #   http://localhost:3000  express
@@ -37,6 +37,9 @@ services:
   #   http://localhost:9090  express     http://localhost:9093  koa
   #   http://localhost:9091  fastify     http://localhost:9094  nestjs-express
   #   http://localhost:9092  hono        http://localhost:9095  nestjs-fastify
+  #
+  # OTLP collector metrics (express-otlp):
+  #   http://localhost:8889/metrics  (Prometheus scrape endpoint)
   #
   # Usage:
   #   pnpm examples:start                   # build image + start all servers
@@ -66,9 +69,34 @@ services:
     environment:
       TURBO_DAEMON: "false"
       TURBO_TELEMETRY_DISABLED: "1"
+      OTLP_ENDPOINT: "http://otel-collector:4318/v1/metrics"
+    depends_on:
+      - otel-collector
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     tty: false
 
+  # -------------------------------------------------------------------------
+  # otel-collector — receives OTLP metrics from the express-otlp example
+  #
+  # Receives OTLP/HTTP on :4318, exposes a Prometheus scrape endpoint on :8889
+  # so you can verify the metrics are flowing.
+  #
+  # Usage:
+  #   docker compose up otel-collector examples   # start collector + all apps
+  #   curl localhost:8889/metrics                 # check received metrics
+  # -------------------------------------------------------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./docker/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4318:4318"   # OTLP/HTTP receiver
+      - "8889:8889"   # Prometheus exporter (scrape to verify)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
