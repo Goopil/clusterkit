@@ -20,7 +20,7 @@
     "url": "git+https://github.com/Goopil/clusterkit.git",
     "directory": "packages/plugin-otlp-meter"
   },
-  "license": "LGPL-3.0-or-wider",
+  "license": "LGPL-3.0-or-later",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -62,10 +62,10 @@
     "@opentelemetry/sdk-metrics": "^2.0.0"
   },
   "peerDependenciesMeta": {
-    "@opentelemetry/exporter-otlp-http": {
+    "@opentelemetry/exporter-metrics-otlp-http": {
       "optional": true
     },
-    "@opentelemetry/exporter-otlp-grpc": {
+    "@opentelemetry/exporter-metrics-otlp-grpc": {
       "optional": true
     },
     "@opentelemetry/host-metrics": {
@@ -75,8 +75,8 @@
   "devDependencies": {
     "@goopil/clusterkit": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/exporter-otlp-http": "^0.26.0",
-    "@opentelemetry/exporter-otlp-grpc": "^0.26.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.221.0",
     "@opentelemetry/host-metrics": "^0.39.0",
     "@opentelemetry/resources": "^2.10.0",
     "@opentelemetry/sdk-metrics": "^2.10.0",
