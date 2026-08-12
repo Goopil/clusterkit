@@ -25,7 +25,9 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/worker-manager/package.json           packages/worker-manager/
 COPY packages/plugin-prometheus/package.json        packages/plugin-prometheus/
 COPY packages/plugin-container-sizing/package.json  packages/plugin-container-sizing/
+COPY packages/plugin-otlp-meter/package.json        packages/plugin-otlp-meter/
 COPY examples/express/package.json          examples/express/
+COPY examples/express-otlp/package.json     examples/express-otlp/
 COPY examples/fastify/package.json          examples/fastify/
 COPY examples/hono/package.json             examples/hono/
 COPY examples/koa/package.json              examples/koa/
@@ -53,7 +55,7 @@ ENV COREPACK_HOME=/app/.cache/corepack
 RUN mkdir -p /app/.cache/corepack && chown -R app:app /app/.cache
 USER app
 
-EXPOSE 3000 3001 3005 3006 3007 3008
+EXPOSE 3000 3001 3005 3006 3007 3008 3009
 EXPOSE 9090 9091 9092 9093 9094 9095
 
 CMD ["/start-examples.sh"]

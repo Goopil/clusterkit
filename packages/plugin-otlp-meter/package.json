@@ -1,0 +1,93 @@
+{
+  "name": "@goopil/clusterkit-otlp-meter",
+  "version": "0.1.0",
+  "description": "OpenTelemetry OTLP metrics plugin for @goopil/clusterkit: exports orchestration counters/gauges and per-worker host metrics via OTLP/HTTP or OTLP/gRPC to a collector.",
+  "keywords": [
+    "opentelemetry",
+    "otlp",
+    "metrics",
+    "cluster",
+    "clusterkit",
+    "monitoring",
+    "observability"
+  ],
+  "homepage": "https://github.com/Goopil/clusterkit#readme",
+  "bugs": {
+    "url": "https://github.com/Goopil/clusterkit/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Goopil/clusterkit.git",
+    "directory": "packages/plugin-otlp-meter"
+  },
+  "license": "LGPL-3.0-or-later",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "pnpm build",
+    "clean": "rm -rf dist coverage"
+  },
+  "peerDependencies": {
+    "@goopil/clusterkit": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/resources": "^2.0.0",
+    "@opentelemetry/semantic-conventions": "^1.30.0",
+    "@opentelemetry/sdk-metrics": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/exporter-metrics-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-metrics-otlp-grpc": {
+      "optional": true
+    },
+    "@opentelemetry/host-metrics": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@goopil/clusterkit": "workspace:*",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.221.0",
+    "@opentelemetry/host-metrics": "^0.39.0",
+    "@opentelemetry/otlp-transformer": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-metrics": "^2.10.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
