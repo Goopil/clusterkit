@@ -2,11 +2,8 @@
 
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](./LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22.12-brightgreen)](https://nodejs.org)
-[![pnpm](https://img.shields.io/badge/pnpm-workspace-orange)](https://pnpm.io)
 [![CI](https://github.com/Goopil/clusterkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Goopil/clusterkit/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@goopil/clusterkit.svg?label=%40goopil%2Fclusterkit)](https://www.npmjs.com/package/@goopil/clusterkit)
-[![npm version](https://img.shields.io/npm/v/@goopil/clusterkit-prometheus.svg?label=prometheus)](https://www.npmjs.com/package/@goopil/clusterkit-prometheus)
-[![npm version](https://img.shields.io/npm/v/@goopil/clusterkit-sizing.svg?label=sizing)](https://www.npmjs.com/package/@goopil/clusterkit-sizing)
 [![npm downloads](https://img.shields.io/npm/dm/@goopil/clusterkit.svg)](https://www.npmjs.com/package/@goopil/clusterkit)
 
 Production-ready Node.js cluster orchestrator for multi-core HTTP servers in containers. Bring your own web
