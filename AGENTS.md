@@ -31,8 +31,9 @@ current package boundaries and public API shape.
 - `packages/worker-manager/`: core orchestrator published as `@goopil/clusterkit`
 - `packages/plugin-prometheus/`: Prometheus integration plugin (`@goopil/clusterkit-prometheus`)
 - `packages/plugin-container-sizing/`: container-aware sizing plugin (`@goopil/clusterkit-sizing`)
-- `examples/`: standalone framework examples (express, fastify, hono, koa, nestjs-express, nestjs-fastify,
-  inertia-ssr, inertia-ssr-react)
+- `packages/plugin-otlp-meter/`: OpenTelemetry OTLP metrics plugin (`@goopil/clusterkit-otlp-meter`)
+- `examples/`: standalone framework examples (express, express-otlp, fastify, hono, koa, nestjs-express,
+  nestjs-fastify, inertia-ssr, inertia-ssr-react)
 - `docker/`: Linux test harness and example container setup
 - `scripts/`: `package-smoke-test.mjs` (publint packaging check), `publish-with-oidc.mjs` (release publishing)
 

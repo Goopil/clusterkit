@@ -15,6 +15,7 @@ cleanup() {
 trap cleanup SIGTERM SIGINT
 
 PORT=3000 METRICS_PORT=9090 node examples/express/src/index.mjs &
+PORT=3009 node examples/express-otlp/src/index.mjs &
 PORT=3001 METRICS_PORT=9091 node examples/fastify/src/index.mjs &
 PORT=3005 METRICS_PORT=9092 node examples/hono/src/index.mjs &
 PORT=3006 METRICS_PORT=9093 node examples/koa/src/index.mjs &

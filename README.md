@@ -488,6 +488,7 @@ Eight ready-to-run examples live in [`examples/`](./examples/).
 | Example                      | Port  | Metrics port | Description |
 |------------------------------|-------|--------------|-------------|
 | `examples/express`           | 3000  | 9090         | Express HTTP server |
+| `examples/express-otlp`      | 3009  | —            | Express + OTLP metrics (push to collector) |
 | `examples/fastify`           | 3001  | 9091         | Fastify HTTP server |
 | `examples/hono`              | 3005  | 9092         | Hono HTTP server |
 | `examples/koa`               | 3006  | 9093         | Koa HTTP server |
