@@ -1,5 +1,11 @@
 # @goopil/clusterkit
 
+## 1.0.4
+
+### Patch Changes
+
+- [#48](https://github.com/Goopil/clusterkit/pull/48) [`3094a47`](https://github.com/Goopil/clusterkit/commit/3094a470c5dc3d91592c72ce025caa7092841650) Thanks [@Goopil](https://github.com/Goopil)! - Fix uncaught EPIPE error during worker shutdown when a worker exits while the primary is sending the shutdown message or disconnecting the IPC channel.
+
 ## 1.0.3
 
 ### Patch Changes
