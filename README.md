@@ -27,6 +27,7 @@ Production-ready Node.js cluster management for multi-core HTTP servers.
 | [`@goopil/clusterkit`](#goopilclusterkit) | Cluster orchestrator — core library                       | [`packages/worker-manager/README.md`](./packages/worker-manager/README.md) |
 | [`@goopil/clusterkit-prometheus`](#goopilclusterkit-prometheus) | Prometheus metrics export plugin                          | [`packages/plugin-prometheus/README.md`](./packages/plugin-prometheus/README.md) |
 | [`@goopil/clusterkit-sizing`](#goopilclusterkit-sizing) | Kubernetes / container-aware CPU and memory sizing plugin | [`packages/plugin-container-sizing/README.md`](./packages/plugin-container-sizing/README.md) |
+| [`@goopil/clusterkit-otlp-meter`](#goopilclusterkit-otlp-meter) | OpenTelemetry OTLP metrics export plugin                  | [`packages/plugin-otlp-meter/README.md`](./packages/plugin-otlp-meter/README.md) |
 
 This root README gives the monorepo overview. Each package also has a dedicated README focused on its own capabilities,
 options, and API surface.
@@ -415,6 +416,27 @@ console.log(sizing.sizing);
 The plugin is primary-only and runs entirely inside `install()`, before any worker is forked.
 
 ---
+
+## `@goopil/clusterkit-otlp-meter`
+
+Detailed package README: [`packages/plugin-otlp-meter/README.md`](./packages/plugin-otlp-meter/README.md)
+
+OpenTelemetry OTLP metrics plugin that exports orchestration metrics (active workers,
+restarts, crashes, circuit-breaker trips) and optional host/process metrics via OTLP/HTTP
+or OTLP/gRPC to a collector.
+
+```bash
+pnpm add @goopil/clusterkit-otlp-meter @opentelemetry/exporter-metrics-otlp-http
+```
+
+```ts
+import {createOtlpMeterPlugin} from '@goopil/clusterkit-otlp-meter';
+
+const otlp = createOtlpMeterPlugin({
+  endpoint: 'http://otel-collector:4318/v1/metrics',
+  serviceName: 'my-app',
+});
+```
 
 ## Plugin system
 
