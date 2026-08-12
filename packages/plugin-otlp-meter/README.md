@@ -75,6 +75,25 @@ otlp.meterProvider; // MeterProvider | undefined
 await otlp.shutdown(); // flush and close
 ```
 
+## Custom metrics
+
+The plugin registers its `MeterProvider` as the OpenTelemetry global, so you can create
+custom metrics from anywhere in your application without a reference to the plugin instance:
+
+```ts
+import { metrics } from "@opentelemetry/api";
+
+const meter = metrics.getMeter("my-app");
+const httpRequests = meter.createCounter("http.requests", {
+  description: "Total HTTP requests",
+});
+
+httpRequests.add(1);
+```
+
+This works in both primary and worker processes — each process has its own provider
+pushing to the same collector endpoint.
+
 ## Metrics exposed
 
 With the default prefix (`clusterkit.`):

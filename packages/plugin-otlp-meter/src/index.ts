@@ -2,6 +2,7 @@ import cluster from "node:cluster";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import { type Logger, type Orchestrator, type ResolvedConfig, withLoggerPrefix } from "@goopil/clusterkit";
+import { metrics } from "@opentelemetry/api";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { MeterProvider, PeriodicExportingMetricReader, type PushMetricExporter } from "@opentelemetry/sdk-metrics";
 import { ATTR_SERVICE_INSTANCE_ID, ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
@@ -140,6 +141,8 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
         resource,
         readers: [metricReader],
       });
+
+      metrics.setGlobalMeterProvider(meterProvider);
 
       const meter = meterProvider.getMeter("@goopil/clusterkit", PLUGIN_VERSION);
 
