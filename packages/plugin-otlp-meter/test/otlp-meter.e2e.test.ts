@@ -4,7 +4,6 @@ import http from "node:http";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Orchestrator } from "@goopil/clusterkit";
-import { metrics } from "@opentelemetry/api";
 import { afterEach, describe, expect, it } from "vitest";
 import { createOtlpMeterPlugin } from "../src/index";
 

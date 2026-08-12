@@ -27,7 +27,6 @@ vi.mock("@opentelemetry/exporter-metrics-otlp-grpc", () => ({
 
 vi.mock("@opentelemetry/host-metrics", () => ({
   HostMetrics: class {
-    constructor(_opts: { meterProvider: unknown }) {}
     start() {
       mockHostMetricsStart();
     }

@@ -5,7 +5,12 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const packages = ["@goopil/clusterkit", "@goopil/clusterkit-prometheus", "@goopil/clusterkit-sizing", "@goopil/clusterkit-otlp-meter"];
+const packages = [
+  "@goopil/clusterkit",
+  "@goopil/clusterkit-prometheus",
+  "@goopil/clusterkit-sizing",
+  "@goopil/clusterkit-otlp-meter",
+];
 
 function run(command, args, options = {}) {
   execFileSync(command, args, { cwd: rootDir, stdio: "inherit", ...options });

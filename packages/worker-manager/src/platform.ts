@@ -139,7 +139,7 @@ export async function detectReusePortSupport(): Promise<boolean> {
       // macOS/BSD + Linux >= 3.9: runtime detection
       cachedReusePortSupport = await detectRuntimeReusePortSupport();
       return cachedReusePortSupport;
-    } catch (err) {
+    } catch (_err) {
       // Cache a safe default so the call stays idempotent on the error path
       // — without this, cachedReusePortSupport stays undefined and every
       // subsequent caller re-runs detection (and re-throws) indefinitely.

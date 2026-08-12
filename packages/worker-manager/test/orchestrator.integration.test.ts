@@ -304,7 +304,7 @@ describe("Orchestrator process-level integration", () => {
     // Wait for at least 1 restart (initial 2 workers + at least 1 restart = 3+ online events)
     await withTimeout(
       new Promise<void>((resolveRestart) => {
-        orchestrator.on("worker:online", (event) => {
+        orchestrator.on("worker:online", (_event) => {
           if (onlineWorkerIds.size >= 3) {
             resolveRestart();
           }
