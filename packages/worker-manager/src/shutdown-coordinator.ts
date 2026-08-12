@@ -101,7 +101,14 @@ export class ShutdownCoordinator {
 
       const disconnectWorker = (): void => {
         if (!worker.isDead() && worker.isConnected()) {
-          worker.disconnect();
+          try {
+            worker.disconnect();
+          } catch (err) {
+            this.log?.debug("Worker disconnect failed (likely already exited)", {
+              workerId: worker.id,
+              error: err,
+            });
+          }
         }
       };
 
