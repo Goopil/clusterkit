@@ -3,8 +3,28 @@
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](./LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22.12-brightgreen)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-workspace-orange)](https://pnpm.io)
+[![CI](https://github.com/Goopil/clusterkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Goopil/clusterkit/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@goopil/clusterkit.svg?label=%40goopil%2Fclusterkit)](https://www.npmjs.com/package/@goopil/clusterkit)
+[![npm version](https://img.shields.io/npm/v/@goopil/clusterkit-prometheus.svg?label=prometheus)](https://www.npmjs.com/package/@goopil/clusterkit-prometheus)
+[![npm version](https://img.shields.io/npm/v/@goopil/clusterkit-sizing.svg?label=sizing)](https://www.npmjs.com/package/@goopil/clusterkit-sizing)
+[![npm downloads](https://img.shields.io/npm/dm/@goopil/clusterkit.svg)](https://www.npmjs.com/package/@goopil/clusterkit)
 
-Production-ready Node.js cluster management for multi-core HTTP servers.
+Production-ready Node.js cluster orchestrator for multi-core HTTP servers in containers. Bring your own web
+framework — ClusterKit handles worker lifecycle, kernel-level load balancing, crash recovery, and graceful
+shutdown so you don't have to.
+
+**Why clusterkit?**
+
+- **Kernel-level load balancing** via `SO_REUSEPORT` detection — workers bind directly to the same port and let
+  the Linux kernel distribute connections (no primary-as-proxy bottleneck).
+- **Container-native** — reads cgroup v1/v2 CPU and memory limits to size workers automatically, with
+  per-worker `--max-old-space-size` injection.
+- **Production-grade shutdown** — per-worker ACK protocol with configurable timeouts and `SIGTERM → SIGINT →
+  SIGKILL` escalation, tuned to fit inside a Kubernetes `terminationGracePeriodSeconds` budget.
+- **Crash resilient** — exponential backoff with a sliding-window circuit breaker prevents infinite crash loops
+  from exhausting resources.
+- **Framework-agnostic** — works with Express, Fastify, Hono, Koa, NestJS, and more (8 ready-to-run examples).
+- **Zero runtime dependencies** — the core package ships only TypeScript types and ESM/CJS bundles.
 
 **What this provides:**
 

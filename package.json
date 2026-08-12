@@ -2,6 +2,28 @@
   "name": "clusterkit",
   "version": "1.0.0",
   "private": true,
+  "description": "Production-ready Node.js cluster orchestrator for containers: SO_REUSEPORT detection, graceful shutdown, crash circuit breaker, worker recycling and cgroup-aware sizing.",
+  "keywords": [
+    "cluster",
+    "worker",
+    "orchestrator",
+    "so-reuseport",
+    "kubernetes",
+    "docker",
+    "graceful-shutdown",
+    "circuit-breaker",
+    "process-manager",
+    "nodejs"
+  ],
+  "author": "Goopil <https://github.com/Goopil>",
+  "homepage": "https://github.com/Goopil/clusterkit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Goopil/clusterkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Goopil/clusterkit/issues"
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
