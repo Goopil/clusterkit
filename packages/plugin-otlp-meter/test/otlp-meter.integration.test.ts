@@ -98,7 +98,18 @@ describe("OTLP meter plugin integration with real orchestrator", () => {
       });
     });
 
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise<void>((resolvePoll, reject) => {
+      const deadline = setTimeout(() => reject(new Error("no OTLP export received within 5s")), 5_000);
+      const check = () => {
+        if (collectedRequests.length > 0) {
+          clearTimeout(deadline);
+          resolvePoll();
+          return;
+        }
+        setTimeout(check, 100);
+      };
+      check();
+    });
 
     expect(collectedRequests.length).toBeGreaterThan(0);
 

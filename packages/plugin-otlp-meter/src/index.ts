@@ -5,7 +5,6 @@ import { type Logger, type Orchestrator, type ResolvedConfig, withLoggerPrefix }
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { MeterProvider, PeriodicExportingMetricReader, type PushMetricExporter } from "@opentelemetry/sdk-metrics";
 import { ATTR_SERVICE_INSTANCE_ID, ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
-import { ATTR_HOST_NAME, ATTR_PROCESS_PID } from "@opentelemetry/semantic-conventions/incubating";
 import type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
 
 export type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
@@ -14,6 +13,24 @@ type PrimaryEvent = "worker:crash" | "worker:restart" | "circuit-breaker:tripped
 
 const DEFAULT_HTTP_ENDPOINT = "http://localhost:4318/v1/metrics";
 const DEFAULT_GRPC_ENDPOINT = "localhost:4317";
+
+const ATTR_HOST_NAME = "host.name";
+const ATTR_PROCESS_PID = "process.pid";
+
+const PLUGIN_VERSION = "0.1.0";
+
+function isMissingModuleError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message;
+  return (
+    msg.includes("Cannot find package") ||
+    msg.includes("MODULE_NOT_FOUND") ||
+    msg.includes("is not a constructor") ||
+    msg.includes("export is defined on the") ||
+    msg.includes("is not defined on the") ||
+    "code" in err
+  );
+}
 
 export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): OtlpMeterPlugin {
   const {
@@ -32,7 +49,16 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
 
   const resolvedEndpoint = endpoint ?? (protocol === "grpc" ? DEFAULT_GRPC_ENDPOINT : DEFAULT_HTTP_ENDPOINT);
 
+  if (protocol === "http") {
+    try {
+      new URL(resolvedEndpoint);
+    } catch {
+      throw new TypeError(`otlp-meter plugin: invalid endpoint URL "${resolvedEndpoint}"`);
+    }
+  }
+
   let meterProvider: MeterProvider | undefined;
+  let isShutdown = false;
   let pluginLog: Logger | null = null;
   let primaryOrchestrator: Orchestrator | undefined;
   const primaryListeners: Array<{ event: PrimaryEvent; listener: () => void }> = [];
@@ -46,35 +72,42 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
     primaryOrchestrator = undefined;
   };
 
-  async function createExporter(): Promise<unknown> {
-    if (protocol === "grpc") {
-      try {
-        const mod = await import("@opentelemetry/exporter-metrics-otlp-grpc");
-        return new mod.OTLPMetricExporter({ url: resolvedEndpoint });
-      } catch {
+  async function createExporter(): Promise<PushMetricExporter> {
+    const exporterModuleName =
+      protocol === "grpc" ? "@opentelemetry/exporter-metrics-otlp-grpc" : "@opentelemetry/exporter-metrics-otlp-http";
+
+    try {
+      const mod = await import(exporterModuleName);
+      return new mod.OTLPMetricExporter({ url: resolvedEndpoint }) as PushMetricExporter;
+    } catch (err) {
+      if (isMissingModuleError(err)) {
         throw new Error(
-          "otlp-meter plugin: protocol 'grpc' requires @opentelemetry/exporter-metrics-otlp-grpc — install it or use protocol 'http'",
+          `otlp-meter plugin: protocol '${protocol}' requires ${exporterModuleName} — install it or use protocol '${protocol === "grpc" ? "http" : "grpc"}'`,
         );
       }
-    }
-    try {
-      const mod = await import("@opentelemetry/exporter-metrics-otlp-http");
-      return new mod.OTLPMetricExporter({ url: resolvedEndpoint });
-    } catch {
-      throw new Error(
-        "otlp-meter plugin: protocol 'http' requires @opentelemetry/exporter-metrics-otlp-http — install it or use protocol 'grpc'",
-      );
+      throw err;
     }
   }
 
-  async function startHostMetrics(): Promise<void> {
+  async function startHostMetrics(provider: MeterProvider): Promise<void> {
     try {
       const mod = await import("@opentelemetry/host-metrics");
-      const hostMetrics = new mod.HostMetrics({ meterProvider: meterProvider });
+      const hostMetrics = new mod.HostMetrics({ meterProvider: provider });
       hostMetrics.start();
-    } catch {
-      pluginLog?.warn("host-metrics package not installed — skipping process metrics");
+    } catch (err) {
+      if (isMissingModuleError(err)) {
+        pluginLog?.warn("host-metrics package not installed — skipping process metrics");
+      } else {
+        throw err;
+      }
     }
+  }
+
+  async function shutdownProvider(): Promise<void> {
+    if (isShutdown || !meterProvider) return;
+    isShutdown = true;
+    await meterProvider.shutdown();
+    meterProvider = undefined;
   }
 
   return {
@@ -99,7 +132,7 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
       const exporter = await createExporter();
 
       const metricReader = new PeriodicExportingMetricReader({
-        exporter: exporter as PushMetricExporter,
+        exporter,
         exportIntervalMillis: exportIntervalMs,
       });
 
@@ -108,9 +141,10 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
         readers: [metricReader],
       });
 
-      const meter = meterProvider.getMeter("@goopil/clusterkit", "0.1.0");
+      const meter = meterProvider.getMeter("@goopil/clusterkit", PLUGIN_VERSION);
 
       if (cluster.isPrimary) {
+        clearPrimaryListeners();
         log?.debug("Plugin installed on primary process");
         primaryOrchestrator = orchestrator;
 
@@ -148,18 +182,18 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
 
         const singleWorker = orchestrator.workerCount === 1;
         if (singleWorker && instrumentation) {
-          await startHostMetrics();
+          await startHostMetrics(meterProvider);
         }
       } else {
         log?.debug("Plugin installed on worker process");
 
         if (instrumentation) {
-          await startHostMetrics();
+          await startHostMetrics(meterProvider);
         }
       }
 
       orchestrator.registerOnShutdown(async () => {
-        await meterProvider?.shutdown();
+        await shutdownProvider();
       });
     },
 
@@ -168,8 +202,7 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
     },
 
     async shutdown(): Promise<void> {
-      await meterProvider?.shutdown();
-      meterProvider = undefined;
+      await shutdownProvider();
     },
   };
 }

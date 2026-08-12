@@ -1,8 +1,10 @@
 import { EventEmitter } from "node:events";
 import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
-import { describe, expect, it, vi } from "vitest";
+import type { MeterProvider as MeterProviderType } from "@opentelemetry/sdk-metrics";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock the OTLP exporter so install() doesn't try to reach a real collector
+const mockHostMetricsStart = vi.fn();
+
 vi.mock("@opentelemetry/exporter-metrics-otlp-http", () => ({
   OTLPMetricExporter: class {
     async export(_metrics: unknown, cb: (r: { status: number }) => void) {
@@ -25,9 +27,16 @@ vi.mock("@opentelemetry/exporter-metrics-otlp-grpc", () => ({
 
 vi.mock("@opentelemetry/host-metrics", () => ({
   HostMetrics: class {
-    start() {}
+    constructor(_opts: { meterProvider: unknown }) {}
+    start() {
+      mockHostMetricsStart();
+    }
   },
 }));
+
+beforeEach(() => {
+  mockHostMetricsStart.mockClear();
+});
 
 // Helpers (reused by later tasks) ===========================================
 
@@ -92,27 +101,28 @@ function autoWorkerConfig(): ResolvedConfig {
   return { ...singleWorkerConfig(), workers: { count: "auto", env: undefined, execArgv: undefined, maxAgeMs: 0 } };
 }
 
-// Counter spy helper: intercepts createCounter to capture add() calls
-function spyOnCounters(): {
-  spies: Record<string, ReturnType<typeof vi.fn>>;
+type CounterSpies = Record<string, ReturnType<typeof vi.fn>>;
+
+async function spyOnCounters(): Promise<{
+  spies: CounterSpies;
   restore: () => void;
-} {
-  const spies: Record<string, ReturnType<typeof vi.fn>> = {};
-  const { MeterProvider } = require("@opentelemetry/sdk-metrics") as {
-    MeterProvider: { prototype: { getMeter: (...a: unknown[]) => unknown } };
-  };
+}> {
+  const spies: CounterSpies = {};
+  const sdkMod = await import("@opentelemetry/sdk-metrics");
+  const MeterProvider = sdkMod.MeterProvider as typeof MeterProviderType;
   const origGetMeter = MeterProvider.prototype.getMeter;
-  MeterProvider.prototype.getMeter = vi.fn(function (this: unknown, ...args: unknown[]) {
-    // @ts-expect-error - patching for test
+
+  MeterProvider.prototype.getMeter = function (this: MeterProvider, ...args: Parameters<typeof origGetMeter>) {
     const meter = origGetMeter.apply(this, args);
     const origCreateCounter = meter.createCounter.bind(meter);
-    meter.createCounter = vi.fn((name: string) => {
+    meter.createCounter = ((name: string) => {
       const counter = origCreateCounter(name);
       spies[name] = vi.spyOn(counter, "add");
       return counter;
-    });
+    }) as typeof meter.createCounter;
     return meter;
-  }) as unknown as typeof origGetMeter;
+  } as typeof origGetMeter;
+
   return {
     spies,
     restore: () => {
@@ -152,6 +162,13 @@ describe("options validation", () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     expect(() => createOtlpMeterPlugin({ exportIntervalMs: Number.NaN, instrumentation: false })).toThrow();
   });
+
+  it("rejects invalid http endpoint URL", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    expect(() => createOtlpMeterPlugin({ endpoint: "not-a-url", instrumentation: false })).toThrow(
+      /invalid endpoint URL/,
+    );
+  });
 });
 
 // Event → counter mapping ===================================================
@@ -159,7 +176,7 @@ describe("options validation", () => {
 describe("metrics — event to counter mapping", () => {
   it("worker:crash increments worker.crashes counter", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const { spies, restore } = spyOnCounters();
+    const { spies, restore } = await spyOnCounters();
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
@@ -174,7 +191,7 @@ describe("metrics — event to counter mapping", () => {
 
   it("worker:restart increments worker.restarts counter", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const { spies, restore } = spyOnCounters();
+    const { spies, restore } = await spyOnCounters();
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
@@ -189,7 +206,7 @@ describe("metrics — event to counter mapping", () => {
 
   it("circuit-breaker:tripped increments circuit_breaker.trips counter", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const { spies, restore } = spyOnCounters();
+    const { spies, restore } = await spyOnCounters();
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
@@ -204,7 +221,7 @@ describe("metrics — event to counter mapping", () => {
 
   it("counters accumulate across multiple events", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const { spies, restore } = spyOnCounters();
+    const { spies, restore } = await spyOnCounters();
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
@@ -220,7 +237,7 @@ describe("metrics — event to counter mapping", () => {
 
   it("does not duplicate event listeners after uninstall and reinstall", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const { spies, restore } = spyOnCounters();
+    const { spies, restore } = await spyOnCounters();
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
     const orch = mockOrchestrator();
 
@@ -234,6 +251,34 @@ describe("metrics — event to counter mapping", () => {
     expect(spies["clusterkit.worker.restarts"]).toHaveBeenCalledTimes(1);
     restore();
     await plugin.shutdown();
+  });
+});
+
+// Double shutdown guard =====================================================
+
+describe("shutdown safety", () => {
+  it("does not throw when shutdown() is called twice", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    await plugin.shutdown();
+    await expect(plugin.shutdown()).resolves.not.toThrow();
+  });
+
+  it("does not throw when shutdown callback and shutdown() both fire", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    let shutdownCb: (() => void | Promise<void>) | undefined;
+    const orch = mockOrchestrator();
+    (orch as unknown as { registerOnShutdown: (cb: typeof shutdownCb) => void }).registerOnShutdown = (cb) => {
+      shutdownCb = cb;
+    };
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    await shutdownCb?.();
+    await expect(plugin.shutdown()).resolves.not.toThrow();
   });
 });
 
@@ -290,12 +335,36 @@ describe("single-worker mode", () => {
   });
 });
 
-// Custom prefix ==============================================================
+// Instrumentation ===========================================================
+
+describe("instrumentation", () => {
+  it("starts host metrics in single-worker mode when instrumentation is true", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 100 });
+    const orch = mockOrchestrator(1, 1);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    expect(mockHostMetricsStart).toHaveBeenCalledTimes(1);
+    await plugin.shutdown();
+  });
+
+  it("does not start host metrics when instrumentation is false", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const orch = mockOrchestrator(1, 1);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    expect(mockHostMetricsStart).not.toHaveBeenCalled();
+    await plugin.shutdown();
+  });
+});
+
+// Custom prefix =============================================================
 
 describe("custom prefix", () => {
   it("applies custom prefix to metric names", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const { spies, restore } = spyOnCounters();
+    const { spies, restore } = await spyOnCounters();
     const plugin = createOtlpMeterPlugin({ instrumentation: false, prefix: "myapp.", exportIntervalMs: 100 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
@@ -312,9 +381,7 @@ describe("custom prefix", () => {
 
 describe("dynamic import errors", () => {
   it("throws clear error when grpc exporter package is missing", async () => {
-    vi.doMock("@opentelemetry/exporter-metrics-otlp-grpc", () => {
-      throw new Error("Module not found");
-    });
+    vi.doMock("@opentelemetry/exporter-metrics-otlp-grpc", () => ({}));
 
     const mod = await import("../src/index");
     const plugin = mod.createOtlpMeterPlugin({ protocol: "grpc", instrumentation: false, exportIntervalMs: 100 });
