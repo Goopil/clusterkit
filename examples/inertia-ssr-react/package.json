@@ -17,13 +17,13 @@
     "express": "^5.2.1",
     "prom-client": "^15",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^19"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
     "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.5",
     "typescript": "catalog:",
     "vite": "catalog:"
