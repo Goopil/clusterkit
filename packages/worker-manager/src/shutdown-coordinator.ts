@@ -56,17 +56,40 @@ export class ShutdownCoordinator {
     this.log?.info("Shutdown coordinator initiated", { signal });
     this.onShutdownStart?.(signal);
 
-    // 1. Send shutdown message and wait for ACKs
-    await this.sendShutdownAndWaitAcks(workers);
+    // Attach error listeners to all workers for the duration of shutdown.
+    // When a worker exits while we are calling send() or disconnect(),
+    // Node emits an async 'error' event on the Worker instance (not on
+    // worker.process). Without a listener this becomes an uncaught
+    // exception. These errors are expected during shutdown.
+    const errorHandlers = new Map<Worker, (err: Error) => void>();
+    for (const worker of workers) {
+      const handler = (err: Error): void => {
+        this.log?.debug("Worker error during shutdown", {
+          workerId: worker.id,
+          error: err,
+        });
+      };
+      errorHandlers.set(worker, handler);
+      worker.on("error", handler);
+    }
 
-    // 2. Wait for workers to exit
-    await this.waitForWorkersToExit(workers);
+    try {
+      // 1. Send shutdown message and wait for ACKs
+      await this.sendShutdownAndWaitAcks(workers);
 
-    // 3. Force-kill any survivors
-    const survivors = workers.filter((w) => !w.isDead());
-    if (survivors.length > 0) {
-      this.log?.warn("Force killing survivors", { count: survivors.length });
-      await Promise.all(survivors.map((w) => this.killWorkerGradually(w)));
+      // 2. Wait for workers to exit
+      await this.waitForWorkersToExit(workers);
+
+      // 3. Force-kill any survivors
+      const survivors = workers.filter((w) => !w.isDead());
+      if (survivors.length > 0) {
+        this.log?.warn("Force killing survivors", { count: survivors.length });
+        await Promise.all(survivors.map((w) => this.killWorkerGradually(w)));
+      }
+    } finally {
+      for (const [worker, handler] of errorHandlers) {
+        worker.off("error", handler);
+      }
     }
 
     this.log?.info("All workers terminated");
@@ -101,7 +124,14 @@ export class ShutdownCoordinator {
 
       const disconnectWorker = (): void => {
         if (!worker.isDead() && worker.isConnected()) {
-          worker.disconnect();
+          try {
+            worker.disconnect();
+          } catch (err) {
+            this.log?.debug("Worker disconnect failed (likely already exited)", {
+              workerId: worker.id,
+              error: err,
+            });
+          }
         }
       };
 
@@ -109,10 +139,21 @@ export class ShutdownCoordinator {
         worker.off("message", ackHandler);
         worker.off("exit", terminalHandler);
         worker.off("disconnect", terminalHandler);
+        worker.off("error", errorHandler);
         if (ackTimeoutId) {
           clearTimeout(ackTimeoutId);
           ackTimeoutId = undefined;
         }
+      };
+
+      const errorHandler = (err: Error): void => {
+        this.log?.debug("Worker error during ACK wait", {
+          workerId: worker.id,
+          error: err,
+        });
+        cleanup();
+        this.pendingShutdownWorkers.delete(worker);
+        resolve();
       };
 
       const sendShutdown = (): void => {
@@ -150,6 +191,7 @@ export class ShutdownCoordinator {
       worker.on("message", ackHandler);
       worker.once("exit", terminalHandler);
       worker.once("disconnect", terminalHandler);
+      worker.on("error", errorHandler);
 
       // Individual timeout per worker
       ackTimeoutId = setTimeout(() => {
