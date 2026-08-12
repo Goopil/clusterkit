@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const packages = ["@goopil/clusterkit", "@goopil/clusterkit-prometheus", "@goopil/clusterkit-sizing"];
+const packages = ["@goopil/clusterkit", "@goopil/clusterkit-prometheus", "@goopil/clusterkit-sizing", "@goopil/clusterkit-otlp-meter"];
 
 function run(command, args, options = {}) {
   execFileSync(command, args, { cwd: rootDir, stdio: "inherit", ...options });
@@ -52,10 +52,12 @@ async function main() {
       `import { Orchestrator } from "@goopil/clusterkit";
 import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 import { createContainerSizingPlugin } from "@goopil/clusterkit-sizing";
+import { createOtlpMeterPlugin } from "@goopil/clusterkit-otlp-meter";
 
 if (!(new Orchestrator() instanceof Orchestrator)) throw new Error("ESM core import failed");
 if (createPrometheusPlugin().name !== "prometheus") throw new Error("ESM Prometheus import failed");
 if (createContainerSizingPlugin().name !== "container-sizing") throw new Error("ESM sizing import failed");
+if (createOtlpMeterPlugin({ instrumentation: false }).name !== "otlp-meter") throw new Error("ESM OTLP import failed");
 `,
     );
     await writeFile(
@@ -63,10 +65,12 @@ if (createContainerSizingPlugin().name !== "container-sizing") throw new Error("
       `const { Orchestrator } = require("@goopil/clusterkit");
 const { createPrometheusPlugin } = require("@goopil/clusterkit-prometheus");
 const { createContainerSizingPlugin } = require("@goopil/clusterkit-sizing");
+const { createOtlpMeterPlugin } = require("@goopil/clusterkit-otlp-meter");
 
 if (!(new Orchestrator() instanceof Orchestrator)) throw new Error("CJS core import failed");
 if (createPrometheusPlugin().name !== "prometheus") throw new Error("CJS Prometheus import failed");
 if (createContainerSizingPlugin().name !== "container-sizing") throw new Error("CJS sizing import failed");
+if (createOtlpMeterPlugin({ instrumentation: false }).name !== "otlp-meter") throw new Error("CJS OTLP import failed");
 `,
     );
     await writeFile(
