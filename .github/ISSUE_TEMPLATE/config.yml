@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions
+    url: https://github.com/Goopil/clusterkit/discussions
+    about: Ask and answer questions in GitHub Discussions.
+  - name: Security report
+    url: https://github.com/Goopil/clusterkit/security/policy
+    about: Report security vulnerabilities privately (see SECURITY.md).
