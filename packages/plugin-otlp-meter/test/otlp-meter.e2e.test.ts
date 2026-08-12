@@ -179,7 +179,6 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
       });
     });
 
-    await new Promise((r) => setTimeout(r, 600));
     await plugin.meterProvider?.forceFlush();
 
     const body = await waitForFirstExport();
@@ -308,7 +307,6 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
       });
     });
 
-    await new Promise((r) => setTimeout(r, 600));
     await plugin.meterProvider?.forceFlush();
 
     const body = await waitForFirstExport();

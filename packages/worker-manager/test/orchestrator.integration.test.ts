@@ -301,8 +301,18 @@ describe("Orchestrator process-level integration", () => {
     await orchestrator.run();
     await waitForOnlineWorkers(orchestrator, 2);
 
-    // Wait a bit to let the crash-loop worker crash and restart
-    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    // Wait for at least 1 restart (initial 2 workers + at least 1 restart = 3+ online events)
+    await withTimeout(
+      new Promise<void>((resolveRestart) => {
+        orchestrator.on("worker:online", (event) => {
+          if (onlineWorkerIds.size >= 3) {
+            resolveRestart();
+          }
+        });
+      }),
+      SIGNAL_TIMEOUT_MS,
+      "Timed out waiting for crash-loop worker to restart",
+    );
 
     // At least the initial 2 workers + at least 1 restart should have come online
     expect(onlineWorkerIds.size).toBeGreaterThanOrEqual(3);
