@@ -74,6 +74,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test:coverage
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: |
+            packages/worker-manager/coverage/lcov.info
+            packages/plugin-prometheus/coverage/lcov.info
+            packages/plugin-container-sizing/coverage/lcov.info
+          fail_ci_if_error: false
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
