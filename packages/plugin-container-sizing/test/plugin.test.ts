@@ -4,7 +4,7 @@ import { createContainerSizingPlugin } from "../src/index.js";
 
 vi.mock("@goopil/clusterkit", async (importOriginal) => {
   return {
-    ...((await importOriginal()) as any),
+    ...((await importOriginal()) as unknown as Record<string, unknown>),
     readCgroupLimits: vi.fn(),
   };
 });
@@ -69,7 +69,7 @@ describe("createContainerSizingPlugin", () => {
     await plugin.install(orchestrator as never, nullLogger, config);
 
     expect(plugin.sizing).toBeDefined();
-    expect(plugin.sizing!.workers).toBe(2);
+    expect(plugin.sizing?.workers).toBe(2);
     expect(orchestrator.overrideWorkerCount).toHaveBeenCalledWith(2);
     expect(orchestrator.patchWorkerEnv).toHaveBeenCalledWith(
       expect.objectContaining({ NODE_OPTIONS: expect.stringContaining("--max-old-space-size=") }),

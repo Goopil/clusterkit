@@ -186,9 +186,9 @@ export interface CgroupLimits {
 const V1_MEMORY_UNLIMITED = 9_223_372_036_854_771_712n;
 const V1_UNLIMITED_THRESHOLD = V1_MEMORY_UNLIMITED - 4096n;
 
-async function tryRead(path: string): Promise<string | null> {
+async function tryRead(filePath: string): Promise<string | null> {
   try {
-    return (await readFile(path, "utf8")).trim();
+    return (await readFile(filePath, "utf8")).trim();
   } catch {
     return null;
   }

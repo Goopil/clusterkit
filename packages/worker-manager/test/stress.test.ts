@@ -72,11 +72,11 @@ describe("Orchestrator stress tests", () => {
     await orchestrator.run();
 
     // Wait for the circuit breaker to trip
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolveBreaker, reject) => {
       const timer = setTimeout(() => reject(new Error("circuit breaker did not trip")), 10_000);
       orchestrator.on("circuit-breaker:tripped", () => {
         clearTimeout(timer);
-        resolve();
+        resolveBreaker();
       });
     });
 

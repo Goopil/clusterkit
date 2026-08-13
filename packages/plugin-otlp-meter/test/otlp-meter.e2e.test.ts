@@ -58,7 +58,7 @@ async function startMockCollector(): Promise<string> {
     });
     mockCollector.listen(0, "127.0.0.1", () => resolveServer());
   });
-  const address = mockCollector!.address();
+  const address = mockCollector?.address();
   if (!address || typeof address === "string") throw new Error("failed to get collector address");
   return `http://127.0.0.1:${address.port}/v1/metrics`;
 }
@@ -214,7 +214,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
 
     await waitForWorkers(orch, 2);
 
-    const meter = plugin.meterProvider!.getMeter("e2e-custom");
+    const meter = plugin.meterProvider?.getMeter("e2e-custom");
     const customCounter = meter.createCounter("e2e.custom.requests", {
       description: "Custom counter from e2e test",
     });

@@ -34,15 +34,19 @@ orchestrator.use(prometheus).run(async () => {
     res.json({ status: "ok", timestamp: Date.now() });
   });
 
-  app.post("/render", async (req, res) => {
-    try {
-      const html = await render(req.body);
-      res.json({ body: html });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("[ssr] render error:", message);
-      res.status(500).json({ error: message });
-    }
+  app.post("/render", (req, res, next) => {
+    Promise.resolve(
+      (async () => {
+        try {
+          const html = await render(req.body);
+          res.json({ body: html });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error("[ssr] render error:", message);
+          res.status(500).json({ error: message });
+        }
+      })(),
+    ).catch(next);
   });
 
   const server = app.listen({

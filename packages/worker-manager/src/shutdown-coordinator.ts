@@ -4,6 +4,8 @@ import type { Logger, ResolvedConfig, WorkerMetrics } from "./types";
 
 import { isTypedMessage } from "./types";
 
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 /**
  * Coordinates graceful shutdown of workers and cleanup.
  * Handles the full shutdown sequence: notify, wait, kill, cleanup.
@@ -235,8 +237,6 @@ export class ShutdownCoordinator {
    * Kill a worker gradually: SIGTERM → SIGINT → SIGKILL.
    */
   private async killWorkerGradually(worker: Worker): Promise<void> {
-    const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
     if (!worker.isDead()) {
       worker.process.kill("SIGTERM");
       await delay(this.cfg.shutdown.sigtermDelayMs);

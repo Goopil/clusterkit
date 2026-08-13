@@ -7,6 +7,7 @@ import {
 } from "@goopil/clusterkit";
 import cluster from "node:cluster";
 
+import type { SizingResult } from "./calculator.js";
 import type { ContainerSizingOptions, ContainerSizingPlugin } from "./types.js";
 
 import { calculateSizing, mergeNodeOptions, validateSizingOptions } from "./calculator.js";
@@ -24,7 +25,7 @@ export function createContainerSizingPlugin(options: ContainerSizingOptions = {}
     ...sizingOptions
   } = options;
 
-  let sizing: import("./calculator.js").SizingResult | undefined;
+  let sizing: SizingResult | undefined;
 
   return {
     name: "container-sizing",

@@ -57,7 +57,7 @@ describe("OTLP meter plugin integration with real orchestrator", () => {
       mockCollector.listen(0, "127.0.0.1", () => resolveServer());
     });
 
-    const address = mockCollector!.address();
+    const address = mockCollector?.address();
     if (!address || typeof address === "string") throw new Error("failed to get collector address");
     const collectorUrl = `http://127.0.0.1:${address.port}/v1/metrics`;
 

@@ -1,3 +1,5 @@
+import type cluster from "node:cluster";
+
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -102,7 +104,7 @@ function cfg(extra: TestConfig = {}): Parameters<typeof Orchestrator>[0] {
 
   return {
     ...rest,
-    clusterModule: mockCluster as any,
+    clusterModule: mockCluster as unknown as typeof cluster,
     ...(workersConfig !== undefined ? { workers: workersConfig } : {}),
   };
 }
@@ -160,16 +162,16 @@ describe("Orchestrator", () => {
     });
 
     it("should reject invalid workers value", () => {
-      expect(() => new Orchestrator(cfg({ workers: 0 }))).toThrow();
+      expect(() => new Orchestrator(cfg({ workers: 0 }))).toThrow("workers");
     });
 
     it("should reject invalid shutdown.timeoutMs", () => {
-      expect(() => new Orchestrator(cfg({ shutdown: { timeoutMs: -1 } }))).toThrow();
+      expect(() => new Orchestrator(cfg({ shutdown: { timeoutMs: -1 } }))).toThrow("timeoutMs");
     });
 
     it("should reject invalid shutdown.messagePrefix", () => {
-      expect(() => new Orchestrator(cfg({ shutdown: { messagePrefix: "" } }))).toThrow();
-      expect(() => new Orchestrator(cfg({ shutdown: { messagePrefix: "a:b" } }))).toThrow();
+      expect(() => new Orchestrator(cfg({ shutdown: { messagePrefix: "" } }))).toThrow("messagePrefix");
+      expect(() => new Orchestrator(cfg({ shutdown: { messagePrefix: "a:b" } }))).toThrow("messagePrefix");
     });
   });
 
@@ -262,18 +264,18 @@ describe("Orchestrator", () => {
   describe("overrideWorkerCount", () => {
     it("should reject non-positive values", () => {
       const orch = new Orchestrator(cfg());
-      expect(() => orch.overrideWorkerCount(0)).toThrow();
-      expect(() => orch.overrideWorkerCount(-1)).toThrow();
+      expect(() => orch.overrideWorkerCount(0)).toThrow("positive");
+      expect(() => orch.overrideWorkerCount(-1)).toThrow("positive");
     });
 
     it("should reject non-integer values", () => {
       const orch = new Orchestrator(cfg());
-      expect(() => orch.overrideWorkerCount(2.5)).toThrow();
+      expect(() => orch.overrideWorkerCount(2.5)).toThrow("integer");
     });
 
     it("should reject overriding an explicit worker count", () => {
       const orch = new Orchestrator(cfg({ workers: 2 }));
-      expect(() => orch.overrideWorkerCount(3)).toThrow();
+      expect(() => orch.overrideWorkerCount(3)).toThrow("can only override");
     });
   });
 

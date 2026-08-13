@@ -9,27 +9,27 @@ const MB = 1024 * 1024;
 describe("calculateSizing", () => {
   it("rejects memoryOverheadFactor outside the (0, 1] range", () => {
     const limits: CgroupLimits = { cpuLimit: 2, memoryLimitBytes: 512 * MB };
-    expect(() => calculateSizing(limits, { memoryOverheadFactor: 0 })).toThrow();
-    expect(() => calculateSizing(limits, { memoryOverheadFactor: 1.1 })).toThrow();
+    expect(() => calculateSizing(limits, { memoryOverheadFactor: 0 })).toThrow("memoryOverheadFactor");
+    expect(() => calculateSizing(limits, { memoryOverheadFactor: 1.1 })).toThrow("memoryOverheadFactor");
   });
 
   it("rejects heapRatio outside the (0, 1] range", () => {
     const limits: CgroupLimits = { cpuLimit: 2, memoryLimitBytes: 512 * MB };
-    expect(() => calculateSizing(limits, { heapRatio: 0 })).toThrow();
-    expect(() => calculateSizing(limits, { heapRatio: 1.5 })).toThrow();
+    expect(() => calculateSizing(limits, { heapRatio: 0 })).toThrow("heapRatio");
+    expect(() => calculateSizing(limits, { heapRatio: 1.5 })).toThrow("heapRatio");
   });
 
   it("rejects invalid worker bounds", () => {
     const limits: CgroupLimits = { cpuLimit: 2, memoryLimitBytes: 512 * MB };
-    expect(() => calculateSizing(limits, { minWorkers: 0 })).toThrow();
-    expect(() => calculateSizing(limits, { maxWorkers: 0 })).toThrow();
-    expect(() => calculateSizing(limits, { minWorkers: 4, maxWorkers: 2 })).toThrow();
+    expect(() => calculateSizing(limits, { minWorkers: 0 })).toThrow("minWorkers");
+    expect(() => calculateSizing(limits, { maxWorkers: 0 })).toThrow("maxWorkers");
+    expect(() => calculateSizing(limits, { minWorkers: 4, maxWorkers: 2 })).toThrow("minWorkers");
   });
 
   it("rejects unrealistic worker bounds", () => {
     const limits: CgroupLimits = { cpuLimit: 2, memoryLimitBytes: 512 * MB };
-    expect(() => calculateSizing(limits, { minWorkers: 257 })).toThrow();
-    expect(() => calculateSizing(limits, { maxWorkers: 257 })).toThrow();
+    expect(() => calculateSizing(limits, { minWorkers: 257 })).toThrow("minWorkers");
+    expect(() => calculateSizing(limits, { maxWorkers: 257 })).toThrow("maxWorkers");
   });
 
   it("computes workers, heap and nodeOptions from container limits", () => {

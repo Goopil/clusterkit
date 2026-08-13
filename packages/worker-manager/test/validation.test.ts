@@ -66,14 +66,16 @@ describe("validation", () => {
 
     it("should validate workers.env", () => {
       expect(() => validateConfig({ workers: { env: { NODE_ENV: "test" } } })).not.toThrow();
-      expect(() => validateConfig({ workers: { env: [] as any } })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ workers: { env: [] as never } })).toThrow(WorkerManagerValidationError);
     });
 
     it("should validate workers.execArgv", () => {
       expect(() => validateConfig({ workers: { execArgv: ["--max-old-space-size=512"] } })).not.toThrow();
       expect(() => validateConfig({ workers: { execArgv: [] } })).not.toThrow();
-      expect(() => validateConfig({ workers: { execArgv: "--inspect" as any } })).toThrow(WorkerManagerValidationError);
-      expect(() => validateConfig({ workers: { execArgv: ["--inspect", 42 as any] } })).toThrow(
+      expect(() => validateConfig({ workers: { execArgv: "--inspect" as unknown as string[] } })).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ workers: { execArgv: ["--inspect", 42 as unknown as string] } })).toThrow(
         WorkerManagerValidationError,
       );
       expect(() => validateConfig({ workers: { execArgv: [""] } })).toThrow(WorkerManagerValidationError);
@@ -184,21 +186,33 @@ describe("validation", () => {
 
   describe("shape guards", () => {
     it("should reject non-object blocks", () => {
-      expect(() => validateConfig({ workers: [] as any })).toThrow(WorkerManagerValidationError);
-      expect(() => validateConfig({ restart: null as any })).toThrow(WorkerManagerValidationError);
-      expect(() => validateConfig({ shutdown: 42 as any })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ workers: [] as unknown as object })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ restart: null as unknown as object })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ shutdown: 42 as unknown as object })).toThrow(WorkerManagerValidationError);
     });
 
     it("should reject unsupported root options", () => {
-      expect(() => validateConfig({ foo: "bar" } as any)).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ foo: "bar" } as unknown as Record<string, unknown>)).toThrow(
+        WorkerManagerValidationError,
+      );
     });
 
     it("should reject legacy flat options", () => {
-      expect(() => validateConfig({ workers: 4 } as any)).toThrow(WorkerManagerValidationError);
-      expect(() => validateConfig({ workerEnv: { NODE_ENV: "test" } } as any)).toThrow(WorkerManagerValidationError);
-      expect(() => validateConfig({ restartBackoffMs: 1_000 } as any)).toThrow(WorkerManagerValidationError);
-      expect(() => validateConfig({ shutdownTimeoutMs: 5_000 } as any)).toThrow(WorkerManagerValidationError);
-      expect(() => validateConfig({ messagePrefix: "myapp" } as any)).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ workers: 4 } as unknown as Record<string, unknown>)).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ workerEnv: { NODE_ENV: "test" } } as unknown as Record<string, unknown>)).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ restartBackoffMs: 1_000 } as unknown as Record<string, unknown>)).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ shutdownTimeoutMs: 5_000 } as unknown as Record<string, unknown>)).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ messagePrefix: "myapp" } as unknown as Record<string, unknown>)).toThrow(
+        WorkerManagerValidationError,
+      );
     });
   });
 });

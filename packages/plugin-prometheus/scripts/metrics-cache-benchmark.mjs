@@ -14,7 +14,7 @@ function mockOrchestrator(activeWorkers = 0) {
 function percentile(values, p) {
   if (values.length === 0) return 0;
 
-  const sorted = [...values].sort((a, b) => a - b);
+  const sorted = [...values].toSorted((a, b) => a - b);
   const rank = Math.ceil((p / 100) * sorted.length) - 1;
   return sorted[Math.max(0, Math.min(rank, sorted.length - 1))];
 }

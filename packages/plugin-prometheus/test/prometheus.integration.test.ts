@@ -57,13 +57,13 @@ describe("Prometheus plugin integration with real orchestrator", () => {
 
     // Wait for 2 workers online
     const onlineCount = new Set<number>();
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolveWorkerCount, reject) => {
       const timer = setTimeout(() => reject(new Error("timeout waiting for workers")), 8_000);
       orchestrator.on("worker:online", (e) => {
         onlineCount.add(e.workerId);
         if (onlineCount.size >= 2) {
           clearTimeout(timer);
-          resolve();
+          resolveWorkerCount();
         }
       });
     });

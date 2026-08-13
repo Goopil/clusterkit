@@ -41,16 +41,20 @@ orchestrator.use(prometheus).run(async () => {
   });
 
   // Render endpoint — called by Laravel for every Inertia SSR page
-  app.post("/render", async (req, res) => {
-    try {
-      const html = await render(req.body);
-      res.json({ body: html });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("[ssr] render error:", message);
-      // Returning 500 makes Laravel fall back to client-side rendering
-      res.status(500).json({ error: message });
-    }
+  app.post("/render", (req, res, next) => {
+    Promise.resolve(
+      (async () => {
+        try {
+          const html = await render(req.body);
+          res.json({ body: html });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error("[ssr] render error:", message);
+          // Returning 500 makes Laravel fall back to client-side rendering
+          res.status(500).json({ error: message });
+        }
+      })(),
+    ).catch(next);
   });
 
   const server = app.listen({

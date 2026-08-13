@@ -53,7 +53,7 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
 
   if (protocol === "http") {
     try {
-      new URL(resolvedEndpoint);
+      void new URL(resolvedEndpoint);
     } catch {
       throw new TypeError(`otlp-meter plugin: invalid endpoint URL "${resolvedEndpoint}"`);
     }

@@ -82,8 +82,8 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     primaryOrchestrator = undefined;
   };
 
-  async function mergedMetrics(options: PrometheusMetricsRequestOptions = {}): Promise<string> {
-    const { bypassCache = false } = options;
+  async function mergedMetrics(opts: PrometheusMetricsRequestOptions = {}): Promise<string> {
+    const { bypassCache = false } = opts;
     const now = Date.now();
 
     if (!bypassCache && normalizedMetricsCacheTtlMs > 0 && mergedMetricsCache && mergedMetricsCache.expiresAt > now) {
@@ -226,8 +226,8 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
       clearMergedMetricsCache();
     },
 
-    async getMetrics(options: PrometheusMetricsRequestOptions = {}): Promise<string> {
-      return mergedMetrics(options);
+    async getMetrics(opts: PrometheusMetricsRequestOptions = {}): Promise<string> {
+      return mergedMetrics(opts);
     },
   };
 }

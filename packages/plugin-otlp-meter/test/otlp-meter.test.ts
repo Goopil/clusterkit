@@ -155,12 +155,14 @@ describe("OtlpMeterPlugin interface", () => {
 describe("options validation", () => {
   it("rejects negative exportIntervalMs", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    expect(() => createOtlpMeterPlugin({ exportIntervalMs: -1, instrumentation: false })).toThrow();
+    expect(() => createOtlpMeterPlugin({ exportIntervalMs: -1, instrumentation: false })).toThrow("exportIntervalMs");
   });
 
   it("rejects NaN exportIntervalMs", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    expect(() => createOtlpMeterPlugin({ exportIntervalMs: Number.NaN, instrumentation: false })).toThrow();
+    expect(() => createOtlpMeterPlugin({ exportIntervalMs: Number.NaN, instrumentation: false })).toThrow(
+      "exportIntervalMs",
+    );
   });
 
   it("rejects invalid http endpoint URL", async () => {
