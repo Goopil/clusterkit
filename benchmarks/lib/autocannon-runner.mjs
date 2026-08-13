@@ -1,25 +1,25 @@
 import autocannon from "autocannon";
 
-export async function runAutocannon({ url, connections, durationSec, warmupSec }) {
-  if (warmupSec > 0) {
-    await autocannon({
-      url,
-      connections,
-      duration: warmupSec,
-      pipelining: 1,
-      reuseConnections: true,
-      ignoreUNIXErrors: true,
-    });
-  }
-
-  const result = await autocannon({
+export async function runAutocannon({ url, connections, durationSec, warmupSec, method = "GET", body, headers }) {
+  const opts = {
     url,
     connections,
     duration: durationSec,
     pipelining: 1,
     reuseConnections: true,
     ignoreUNIXErrors: true,
-  });
+  };
+  if (method !== "GET") {
+    opts.method = method;
+    if (body) opts.body = body;
+    if (headers) opts.headers = headers;
+  }
+
+  if (warmupSec > 0) {
+    await autocannon({ ...opts, duration: warmupSec });
+  }
+
+  const result = await autocannon(opts);
 
   return {
     rps: result.requests.average,
@@ -31,10 +31,27 @@ export async function runAutocannon({ url, connections, durationSec, warmupSec }
   };
 }
 
-export async function runScenario({ url, connections, warmupSec, measureSec, repetitions }) {
+export async function runScenario({
+  url,
+  connections,
+  warmupSec,
+  measureSec,
+  repetitions,
+  method = "GET",
+  body,
+  headers,
+}) {
   const runs = [];
   for (let i = 0; i < repetitions; i++) {
-    const run = await runAutocannon({ url, connections, durationSec: measureSec, warmupSec });
+    const run = await runAutocannon({
+      url,
+      connections,
+      durationSec: measureSec,
+      warmupSec,
+      method,
+      body,
+      headers,
+    });
     runs.push(run);
   }
 

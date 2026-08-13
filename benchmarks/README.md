@@ -54,8 +54,14 @@ corepack pnpm --filter benchmarks exec node runner.mjs --list
 | `hello` | `res.json({hello, pid})` — pure orchestrator overhead |
 | `latency-10ms` | `setTimeout(10ms)` — simulates async I/O |
 | `cpu-io-mix` | 1ms CPU loop + 2ms setTimeout — realistic mix |
+| `list-100` | Paginated list of 100 records (~5KB JSON) from 10k dataset — serialization stress |
+| `aggregate` | Group-by + count + top-5 on 10k records — CPU-bound data processing |
+| `auth-verify` | HMAC-SHA256 + JSON parse on every request — crypto overhead |
+| `error-rate` | 10% of requests return structured 500 errors — error handling path |
+| `upload-echo` | POST with ~1KB JSON body, validate + echo — body parsing overhead |
 
 All workload responses include `pid: process.pid` for worker distribution validation.
+The `upload-echo` workload uses POST method; the runner automatically sends a JSON body.
 
 ## Output
 

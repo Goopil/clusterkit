@@ -16,7 +16,16 @@ const RESULTS_DIR = join(__dirname, "results");
 const REPO_ROOT = join(__dirname, "..");
 
 const ALL_TARGETS = ["single", "clusterkit-3", "native-cluster-3", "throng-3", "pm2-3", "pm2-reload-3"];
-const ALL_WORKLOADS = ["hello", "latency-10ms", "cpu-io-mix"];
+const ALL_WORKLOADS = [
+  "hello",
+  "latency-10ms",
+  "cpu-io-mix",
+  "list-100",
+  "aggregate",
+  "auth-verify",
+  "error-rate",
+  "upload-echo",
+];
 const EXPECTED_PIDS = {
   single: 1,
   "clusterkit-3": 3,
@@ -25,6 +34,13 @@ const EXPECTED_PIDS = {
   "pm2-3": 3,
   "pm2-reload-3": 3,
 };
+
+const UPLOAD_BODY = JSON.stringify({
+  name: "Alice Johnson",
+  email: "alice@example.com",
+  age: 32,
+  tags: ["premium", "verified", "newsletter", "early-access", "beta-tester"],
+});
 
 async function main() {
   const cli = parseCliArgs();
@@ -135,6 +151,9 @@ async function runScenarioForTarget(target, workload, config) {
         warmupSec: config.warmupSec,
         measureSec: config.measureSec,
         repetitions: config.repetitions,
+        method: workload === "upload-echo" ? "POST" : "GET",
+        body: workload === "upload-echo" ? UPLOAD_BODY : undefined,
+        headers: workload === "upload-echo" ? { "Content-Type": "application/json" } : undefined,
       });
 
       const pidDist = await checkPidDistribution(url);

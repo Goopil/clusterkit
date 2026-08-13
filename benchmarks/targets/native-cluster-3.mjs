@@ -9,6 +9,11 @@ const WORKLOADS = {
   hello: "hello.mjs",
   "latency-10ms": "latency-10ms.mjs",
   "cpu-io-mix": "cpu-io-mix.mjs",
+  "list-100": "list-100.mjs",
+  aggregate: "aggregate.mjs",
+  "auth-verify": "auth-verify.mjs",
+  "error-rate": "error-rate.mjs",
+  "upload-echo": "upload-echo.mjs",
 };
 
 const workload = process.env.BENCH_WORKLOAD || "hello";
@@ -27,7 +32,10 @@ if (cluster.isPrimary) {
 } else {
   const handler = await loadWorkload();
   const app = express();
+  app.use(express.json({ limit: "10kb" }));
   app.get("/", handler);
   app.get("/:path", handler);
+  app.post("/", handler);
+  app.post("/:path", handler);
   app.listen(port, "0.0.0.0");
 }

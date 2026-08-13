@@ -33,7 +33,8 @@
       "!**/coverage",
       "!**/.pnpm-store",
       "!**/pnpm-lock.yaml",
-      "!.worktrees"
+      "!.worktrees",
+      "!benchmarks/data/records.json"
     ]
   }
 }
