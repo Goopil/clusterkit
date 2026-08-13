@@ -83,7 +83,7 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
     } catch (err) {
       if (isMissingModuleError(err)) {
         throw new Error(
-          `otlp-meter plugin: protocol '${protocol}' requires ${exporterModuleName} — install it or use protocol '${protocol === "grpc" ? "http" : "grpc"}'`,
+          `otlp-meter plugin: protocol '${protocol}' requires ${exporterModuleName} — install it or use protocol '${protocol === "grpc" ? "http" : "grpc"}'`, { cause: err },
         );
       }
       throw err;

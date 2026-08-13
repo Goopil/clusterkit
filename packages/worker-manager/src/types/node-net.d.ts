@@ -14,4 +14,4 @@ declare module "node:net" {
   }
 }
 
-export {};
+

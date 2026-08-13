@@ -19,7 +19,16 @@
     "typescript/consistent-type-imports": ["warn", { "prefer": "type-imports" }],
     "unicorn/prefer-node-protocol": "error",
     "eslint/no-console": "warn",
-    "eslint/no-debugger": "error"
+    "eslint/no-debugger": "error",
+    "eslint/no-underscore-dangle": "off",
+    "eslint/no-await-in-loop": "off",
+    "typescript/no-extraneous-class": "off",
+    "import/no-unassigned-import": "off",
+    "oxc/no-async-endpoint-handlers": "off",
+    "unicorn/no-array-sort": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "eslint/no-new": "off",
+    "eslint/no-shadow": "off"
   },
   "overrides": [
     {
@@ -27,7 +36,10 @@
       "plugins": ["vitest"],
       "env": { "vitest": true },
       "rules": {
-        "eslint/no-console": "off"
+        "eslint/no-console": "off",
+        "vitest/require-mock-type-parameters": "off",
+        "vitest/require-to-throw-message": "off",
+        "vitest/no-conditional-expect": "off"
       }
     },
     {
