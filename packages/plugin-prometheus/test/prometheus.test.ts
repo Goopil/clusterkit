@@ -1,7 +1,9 @@
-import { EventEmitter } from "node:events";
 import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
+
+import { EventEmitter } from "node:events";
 import { AggregatorRegistry, Registry } from "prom-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { createPrometheusPlugin, type PrometheusPlugin, type PrometheusPluginOptions } from "../src/index";
 
 // ============================================================================

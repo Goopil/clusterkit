@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { ResolvedConfig, WorkerMetrics } from "../src/types";
+
 import { WorkerManager } from "../src/worker-manager";
 import { MockCluster } from "./helpers";
 

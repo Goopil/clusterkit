@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { getCPUCount } from "../src/sizing";
 
 describe("sizing", () => {

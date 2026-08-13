@@ -1,4 +1,5 @@
 import os from "node:os";
+
 import { getCgroupCpuLimit } from "./cgroup";
 
 /**

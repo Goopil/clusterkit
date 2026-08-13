@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { isTypedMessage } from "../src/types";
 
 describe("isTypedMessage", () => {

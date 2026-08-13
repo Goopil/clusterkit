@@ -7,15 +7,15 @@ For monorepo context and examples catalog, see the [root README](../../README.md
 
 ## Capabilities
 
-| Capability | Details |
-|------------|---------|
-| Worker orchestration | Spawns and supervises workers with `cluster` |
+| Capability                    | Details                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
+| Worker orchestration          | Spawns and supervises workers with `cluster`                                           |
 | Platform capability detection | `Orchestrator.getCapabilities()` reports `platform`, `reusePort`, `clusterRecommended` |
-| Crash protection | Exponential restart backoff + circuit breaker (`restart.*`) |
-| Graceful shutdown | ACK-based worker shutdown, configurable timeouts/signals (`shutdown.*`) |
-| Lifecycle controls | Worker recycling (`workers.maxAgeMs`), env patching and worker-count override APIs |
-| Observability | Typed events, `getMetrics()`, `getHealth()` |
-| Plugin system | `use(plugin)` with install/uninstall lifecycle |
+| Crash protection              | Exponential restart backoff + circuit breaker (`restart.*`)                            |
+| Graceful shutdown             | ACK-based worker shutdown, configurable timeouts/signals (`shutdown.*`)                |
+| Lifecycle controls            | Worker recycling (`workers.maxAgeMs`), env patching and worker-count override APIs     |
+| Observability                 | Typed events, `getMetrics()`, `getHealth()`                                            |
+| Plugin system                 | `use(plugin)` with install/uninstall lifecycle                                         |
 
 ## Installation
 
@@ -53,31 +53,31 @@ orchestrator.run(async () => {
 
 ### Top-level (`OrchestratorConfig`)
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `logger` | `Logger \| null` | `null` | pino/winston/console-compatible logger |
-| `workers` | `WorkersConfig` | `{}` | Worker count/process options |
-| `restart` | `RestartConfig` | `{}` | Crash handling + restart policy |
-| `shutdown` | `ShutdownConfig` | `{}` | Shutdown lifecycle options |
+| Option     | Type             | Default | Description                            |
+| ---------- | ---------------- | ------- | -------------------------------------- |
+| `logger`   | `Logger \| null` | `null`  | pino/winston/console-compatible logger |
+| `workers`  | `WorkersConfig`  | `{}`    | Worker count/process options           |
+| `restart`  | `RestartConfig`  | `{}`    | Crash handling + restart policy        |
+| `shutdown` | `ShutdownConfig` | `{}`    | Shutdown lifecycle options             |
 
 ### `workers`
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `count` | `number \| 'auto'` | `'auto'` | Number of workers |
-| `env` | `NodeJS.ProcessEnv` | `undefined` | Extra env vars merged into worker env |
-| `execArgv` | `string[]` | `undefined` | Node.js args passed to workers |
-| `maxAgeMs` | `number` | `0` | Worker recycling interval (`0` disables) |
+| Option     | Type                | Default     | Description                              |
+| ---------- | ------------------- | ----------- | ---------------------------------------- |
+| `count`    | `number \| 'auto'`  | `'auto'`    | Number of workers                        |
+| `env`      | `NodeJS.ProcessEnv` | `undefined` | Extra env vars merged into worker env    |
+| `execArgv` | `string[]`          | `undefined` | Node.js args passed to workers           |
+| `maxAgeMs` | `number`            | `0`         | Worker recycling interval (`0` disables) |
 
 ### `restart`
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `crashThreshold` | `number` | `5` | Crash count before tripping circuit breaker |
-| `crashWindowMs` | `number` | `60000` | Sliding window for crash counting |
-| `backoffMs` | `number` | `1000` | Initial restart delay |
-| `maxBackoffMs` | `number` | `30000` | Backoff upper bound |
-| `backoffMultiplier` | `number` | `2` | Exponential backoff multiplier |
+| Option              | Type     | Default | Description                                                       |
+| ------------------- | -------- | ------- | ----------------------------------------------------------------- |
+| `crashThreshold`    | `number` | `5`     | Crash count before tripping circuit breaker                       |
+| `crashWindowMs`     | `number` | `60000` | Sliding window for crash counting                                 |
+| `backoffMs`         | `number` | `1000`  | Initial restart delay                                             |
+| `maxBackoffMs`      | `number` | `30000` | Backoff upper bound                                               |
+| `backoffMultiplier` | `number` | `2`     | Exponential backoff multiplier                                    |
 | `stabilityWindowMs` | `number` | `30000` | Crash-free time required to reset backoff (`0` = immediate reset) |
 
 Restart/backoff is cluster-level, not worker-local. Every non-graceful worker exit is recorded in the crash window and
@@ -89,13 +89,13 @@ unless `crashThreshold` is reached inside `crashWindowMs`.
 
 ### `shutdown`
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `timeoutMs` | `number` | `12000` | Max graceful shutdown duration before forced kill |
-| `ackTimeoutMs` | `number` | `3000` | Max wait for worker ACK before disconnecting that worker |
-| `messagePrefix` | `string` | `"__wm"` | Internal IPC message prefix |
-| `sigtermDelayMs` | `number` | `2000` | Delay before escalating `SIGTERM -> SIGINT` |
-| `sigintDelayMs` | `number` | `1000` | Delay before escalating `SIGINT -> SIGKILL` |
+| Option           | Type     | Default  | Description                                              |
+| ---------------- | -------- | -------- | -------------------------------------------------------- |
+| `timeoutMs`      | `number` | `12000`  | Max graceful shutdown duration before forced kill        |
+| `ackTimeoutMs`   | `number` | `3000`   | Max wait for worker ACK before disconnecting that worker |
+| `messagePrefix`  | `string` | `"__wm"` | Internal IPC message prefix                              |
+| `sigtermDelayMs` | `number` | `2000`   | Delay before escalating `SIGTERM -> SIGINT`              |
+| `sigintDelayMs`  | `number` | `1000`   | Delay before escalating `SIGINT -> SIGKILL`              |
 
 ## Runtime API (high level)
 
@@ -142,15 +142,15 @@ container or process supervisor kills the primary process.
 
 ## Typed events (`OrchestratorEvents`)
 
-| Event | When it fires |
-|-------|---------------|
-| `worker:online` | A worker reaches the cluster online state. |
-| `worker:exit` | A worker exits, including graceful disconnects and crashes. |
-| `worker:crash` | A worker exits non-gracefully and is recorded in the crash window. |
-| `worker:restart` | A replacement worker is forked after restart backoff. |
-| `worker:recycle` | A worker is replaced because `workers.maxAgeMs` is enabled and reached. |
-| `shutdown:start` | Primary shutdown coordination starts for `SIGTERM` or `SIGINT`. |
-| `shutdown:complete` | Primary shutdown coordination has finished. |
+| Event                     | When it fires                                                                |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `worker:online`           | A worker reaches the cluster online state.                                   |
+| `worker:exit`             | A worker exits, including graceful disconnects and crashes.                  |
+| `worker:crash`            | A worker exits non-gracefully and is recorded in the crash window.           |
+| `worker:restart`          | A replacement worker is forked after restart backoff.                        |
+| `worker:recycle`          | A worker is replaced because `workers.maxAgeMs` is enabled and reached.      |
+| `shutdown:start`          | Primary shutdown coordination starts for `SIGTERM` or `SIGINT`.              |
+| `shutdown:complete`       | Primary shutdown coordination has finished.                                  |
 | `circuit-breaker:tripped` | Crash count reached `restart.crashThreshold` inside `restart.crashWindowMs`. |
 
 ## Capability helpers

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { SignalHandler } from "../src/signal-handler";
 
 describe("SignalHandler", () => {

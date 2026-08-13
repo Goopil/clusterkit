@@ -1,7 +1,7 @@
 injectWorkspacePackages: true
 packages:
-  - 'packages/**'
-  - 'examples/**'
+  - "packages/**"
+  - "examples/**"
 
 catalog:
   "@types/node": "^26.2.0"

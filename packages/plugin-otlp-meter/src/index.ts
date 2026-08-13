@@ -1,11 +1,12 @@
-import cluster from "node:cluster";
-import { randomUUID } from "node:crypto";
-import os from "node:os";
 import { type Logger, type Orchestrator, type ResolvedConfig, withLoggerPrefix } from "@goopil/clusterkit";
 import { metrics } from "@opentelemetry/api";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { MeterProvider, PeriodicExportingMetricReader, type PushMetricExporter } from "@opentelemetry/sdk-metrics";
 import { ATTR_SERVICE_INSTANCE_ID, ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+import cluster from "node:cluster";
+import { randomUUID } from "node:crypto";
+import os from "node:os";
+
 import type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
 
 export type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
@@ -83,7 +84,8 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
     } catch (err) {
       if (isMissingModuleError(err)) {
         throw new Error(
-          `otlp-meter plugin: protocol '${protocol}' requires ${exporterModuleName} — install it or use protocol '${protocol === "grpc" ? "http" : "grpc"}'`, { cause: err },
+          `otlp-meter plugin: protocol '${protocol}' requires ${exporterModuleName} — install it or use protocol '${protocol === "grpc" ? "http" : "grpc"}'`,
+          { cause: err },
         );
       }
       throw err;

@@ -1,7 +1,9 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ShutdownCoordinator } from "../src/shutdown-coordinator";
+
 import type { ResolvedConfig, WorkerMetrics } from "../src/types";
+
+import { ShutdownCoordinator } from "../src/shutdown-coordinator";
 import { MockWorker } from "./helpers/mock-worker";
 
 // Stubborn worker — never ACKs, never exits on its own.

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { getCgroupCpuLimit, readCgroupLimits } from "../src/cgroup";
 
 vi.mock("node:fs", () => ({

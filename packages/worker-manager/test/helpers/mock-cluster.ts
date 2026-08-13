@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { vi } from "vitest";
+
 import { MockWorker } from "./mock-worker";
 
 /**

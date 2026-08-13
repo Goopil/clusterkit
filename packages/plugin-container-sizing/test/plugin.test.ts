@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createContainerSizingPlugin } from "../src/index.js";
 
 vi.mock("@goopil/clusterkit", async (importOriginal) => {

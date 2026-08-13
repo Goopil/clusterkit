@@ -1,5 +1,6 @@
 // examples/test/smoke.test.ts
 import { afterEach, describe, expect, it } from "vitest";
+
 import { fetchUrl, startExample, waitForPort } from "./smoke-harness.mjs";
 
 const examples = [

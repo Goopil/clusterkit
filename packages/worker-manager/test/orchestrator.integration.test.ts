@@ -3,8 +3,10 @@ import { once } from "node:events";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { Orchestrator } from "../src/orchestrator";
+
 import type { Logger, WorkerMetrics } from "../src/types";
+
+import { Orchestrator } from "../src/orchestrator";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 

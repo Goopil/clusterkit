@@ -4,6 +4,7 @@ import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 import { createContainerSizingPlugin } from "@goopil/clusterkit-sizing";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
+
 import { AppModule } from "./app.module";
 
 async function bootstrap() {

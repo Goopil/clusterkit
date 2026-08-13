@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { getCgroupCpuLimit } from "../src/cgroup";
 
 vi.mock("node:fs", () => ({

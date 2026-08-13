@@ -1,5 +1,7 @@
 import type { CgroupLimits } from "@goopil/clusterkit";
+
 import { describe, expect, it } from "vitest";
+
 import { calculateSizing, mergeNodeOptions } from "../src/calculator.js";
 
 const MB = 1024 * 1024;

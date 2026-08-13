@@ -156,11 +156,11 @@ CI (`.github/workflows/ci.yml`) runs in this order — a change must pass all of
 Eight standalone apps in `examples/`, each integrating core + plugins:
 
 | Example           | Port  | Metrics port |
-|-------------------|-------|--------------|
+| ----------------- | ----- | ------------ |
 | express           | 3000  | 9090         |
 | fastify           | 3001  | 9091         |
 | hono              | 3005  | 9092         |
-| koa              | 3006  | 9093         |
+| koa               | 3006  | 9093         |
 | nestjs-express    | 3007  | 9094         |
 | nestjs-fastify    | 3008  | 9095         |
 | inertia-ssr       | 13714 | 9096         |

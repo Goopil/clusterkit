@@ -1,9 +1,10 @@
+import { Orchestrator } from "@goopil/clusterkit";
 import cluster from "node:cluster";
 import { once } from "node:events";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Orchestrator } from "@goopil/clusterkit";
 import { afterEach, describe, expect, it } from "vitest";
+
 import { createPrometheusPlugin } from "../src/index";
 
 const __filename = fileURLToPath(import.meta.url);

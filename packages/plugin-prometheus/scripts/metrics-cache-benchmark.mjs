@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { performance } from "node:perf_hooks";
 import { AggregatorRegistry, Registry } from "prom-client";
+
 import { createPrometheusPlugin } from "../dist/index.js";
 
 function mockOrchestrator(activeWorkers = 0) {

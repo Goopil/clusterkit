@@ -4,11 +4,11 @@
 
 Only the latest published version of each package receives security fixes:
 
-| Package | Supported |
-| --- | --- |
-| `@goopil/clusterkit` | latest minor |
+| Package                         | Supported    |
+| ------------------------------- | ------------ |
+| `@goopil/clusterkit`            | latest minor |
 | `@goopil/clusterkit-prometheus` | latest minor |
-| `@goopil/clusterkit-sizing` | latest minor |
+| `@goopil/clusterkit-sizing`     | latest minor |
 
 ## Reporting a Vulnerability
 

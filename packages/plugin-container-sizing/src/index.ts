@@ -1,4 +1,3 @@
-import cluster from "node:cluster";
 import {
   type Logger,
   type Orchestrator,
@@ -6,8 +5,11 @@ import {
   readCgroupLimits,
   withLoggerPrefix,
 } from "@goopil/clusterkit";
-import { calculateSizing, mergeNodeOptions, validateSizingOptions } from "./calculator.js";
+import cluster from "node:cluster";
+
 import type { ContainerSizingOptions, ContainerSizingPlugin } from "./types.js";
+
+import { calculateSizing, mergeNodeOptions, validateSizingOptions } from "./calculator.js";
 
 export type { SizingOptions, SizingResult, SizingStrategy } from "./calculator.js";
 export type { CgroupLimits, ContainerSizingOptions, ContainerSizingPlugin } from "./types.js";

@@ -18,7 +18,7 @@ shutdown so you don't have to.
 - **Container-native** — reads cgroup v1/v2 CPU and memory limits to size workers automatically, with
   per-worker `--max-old-space-size` injection.
 - **Production-grade shutdown** — per-worker ACK protocol with configurable timeouts and `SIGTERM → SIGINT →
-  SIGKILL` escalation, tuned to fit inside a Kubernetes `terminationGracePeriodSeconds` budget.
+SIGKILL` escalation, tuned to fit inside a Kubernetes `terminationGracePeriodSeconds` budget.
 - **Crash resilient** — exponential backoff with a sliding-window circuit breaker prevents infinite crash loops
   from exhausting resources.
 - **Framework-agnostic** — works with Express, Fastify, Hono, Koa, NestJS, and more (8 ready-to-run examples).
@@ -40,12 +40,12 @@ shutdown so you don't have to.
 
 ## Packages
 
-| Package                                   | Description                                               | Detailed docs |
-|-------------------------------------------|-----------------------------------------------------------|---------------|
-| [`@goopil/clusterkit`](#goopilclusterkit) | Cluster orchestrator — core library                       | [`packages/worker-manager/README.md`](./packages/worker-manager/README.md) |
-| [`@goopil/clusterkit-prometheus`](#goopilclusterkit-prometheus) | Prometheus metrics export plugin                          | [`packages/plugin-prometheus/README.md`](./packages/plugin-prometheus/README.md) |
-| [`@goopil/clusterkit-sizing`](#goopilclusterkit-sizing) | Kubernetes / container-aware CPU and memory sizing plugin | [`packages/plugin-container-sizing/README.md`](./packages/plugin-container-sizing/README.md) |
-| [`@goopil/clusterkit-otlp-meter`](#goopilclusterkit-otlp-meter) | OpenTelemetry OTLP metrics export plugin                  | [`packages/plugin-otlp-meter/README.md`](./packages/plugin-otlp-meter/README.md) |
+| Package                                                         | Description                                               | Detailed docs                                                                                |
+| --------------------------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [`@goopil/clusterkit`](#goopilclusterkit)                       | Cluster orchestrator — core library                       | [`packages/worker-manager/README.md`](./packages/worker-manager/README.md)                   |
+| [`@goopil/clusterkit-prometheus`](#goopilclusterkit-prometheus) | Prometheus metrics export plugin                          | [`packages/plugin-prometheus/README.md`](./packages/plugin-prometheus/README.md)             |
+| [`@goopil/clusterkit-sizing`](#goopilclusterkit-sizing)         | Kubernetes / container-aware CPU and memory sizing plugin | [`packages/plugin-container-sizing/README.md`](./packages/plugin-container-sizing/README.md) |
+| [`@goopil/clusterkit-otlp-meter`](#goopilclusterkit-otlp-meter) | OpenTelemetry OTLP metrics export plugin                  | [`packages/plugin-otlp-meter/README.md`](./packages/plugin-otlp-meter/README.md)             |
 
 This root README gives the monorepo overview. Each package also has a dedicated README focused on its own capabilities,
 options, and API surface.
@@ -65,10 +65,10 @@ pnpm add @goopil/clusterkit
 ### Quick start
 
 ```js
-import {Orchestrator} from '@goopil/clusterkit';
+import { Orchestrator } from "@goopil/clusterkit";
 
 // Create the orchestrator explicitly, then query capabilities when needed
-const orchestrator = new Orchestrator({logger: console});
+const orchestrator = new Orchestrator({ logger: console });
 
 orchestrator.run(async () => {
   const capabilities = await Orchestrator.getCapabilities();
@@ -78,7 +78,7 @@ orchestrator.run(async () => {
 
   server.listen({
     port: 3000,
-    host: '0.0.0.0',
+    host: "0.0.0.0",
     // On Linux with SO_REUSEPORT: each worker binds directly (kernel balances)
     // On macOS / without SO_REUSEPORT: cluster IPC handles distribution
     reusePort: capabilities.reusePort,
@@ -92,12 +92,12 @@ orchestrator.run(async () => {
 
 ### Worker count
 
-| Condition                                        | Workers spawned             |
-|--------------------------------------------------|-----------------------------|
-| `workers.count: 'auto'` + `WEB_CONCURRENCY` set | Value of `WEB_CONCURRENCY`  |
-| `workers.count: 'auto'` + SO_REUSEPORT available | `os.availableParallelism()` |
+| Condition                                        | Workers spawned                                      |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| `workers.count: 'auto'` + `WEB_CONCURRENCY` set  | Value of `WEB_CONCURRENCY`                           |
+| `workers.count: 'auto'` + SO_REUSEPORT available | `os.availableParallelism()`                          |
 | `workers.count: 'auto'` + no SO_REUSEPORT        | `os.availableParallelism()` with cluster round-robin |
-| `workers.count: N`                               | Exactly N workers           |
+| `workers.count: N`                               | Exactly N workers                                    |
 
 > **macOS note** — SO_REUSEPORT detection is unreliable on macOS. Use `WEB_CONCURRENCY=4` to force multi-worker mode, or
 > test on Linux with the [Docker harness](#docker-test-harness).
@@ -106,31 +106,31 @@ orchestrator.run(async () => {
 
 ```ts
 const orchestrator = new Orchestrator({
-    logger: null, // pino/winston/console-compatible logger, null = silent
+  logger: null, // pino/winston/console-compatible logger, null = silent
 
-    workers: {
-      count: 'auto', // number | 'auto' — worker count
-      env: {NODE_ENV: 'production'}, // env vars injected into each worker
-      execArgv: ['--max-old-space-size=512'],
-      maxAgeMs: 0, // worker recycling (0 = disabled)
-    },
+  workers: {
+    count: "auto", // number | 'auto' — worker count
+    env: { NODE_ENV: "production" }, // env vars injected into each worker
+    execArgv: ["--max-old-space-size=512"],
+    maxAgeMs: 0, // worker recycling (0 = disabled)
+  },
 
-    restart: {
-      crashThreshold: 5, // crashes before stopping restarts
-      crashWindowMs: 60_000, // sliding window for crash counting
-      backoffMs: 1_000, // initial restart delay
-      maxBackoffMs: 30_000, // upper bound for restart delay
-      backoffMultiplier: 2, // exponential multiplier after each crash
-      stabilityWindowMs: 30_000, // reset backoff only after this crash-free window (0 = immediate reset)
-    },
+  restart: {
+    crashThreshold: 5, // crashes before stopping restarts
+    crashWindowMs: 60_000, // sliding window for crash counting
+    backoffMs: 1_000, // initial restart delay
+    maxBackoffMs: 30_000, // upper bound for restart delay
+    backoffMultiplier: 2, // exponential multiplier after each crash
+    stabilityWindowMs: 30_000, // reset backoff only after this crash-free window (0 = immediate reset)
+  },
 
-    shutdown: {
-      timeoutMs: 12_000, // graceful shutdown timeout before force kill
-      ackTimeoutMs: 3_000,
-      messagePrefix: '__wm',
-      sigtermDelayMs: 2_000,
-      sigintDelayMs: 1_000,
-    },
+  shutdown: {
+    timeoutMs: 12_000, // graceful shutdown timeout before force kill
+    ackTimeoutMs: 3_000,
+    messagePrefix: "__wm",
+    sigtermDelayMs: 2_000,
+    sigintDelayMs: 1_000,
+  },
 });
 ```
 
@@ -146,40 +146,33 @@ const supports = await Orchestrator.supportsReusePort();
 const caps = await Orchestrator.getCapabilities();
 
 // Entry point
-orchestrator.run(start);                 // runs primary or worker logic
-orchestrator.use(plugin);               // register a plugin (chainable)
-orchestrator.registerOnShutdown(cb);    // called in each worker before exit
+orchestrator.run(start); // runs primary or worker logic
+orchestrator.use(plugin); // register a plugin (chainable)
+orchestrator.registerOnShutdown(cb); // called in each worker before exit
 
 // Observability
-orchestrator.getMetrics();              // WorkerMetrics snapshot
-orchestrator.getHealth();               // { ready: boolean, live: boolean }
-orchestrator.setNotReady();             // mark ready=false (e.g. during rolling deploys)
-orchestrator.setReady();                // restore ready=true (no-op during shutdown)
-orchestrator.resetCircuitBreaker();     // re-arm after a crash-loop trip; refills missing workers
-orchestrator.workerCount;               // resolved worker count (number)
+orchestrator.getMetrics(); // WorkerMetrics snapshot
+orchestrator.getHealth(); // { ready: boolean, live: boolean }
+orchestrator.setNotReady(); // mark ready=false (e.g. during rolling deploys)
+orchestrator.setReady(); // restore ready=true (no-op during shutdown)
+orchestrator.resetCircuitBreaker(); // re-arm after a crash-loop trip; refills missing workers
+orchestrator.workerCount; // resolved worker count (number)
 
 // Plugin helpers — available to plugins during install(), throw once workers are forked
-orchestrator.patchWorkerEnv(env);       // merge additional env vars into workerEnv (chainable)
-orchestrator.overrideWorkerCount(n);    // change worker count when configured as 'auto' (chainable)
+orchestrator.patchWorkerEnv(env); // merge additional env vars into workerEnv (chainable)
+orchestrator.overrideWorkerCount(n); // change worker count when configured as 'auto' (chainable)
 ```
 
 ### Events
 
 ```ts
-orchestrator.on('worker:online', ({workerId, pid}) => {
-});
-orchestrator.on('worker:crash', ({workerId, pid, code, signal}) => {
-});
-orchestrator.on('worker:restart', ({newWorkerId, newPid}) => {
-});
-orchestrator.on('worker:recycle', ({workerId, pid, ageMs}) => {
-});
-orchestrator.on('shutdown:start', ({signal}) => {
-});
-orchestrator.on('shutdown:complete', ({metrics}) => {
-});
-orchestrator.on('circuit-breaker:tripped', ({crashCount, windowMs}) => {
-});
+orchestrator.on("worker:online", ({ workerId, pid }) => {});
+orchestrator.on("worker:crash", ({ workerId, pid, code, signal }) => {});
+orchestrator.on("worker:restart", ({ newWorkerId, newPid }) => {});
+orchestrator.on("worker:recycle", ({ workerId, pid, ageMs }) => {});
+orchestrator.on("shutdown:start", ({ signal }) => {});
+orchestrator.on("shutdown:complete", ({ metrics }) => {});
+orchestrator.on("circuit-breaker:tripped", ({ crashCount, windowMs }) => {});
 ```
 
 ### Graceful shutdown
@@ -245,38 +238,37 @@ pnpm add @goopil/clusterkit-prometheus prom-client
 ### Usage
 
 ```js
-import cluster from 'node:cluster';
-import http from 'node:http';
-import {Orchestrator} from '@goopil/clusterkit';
-import {createPrometheusPlugin} from '@goopil/clusterkit-prometheus';
+import cluster from "node:cluster";
+import http from "node:http";
+import { Orchestrator } from "@goopil/clusterkit";
+import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 
-const orchestrator = new Orchestrator({logger: console});
+const orchestrator = new Orchestrator({ logger: console });
 
 const prometheus = createPrometheusPlugin({
-  prefix: 'clusterkit_',
+  prefix: "clusterkit_",
   metricsCacheTtlMs: 250, // cache merged metrics for short scrape bursts
-  defaultMetrics: true,  // collect Node.js process metrics from workers only
+  defaultMetrics: true, // collect Node.js process metrics from workers only
 });
 
 if (cluster.isPrimary) {
   const metricsServer = http.createServer(async (req, res) => {
-    if (req.url !== '/metrics' || req.method !== 'GET') {
+    if (req.url !== "/metrics" || req.method !== "GET") {
       res.statusCode = 404;
-      res.end('Not Found');
+      res.end("Not Found");
       return;
     }
 
-    res.setHeader('Content-Type', prometheus.registry.contentType);
+    res.setHeader("Content-Type", prometheus.registry.contentType);
     res.end(await prometheus.getMetrics());
   });
 
-  metricsServer.listen(9090, '127.0.0.1');
+  metricsServer.listen(9090, "127.0.0.1");
 }
 
-orchestrator
-  .use(prometheus)
-  .run(async () => { /* your app */
-  });
+orchestrator.use(prometheus).run(async () => {
+  /* your app */
+});
 ```
 
 The plugin starts automatically when `orchestrator.run()` is called and shuts down cleanly with the orchestrator.
@@ -284,7 +276,7 @@ The plugin starts automatically when `orchestrator.run()` is called and shuts do
 ### Options
 
 | Option              | Type                               | Default          | Description                                                        |
-|---------------------|------------------------------------|------------------|--------------------------------------------------------------------|
+| ------------------- | ---------------------------------- | ---------------- | ------------------------------------------------------------------ |
 | `prefix`            | `string`                           | `'clusterkit_'`  | Metric name prefix                                                 |
 | `registry`          | `Registry`                         | `new Registry()` | Custom prom-client registry                                        |
 | `defaultMetrics`    | `boolean`                          | `true`           | Collect Node.js default process metrics from workers only          |
@@ -293,8 +285,8 @@ The plugin starts automatically when `orchestrator.run()` is called and shuts do
 
 ### Metrics exposed
 
-| Metric                                       | Type    | Description                        |
-|----------------------------------------------|---------|------------------------------------|
+| Metric                                   | Type    | Description                        |
+| ---------------------------------------- | ------- | ---------------------------------- |
 | `clusterkit_active_workers`              | Gauge   | Number of currently active workers |
 | `clusterkit_worker_restarts_total`       | Counter | Total worker restarts since start  |
 | `clusterkit_worker_crashes_total`        | Counter | Total worker crashes since start   |
@@ -326,9 +318,9 @@ aggregation cost during scrape bursts. You can bypass cache per call with `prome
 ### API
 
 ```ts
-prometheus.registry       // prom-client Registry instance (orchestration metrics, primary)
-prometheus.getMetrics()   // Promise<string> — Prometheus text format (merged)
-prometheus.getMetrics({ bypassCache: true }) // force fresh aggregation for this call
+prometheus.registry; // prom-client Registry instance (orchestration metrics, primary)
+prometheus.getMetrics(); // Promise<string> — Prometheus text format (merged)
+prometheus.getMetrics({ bypassCache: true }); // force fresh aggregation for this call
 ```
 
 ### Benchmarking merged metrics cache
@@ -364,11 +356,11 @@ pnpm add @goopil/clusterkit-sizing
 ### Usage
 
 ```js
-import {Orchestrator} from '@goopil/clusterkit';
-import {createContainerSizingPlugin} from '@goopil/clusterkit-sizing';
-import {createPrometheusPlugin} from '@goopil/clusterkit-prometheus';
+import { Orchestrator } from "@goopil/clusterkit";
+import { createContainerSizingPlugin } from "@goopil/clusterkit-sizing";
+import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 
-const orchestrator = new Orchestrator({logger: console});
+const orchestrator = new Orchestrator({ logger: console });
 
 const sizing = createContainerSizingPlugin();
 const prometheus = createPrometheusPlugin({
@@ -378,7 +370,8 @@ const prometheus = createPrometheusPlugin({
 orchestrator
   .use(sizing)
   .use(prometheus)
-  .run(async () => { /* your app */
+  .run(async () => {
+    /* your app */
   });
 ```
 
@@ -398,23 +391,23 @@ console.log(sizing.sizing);
 ### Options
 
 | Option                 | Type                                          | Default      | Description                                                                                                                                       |
-|------------------------|-----------------------------------------------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------- | --------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `overrideWorkerCount`  | `boolean`                                     | `true`       | Set worker count from cgroup CPU limit. Skipped if `workers` was set to an explicit number.                                                       |
 | `injectNodeOptions`    | `boolean`                                     | `true`       | Inject `--max-old-space-size` into each worker's `NODE_OPTIONS`.                                                                                  |
 | `fallback`             | `boolean`                                     | `true`       | Fall back to OS CPU/memory when no cgroup limits are detected (e.g. on macOS or bare metal). Set to `false` to skip sizing entirely in that case. |
 | `strategy`             | `'balanced' \| 'memory-first' \| 'cpu-first'` | `'balanced'` | Worker count strategy (see below).                                                                                                                |
 | `memoryOverheadFactor` | `number`                                      | `0.80`       | Fraction of total memory allocated to workers (remaining reserved for OS/buffers).                                                                |
 | `heapRatio`            | `number`                                      | `0.75`       | Fraction of per-worker memory allocated to the V8 old-generation heap.                                                                            |
-| `minWorkers`           | `number`                                      | `1`          | Minimum number of workers regardless of CPU limit. Must stay within `1..256`.                                                                    |
-| `maxWorkers`           | `number`                                      | `64`         | Maximum number of workers regardless of CPU limit. Must stay within `1..256` and be `>= minWorkers`.                                             |
+| `minWorkers`           | `number`                                      | `1`          | Minimum number of workers regardless of CPU limit. Must stay within `1..256`.                                                                     |
+| `maxWorkers`           | `number`                                      | `64`         | Maximum number of workers regardless of CPU limit. Must stay within `1..256` and be `>= minWorkers`.                                              |
 | `extraNodeOptions`     | `string`                                      | —            | Additional flags appended to `NODE_OPTIONS` (e.g. `'--experimental-vm-modules'`).                                                                 |
 
 ### Strategies
 
-| Strategy       | Behaviour                                                                                    |
-|----------------|----------------------------------------------------------------------------------------------|
-| `balanced`     | Workers = `floor(cpuLimit)`, stepped down until each worker has at least 128 MB of heap (default) |
-| `memory-first` | Same reduction as `balanced` — kept as an explicit alias                                     |
+| Strategy       | Behaviour                                                                                             |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| `balanced`     | Workers = `floor(cpuLimit)`, stepped down until each worker has at least 128 MB of heap (default)     |
+| `memory-first` | Same reduction as `balanced` — kept as an explicit alias                                              |
 | `cpu-first`    | Full CPU count regardless of memory; heap clamped to the 128 MB viability floor (`constrained: true`) |
 
 ### How it works
@@ -448,11 +441,11 @@ pnpm add @goopil/clusterkit-otlp-meter @opentelemetry/exporter-metrics-otlp-http
 ```
 
 ```ts
-import {createOtlpMeterPlugin} from '@goopil/clusterkit-otlp-meter';
+import { createOtlpMeterPlugin } from "@goopil/clusterkit-otlp-meter";
 
 const otlp = createOtlpMeterPlugin({
-  endpoint: 'http://otel-collector:4318/v1/metrics',
-  serviceName: 'my-app',
+  endpoint: "http://otel-collector:4318/v1/metrics",
+  serviceName: "my-app",
 });
 ```
 
@@ -461,23 +454,23 @@ const otlp = createOtlpMeterPlugin({
 Extend the orchestrator with custom plugins:
 
 ```ts
-import type {OrchestratorPlugin, Orchestrator} from '@goopil/clusterkit';
+import type { OrchestratorPlugin, Orchestrator } from "@goopil/clusterkit";
 
 const myPlugin: OrchestratorPlugin = {
-    name: 'my-plugin',
+  name: "my-plugin",
 
-    async install(orchestrator: Orchestrator) {
-        // Runs on the primary before workers are forked.
-        // Use orchestrator.patchWorkerEnv() or orchestrator.overrideWorkerCount()
-        // to influence worker configuration.
-        orchestrator.on('worker:crash', ({workerId}) => {
-            // send alert, update dashboard, etc.
-        });
-    },
+  async install(orchestrator: Orchestrator) {
+    // Runs on the primary before workers are forked.
+    // Use orchestrator.patchWorkerEnv() or orchestrator.overrideWorkerCount()
+    // to influence worker configuration.
+    orchestrator.on("worker:crash", ({ workerId }) => {
+      // send alert, update dashboard, etc.
+    });
+  },
 
-    async uninstall(orchestrator: Orchestrator) {
-        // cleanup — called automatically during shutdown
-    },
+  async uninstall(orchestrator: Orchestrator) {
+    // cleanup — called automatically during shutdown
+  },
 };
 
 orchestrator.use(myPlugin).run(/* ... */);
@@ -490,8 +483,8 @@ orchestrator.use(myPlugin).run(/* ... */);
 ```ts
 // install(orchestrator, logger, config) receives the ResolvedConfig —
 // read config.workers.count / config.workers.env for the current settings.
-orchestrator.patchWorkerEnv(env)        // merge env vars into workerEnv
-orchestrator.overrideWorkerCount(n)     // override an 'auto' worker count
+orchestrator.patchWorkerEnv(env); // merge env vars into workerEnv
+orchestrator.overrideWorkerCount(n); // override an 'auto' worker count
 ```
 
 Plugins install **before** the initial fork, so both helpers apply to the whole
@@ -503,17 +496,17 @@ fleet. They throw if called after workers have been forked.
 
 Eight ready-to-run examples live in [`examples/`](./examples/).
 
-| Example                      | Port  | Metrics port | Description |
-|------------------------------|-------|--------------|-------------|
-| `examples/express`           | 3000  | 9090         | Express HTTP server |
+| Example                      | Port  | Metrics port | Description                                |
+| ---------------------------- | ----- | ------------ | ------------------------------------------ |
+| `examples/express`           | 3000  | 9090         | Express HTTP server                        |
 | `examples/express-otlp`      | 3009  | —            | Express + OTLP metrics (push to collector) |
-| `examples/fastify`           | 3001  | 9091         | Fastify HTTP server |
-| `examples/hono`              | 3005  | 9092         | Hono HTTP server |
-| `examples/koa`               | 3006  | 9093         | Koa HTTP server |
-| `examples/nestjs-express`    | 3007  | 9094         | NestJS (Express adapter) |
-| `examples/nestjs-fastify`    | 3008  | 9095         | NestJS (Fastify adapter) |
-| `examples/inertia-ssr`       | 13714 | 9096         | Inertia + Vue 3 SSR renderer |
-| `examples/inertia-ssr-react` | 13715 | 9097         | Inertia + React 18 SSR renderer |
+| `examples/fastify`           | 3001  | 9091         | Fastify HTTP server                        |
+| `examples/hono`              | 3005  | 9092         | Hono HTTP server                           |
+| `examples/koa`               | 3006  | 9093         | Koa HTTP server                            |
+| `examples/nestjs-express`    | 3007  | 9094         | NestJS (Express adapter)                   |
+| `examples/nestjs-fastify`    | 3008  | 9095         | NestJS (Fastify adapter)                   |
+| `examples/inertia-ssr`       | 13714 | 9096         | Inertia + Vue 3 SSR renderer               |
+| `examples/inertia-ssr-react` | 13715 | 9097         | Inertia + React 18 SSR renderer            |
 
 **Run all examples at once (Docker):**
 
@@ -542,7 +535,7 @@ NestJS requires a specific lifecycle to bind the raw server socket with `reusePo
 // app.init() registers NestJS routes on the Express app without calling listen()
 await app.init();
 // Then bind the raw http.Server directly so we can pass reusePort
-app.getHttpServer().listen({port: 3007, host: '0.0.0.0', reusePort: true, exclusive: true});
+app.getHttpServer().listen({ port: 3007, host: "0.0.0.0", reusePort: true, exclusive: true });
 ```
 
 **Fastify adapter:**
@@ -552,7 +545,7 @@ await app.init();
 // app.init() does NOT call fastify.ready() — hook graph must be compiled explicitly
 const fastify = app.getHttpAdapter().getInstance();
 await fastify.ready();
-fastify.server.listen({port: 3008, host: '0.0.0.0', reusePort: true, exclusive: true});
+fastify.server.listen({ port: 3008, host: "0.0.0.0", reusePort: true, exclusive: true });
 ```
 
 ### Inertia SSR server
@@ -615,7 +608,7 @@ pnpm --filter @goopil/clusterkit-sizing test
 ## Platform support
 
 | Feature                              | Linux | macOS                           |
-|--------------------------------------|-------|---------------------------------|
+| ------------------------------------ | ----- | ------------------------------- |
 | SO_REUSEPORT (kernel load balancing) | Yes   | Unreliable                      |
 | Multi-worker mode                    | Yes   | Requires `WEB_CONCURRENCY`      |
 | Graceful shutdown                    | Yes   | Yes                             |

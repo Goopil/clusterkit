@@ -22,15 +22,15 @@ oxlint + oxfmt become the sole linting and formatting tools.
 
 ### Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Strategy | Full replacement, single PR | Clean break; no transition period |
-| Linter strictness | More strict than Biome | Activate correctness/suspicious rules Biome lacked |
-| Severity model | Mixed warn/error | Style rules warn, correctness rules error |
-| Formatter | Oxfmt (not Prettier) | Native Oxidation ecosystem, builtin import sorting |
-| CI integration | Direct replacement | Same pipeline position, two commands instead of one |
-| Scope | Entire repo (packages + examples + scripts) | Consistent linting everywhere |
-| Import sorting | Oxfmt `sortImports` (perfectionist-based) | Replaces Biome's `organizeImports` |
+| Decision          | Choice                                      | Rationale                                           |
+| ----------------- | ------------------------------------------- | --------------------------------------------------- |
+| Strategy          | Full replacement, single PR                 | Clean break; no transition period                   |
+| Linter strictness | More strict than Biome                      | Activate correctness/suspicious rules Biome lacked  |
+| Severity model    | Mixed warn/error                            | Style rules warn, correctness rules error           |
+| Formatter         | Oxfmt (not Prettier)                        | Native Oxidation ecosystem, builtin import sorting  |
+| CI integration    | Direct replacement                          | Same pipeline position, two commands instead of one |
+| Scope             | Entire repo (packages + examples + scripts) | Consistent linting everywhere                       |
+| Import sorting    | Oxfmt `sortImports` (perfectionist-based)   | Replaces Biome's `organizeImports`                  |
 
 ## 2. Current Biome footprint
 
@@ -85,49 +85,49 @@ oxlint + oxfmt become the sole linting and formatting tools.
 
 #### Category activation
 
-| oxlint category | Severity | Description |
-|---|---|---|
-| `correctness` | `error` | Code that is definitely wrong or useless (default) |
-| `suspicious` | `warn` | Code that is likely wrong or useless |
-| `perf` | `warn` | Performance-improving rules |
+| oxlint category | Severity | Description                                        |
+| --------------- | -------- | -------------------------------------------------- |
+| `correctness`   | `error`  | Code that is definitely wrong or useless (default) |
+| `suspicious`    | `warn`   | Code that is likely wrong or useless               |
+| `perf`          | `warn`   | Performance-improving rules                        |
 
 #### Rule mapping
 
-| Biome rule | Oxlint rule | Severity | Notes |
-|---|---|---|---|
-| `noUnusedImports: "warn"` | `eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }]` | warn | Covers both unused imports and variables |
-| `noUnusedVariables: "warn"` | (same as above) | warn | Single rule handles both |
-| `noExplicitAny: "off"` | `typescript/no-explicit-any: "warn"` | warn | **Upgraded from off → warn** (more strict) |
-| `noNonNullAssertion: "off"` | `typescript/no-non-null-assertion: "warn"` | warn | **Upgraded from off → warn** (more strict) |
-| `useNodejsImportProtocol: "error"` | `unicorn/prefer-node-protocol: "error"` | error | Direct equivalent |
+| Biome rule                         | Oxlint rule                                                      | Severity | Notes                                      |
+| ---------------------------------- | ---------------------------------------------------------------- | -------- | ------------------------------------------ |
+| `noUnusedImports: "warn"`          | `eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }]` | warn     | Covers both unused imports and variables   |
+| `noUnusedVariables: "warn"`        | (same as above)                                                  | warn     | Single rule handles both                   |
+| `noExplicitAny: "off"`             | `typescript/no-explicit-any: "warn"`                             | warn     | **Upgraded from off → warn** (more strict) |
+| `noNonNullAssertion: "off"`        | `typescript/no-non-null-assertion: "warn"`                       | warn     | **Upgraded from off → warn** (more strict) |
+| `useNodejsImportProtocol: "error"` | `unicorn/prefer-node-protocol: "error"`                          | error    | Direct equivalent                          |
 
 #### Additional rules (more strict than Biome)
 
-| Oxlint rule | Severity | Rationale |
-|---|---|---|
-| `typescript/no-floating-promises` | error | Critical for Node.js async code |
-| `typescript/no-misused-promises` | error | Detects async callbacks in non-async contexts |
-| `typescript/consistent-type-imports` | warn | Forces `import type` when possible |
-| `eslint/no-console` | warn | Avoid forgotten console.log in production code |
-| `eslint/no-debugger` | error | No debugger statements in production |
+| Oxlint rule                          | Severity | Rationale                                      |
+| ------------------------------------ | -------- | ---------------------------------------------- |
+| `typescript/no-floating-promises`    | error    | Critical for Node.js async code                |
+| `typescript/no-misused-promises`     | error    | Detects async callbacks in non-async contexts  |
+| `typescript/consistent-type-imports` | warn     | Forces `import type` when possible             |
+| `eslint/no-console`                  | warn     | Avoid forgotten console.log in production code |
+| `eslint/no-debugger`                 | error    | No debugger statements in production           |
 
 #### Plugins
 
-| Plugin | Enabled | CLI flag |
-|---|---|---|
-| `typescript` | yes (default) | — |
-| `unicorn` | yes (default) | — |
-| `oxc` | yes (default) | — |
-| `import` | yes | `--import-plugin` |
-| `vitest` | yes (for test files) | `--vitest-plugin` |
+| Plugin       | Enabled              | CLI flag          |
+| ------------ | -------------------- | ----------------- |
+| `typescript` | yes (default)        | —                 |
+| `unicorn`    | yes (default)        | —                 |
+| `oxc`        | yes (default)        | —                 |
+| `import`     | yes                  | `--import-plugin` |
+| `vitest`     | yes (for test files) | `--vitest-plugin` |
 
 #### Overrides
 
-| File pattern | Plugins | Rules relaxed |
-|---|---|---|
+| File pattern                 | Plugins  | Rules relaxed                         |
+| ---------------------------- | -------- | ------------------------------------- |
 | `**/test/**`, `**/*.test.ts` | `vitest` | `no-console: off`, env `vitest: true` |
-| `examples/**` | — | `no-console: off` |
-| `scripts/**` | — | `no-console: off` |
+| `examples/**`                | —        | `no-console: off`                     |
+| `scripts/**`                 | —        | `no-console: off`                     |
 
 #### Environment
 
@@ -143,13 +143,13 @@ oxlint's per-package discovery is validated.
 
 ### 3.2 Formatter: Biome → Oxfmt
 
-| Biome option | Oxfmt option | Value |
-|---|---|---|
-| `indentStyle: "space"` | `useTabs` | `false` (default) |
-| `indentWidth: 2` | `tabWidth` | `2` (default) |
-| `lineWidth: 120` | `printWidth` | `120` |
-| `organizeImports: "on"` | `sortImports` | configured (see below) |
-| (none) | `sortPackageJson` | `false` (disabled to avoid noisy diffs on package.json) |
+| Biome option            | Oxfmt option      | Value                                                   |
+| ----------------------- | ----------------- | ------------------------------------------------------- |
+| `indentStyle: "space"`  | `useTabs`         | `false` (default)                                       |
+| `indentWidth: 2`        | `tabWidth`        | `2` (default)                                           |
+| `lineWidth: 120`        | `printWidth`      | `120`                                                   |
+| `organizeImports: "on"` | `sortImports`     | configured (see below)                                  |
+| (none)                  | `sortPackageJson` | `false` (disabled to avoid noisy diffs on package.json) |
 
 #### Import sorting config
 
@@ -177,16 +177,16 @@ Oxfmt reads `.gitignore` natively. Oxlint reads `.gitignore` and `.eslintignore`
 
 Additional ignores needed beyond `.gitignore`:
 
-| Pattern | In .gitignore? | Why needed |
-|---|---|---|
-| `node_modules` | yes | — |
-| `dist` | yes | — |
-| `.turbo` | yes | — |
-| `coverage` | yes | — |
-| `.pnpm-store` | yes | — |
-| `.worktrees` | yes | — |
-| `.superpowers` | yes | — |
-| `pnpm-lock.yaml` | **no** | Lockfile must not be reformatted |
+| Pattern          | In .gitignore? | Why needed                       |
+| ---------------- | -------------- | -------------------------------- |
+| `node_modules`   | yes            | —                                |
+| `dist`           | yes            | —                                |
+| `.turbo`         | yes            | —                                |
+| `coverage`       | yes            | —                                |
+| `.pnpm-store`    | yes            | —                                |
+| `.worktrees`     | yes            | —                                |
+| `.superpowers`   | yes            | —                                |
+| `pnpm-lock.yaml` | **no**         | Lockfile must not be reformatted |
 
 `.oxlintignore` and `.oxfmtignore` files at root will contain `pnpm-lock.yaml` (the only
 pattern not already in `.gitignore`).
@@ -202,11 +202,11 @@ pattern not already in `.gitignore`).
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
-    "perf": "warn"
+    "perf": "warn",
   },
   "env": {
     "node": true,
-    "es2022": true
+    "es2022": true,
   },
   "rules": {
     "eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
@@ -217,7 +217,7 @@ pattern not already in `.gitignore`).
     "typescript/consistent-type-imports": ["warn", { "prefer": "type-imports" }],
     "unicorn/prefer-node-protocol": "error",
     "eslint/no-console": "warn",
-    "eslint/no-debugger": "error"
+    "eslint/no-debugger": "error",
   },
   "overrides": [
     {
@@ -225,22 +225,22 @@ pattern not already in `.gitignore`).
       "plugins": ["vitest"],
       "env": { "vitest": true },
       "rules": {
-        "eslint/no-console": "off"
-      }
+        "eslint/no-console": "off",
+      },
     },
     {
       "files": ["examples/**"],
       "rules": {
-        "eslint/no-console": "off"
-      }
+        "eslint/no-console": "off",
+      },
     },
     {
       "files": ["scripts/**"],
       "rules": {
-        "eslint/no-console": "off"
-      }
-    }
-  ]
+        "eslint/no-console": "off",
+      },
+    },
+  ],
 }
 ```
 
@@ -260,9 +260,9 @@ pattern not already in `.gitignore`).
       "value-internal",
       ["type-parent", "type-sibling", "type-index"],
       ["value-parent", "value-sibling", "value-index"],
-      "unknown"
-    ]
-  }
+      "unknown",
+    ],
+  },
 }
 ```
 
@@ -280,12 +280,12 @@ pnpm-lock.yaml
 
 ## 5. Script changes (root `package.json`)
 
-| Before | After |
-|---|---|
-| `"lint": "biome check ."` | `"lint": "oxlint"` |
-| `"lint:fix": "biome check --write ."` | `"lint:fix": "oxlint --fix"` |
-| `"format": "biome format --write ."` | `"format": "oxfmt --write"` |
-| (none) | `"format:check": "oxfmt --check"` |
+| Before                                | After                             |
+| ------------------------------------- | --------------------------------- |
+| `"lint": "biome check ."`             | `"lint": "oxlint"`                |
+| `"lint:fix": "biome check --write ."` | `"lint:fix": "oxlint --fix"`      |
+| `"format": "biome format --write ."`  | `"format": "oxfmt --write"`       |
+| (none)                                | `"format:check": "oxfmt --check"` |
 
 `format:check` is new — needed for CI to verify formatting without writing.
 
@@ -294,45 +294,45 @@ pnpm-lock.yaml
 The `lint` job replaces `pnpm biome check .` with two commands:
 
 ```yaml
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm oxlint
-      - run: pnpm oxfmt --check
+lint:
+  name: Lint
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm oxlint
+    - run: pnpm oxfmt --check
 ```
 
 Pipeline position unchanged: lint remains the first gate.
 
 ## 7. Other file changes
 
-| File | Action | Details |
-|---|---|---|
-| `biome.json` | Delete | No longer needed |
-| `package.json` | Edit | Replace `@biomejs/biome` dep with `oxlint` + `oxfmt`; update scripts |
-| `.github/workflows/ci.yml` | Edit | Replace `pnpm biome check .` with `pnpm oxlint` + `pnpm oxfmt --check` |
-| `.github/PULL_REQUEST_TEMPLATE.md` | Edit | `pnpm biome check .` → `pnpm lint && pnpm format:check` |
-| `AGENTS.md` | Edit | Update commands section + CI gate section |
-| CHANGELOGs | No change | Historical references are factual |
-| `docs/superpowers/specs/*.md` | No change | Historical references are factual |
+| File                               | Action    | Details                                                                |
+| ---------------------------------- | --------- | ---------------------------------------------------------------------- |
+| `biome.json`                       | Delete    | No longer needed                                                       |
+| `package.json`                     | Edit      | Replace `@biomejs/biome` dep with `oxlint` + `oxfmt`; update scripts   |
+| `.github/workflows/ci.yml`         | Edit      | Replace `pnpm biome check .` with `pnpm oxlint` + `pnpm oxfmt --check` |
+| `.github/PULL_REQUEST_TEMPLATE.md` | Edit      | `pnpm biome check .` → `pnpm lint && pnpm format:check`                |
+| `AGENTS.md`                        | Edit      | Update commands section + CI gate section                              |
+| CHANGELOGs                         | No change | Historical references are factual                                      |
+| `docs/superpowers/specs/*.md`      | No change | Historical references are factual                                      |
 
 ## 8. Risks and mitigations
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| Oxfmt reformats differently from Biome on edge cases | Medium | Run `oxfmt --write` on entire repo in the same PR; diff is cleaned in one shot |
-| New oxlint rules flag existing code | Medium | Run `oxlint --fix` first for auto-fixes; manually fix remaining; downgrade noisy rules to `warn` if needed |
-| `unicorn/prefer-node-protocol` rule name mismatch | Low | Verify exact rule name before implementation; fallback to `import/no-nodejs-modules` or inline config |
-| No root `tsconfig.json` → type-aware linting issues | Low | Type-aware linting not enabled initially; oxlint auto-discovers per-package tsconfigs |
-| `sortPackageJson` reorders all package.json files | Medium | Set `sortPackageJson: false` in oxfmt config |
-| Import sorting changes import order across all files | Medium | Oxfmt handles this in the format pass; diff is expected and clean |
+| Risk                                                 | Severity | Mitigation                                                                                                 |
+| ---------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| Oxfmt reformats differently from Biome on edge cases | Medium   | Run `oxfmt --write` on entire repo in the same PR; diff is cleaned in one shot                             |
+| New oxlint rules flag existing code                  | Medium   | Run `oxlint --fix` first for auto-fixes; manually fix remaining; downgrade noisy rules to `warn` if needed |
+| `unicorn/prefer-node-protocol` rule name mismatch    | Low      | Verify exact rule name before implementation; fallback to `import/no-nodejs-modules` or inline config      |
+| No root `tsconfig.json` → type-aware linting issues  | Low      | Type-aware linting not enabled initially; oxlint auto-discovers per-package tsconfigs                      |
+| `sortPackageJson` reorders all package.json files    | Medium   | Set `sortPackageJson: false` in oxfmt config                                                               |
+| Import sorting changes import order across all files | Medium   | Oxfmt handles this in the format pass; diff is expected and clean                                          |
 
 ## 9. Execution order
 

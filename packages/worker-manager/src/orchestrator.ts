@@ -1,5 +1,6 @@
 import cluster, { type Worker } from "node:cluster";
 import { EventEmitter } from "node:events";
+
 import { CrashTracker } from "./crash-tracker";
 import { withLoggerPrefix } from "./logger";
 import { getPlatformCapabilities, getReusePortCached, type PlatformCapabilities } from "./platform";

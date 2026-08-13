@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { validateConfig, WorkerManagerValidationError } from "../src/validation";
 
 describe("validation", () => {

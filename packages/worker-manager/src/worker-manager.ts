@@ -1,5 +1,6 @@
 import type cluster from "node:cluster";
 import type { Worker } from "node:cluster";
+
 import type { Logger, ResolvedConfig, WorkerMetrics } from "./types";
 
 /**

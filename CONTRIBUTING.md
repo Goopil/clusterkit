@@ -57,6 +57,7 @@ docker compose run --rm test   # re-run without rebuilding
 ## Submitting changes
 
 1. **Fork** the repository and create a branch from `main`:
+
    ```bash
    git checkout -b feat/my-feature
    ```
@@ -64,6 +65,7 @@ docker compose run --rm test   # re-run without rebuilding
 2. **Write tests** — all new behaviour must be covered by vitest tests in `packages/*/test/`.
 
 3. **Keep commits focused** — one logical change per commit. Commit messages should use the conventional commits style:
+
    ```
    feat: add worker age recycling
    fix: correct circuit breaker window reset
@@ -71,6 +73,7 @@ docker compose run --rm test   # re-run without rebuilding
    ```
 
 4. **Run the full suite** before pushing:
+
    ```bash
    pnpm build && pnpm test
    ```
@@ -80,6 +83,7 @@ docker compose run --rm test   # re-run without rebuilding
 ## Reporting issues
 
 Please include:
+
 - Node.js version (`node --version`)
 - OS and kernel version
 - A minimal reproduction (code snippet or repository link)

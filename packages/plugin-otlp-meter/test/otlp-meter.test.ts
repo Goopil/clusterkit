@@ -1,6 +1,7 @@
-import { EventEmitter } from "node:events";
 import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import type { MeterProvider as MeterProviderType } from "@opentelemetry/sdk-metrics";
+
+import { EventEmitter } from "node:events";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockHostMetricsStart = vi.fn();

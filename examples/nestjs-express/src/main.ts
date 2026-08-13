@@ -3,6 +3,7 @@ import { Orchestrator } from "@goopil/clusterkit";
 import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 import { createContainerSizingPlugin } from "@goopil/clusterkit-sizing";
 import { NestFactory } from "@nestjs/core";
+
 import { AppModule } from "./app.module";
 
 async function bootstrap() {

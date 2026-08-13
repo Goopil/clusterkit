@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { createContainerSizingPlugin } from "../src/index.js";
 
 describe("Container sizing plugin integration", () => {

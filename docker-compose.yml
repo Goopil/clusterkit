@@ -94,8 +94,8 @@ services:
     volumes:
       - ./docker/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
     ports:
-      - "4318:4318"   # OTLP/HTTP receiver
-      - "8889:8889"   # Prometheus exporter (scrape to verify)
+      - "4318:4318" # OTLP/HTTP receiver
+      - "8889:8889" # Prometheus exporter (scrape to verify)
     security_opt:
       - no-new-privileges:true
     cap_drop:

@@ -1,5 +1,6 @@
-import os from "node:os";
 import type { CgroupLimits } from "@goopil/clusterkit";
+
+import os from "node:os";
 
 export type SizingStrategy = "balanced" | "memory-first" | "cpu-first";
 

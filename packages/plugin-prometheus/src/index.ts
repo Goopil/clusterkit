@@ -1,6 +1,7 @@
-import cluster from "node:cluster";
 import { type Logger, type Orchestrator, type ResolvedConfig, withLoggerPrefix } from "@goopil/clusterkit";
+import cluster from "node:cluster";
 import { AggregatorRegistry, Counter, collectDefaultMetrics, Gauge, Registry } from "prom-client";
+
 import type { PrometheusMetricsRequestOptions, PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
 
 export type { PrometheusMetricsRequestOptions, PrometheusPlugin, PrometheusPluginOptions } from "./types.js";

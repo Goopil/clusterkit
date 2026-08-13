@@ -13,11 +13,11 @@ corepack pnpm install    # install all workspace deps
 
 ## Packages
 
-| Package | Scope | Path |
-|---|---|---|
-| worker-manager | `@goopil/clusterkit` | `packages/worker-manager/` |
-| plugin-prometheus | `@goopil/clusterkit-prometheus` | `packages/plugin-prometheus/` |
-| plugin-container-sizing | `@goopil/clusterkit-sizing` | `packages/plugin-container-sizing/` |
+| Package                 | Scope                           | Path                                |
+| ----------------------- | ------------------------------- | ----------------------------------- |
+| worker-manager          | `@goopil/clusterkit`            | `packages/worker-manager/`          |
+| plugin-prometheus       | `@goopil/clusterkit-prometheus` | `packages/plugin-prometheus/`       |
+| plugin-container-sizing | `@goopil/clusterkit-sizing`     | `packages/plugin-container-sizing/` |
 
 ## Key commands
 
@@ -80,6 +80,7 @@ Dual ESM+CJS build via **tsup**. Tests in `test/` mirror source modules.
 Single file: `packages/plugin-prometheus/src/index.ts`
 
 Two-registry model:
+
 1. **Orchestration registry** — `Counter`/`Gauge` metrics on the primary process, driven by orchestrator events (`worker:online`, `worker:crash`, etc.)
 2. **`AggregatorRegistry`** (prom-client built-in) — each worker registers `collectDefaultMetrics` in its own `Registry` and calls `AggregatorRegistry.setRegistries([workerRegistry])`. The primary harvests all workers via prom-client's native cluster IPC.
 
