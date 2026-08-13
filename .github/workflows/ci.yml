@@ -119,6 +119,6 @@ jobs:
       - run: pnpm test:packages
       - name: Validate publishable packages
         run: |
-          for pkg in packages/worker-manager packages/plugin-prometheus packages/plugin-container-sizing packages/plugin-otlp-meter; do
+          for pkg in packages/worker-manager packages/plugin-prometheus packages/plugin-container-sizing packages/plugin-otlp-meter packages/plugin-signal-restart packages/plugin-file-watcher; do
             pnpm dlx publint "$pkg"
           done

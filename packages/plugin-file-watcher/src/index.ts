@@ -215,8 +215,8 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
 
       start();
 
-      orchestrator.registerOnShutdown(() => {
-        for (const w of watchers) w.close();
+      orchestrator.registerOnShutdown(async () => {
+        await Promise.all(watchers.map((w) => w.close()));
         watchers = [];
         if (envPollInterval) {
           clearInterval(envPollInterval);
@@ -231,7 +231,7 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
     },
 
     async uninstall(): Promise<void> {
-      for (const w of watchers) w.close();
+      await Promise.all(watchers.map((w) => w.close()));
       watchers = [];
       if (envPollInterval) {
         clearInterval(envPollInterval);
