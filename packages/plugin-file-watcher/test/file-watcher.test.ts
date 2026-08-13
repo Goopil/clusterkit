@@ -1,5 +1,14 @@
-import { describe, expect, it } from "vitest";
+import cluster from "node:cluster";
+import { EventEmitter } from "node:events";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createFileWatcherPlugin } from "../src/index";
 import { parseEnvFile } from "../src/parse-env";
+
+vi.mock("node:cluster", () => ({ default: { isPrimary: true } }));
 
 describe("parseEnvFile", () => {
   it("parses simple KEY=VALUE pairs", () => {
@@ -44,5 +53,217 @@ describe("parseEnvFile", () => {
   it("trims whitespace around key and value", () => {
     const result = parseEnvFile("  FOO  =  bar  ");
     expect(result).toEqual({ FOO: "bar" });
+  });
+});
+
+function mockOrchestrator(): Orchestrator & {
+  restartWorkers: ReturnType<typeof vi.fn>;
+  registerOnShutdown: ReturnType<typeof vi.fn>;
+} {
+  const emitter = new EventEmitter() as unknown as Orchestrator & {
+    restartWorkers: ReturnType<typeof vi.fn>;
+    registerOnShutdown: ReturnType<typeof vi.fn>;
+  };
+  emitter.restartWorkers = vi.fn().mockResolvedValue(undefined);
+  emitter.registerOnShutdown = vi.fn();
+  return emitter;
+}
+
+function mockConfig(count: number | "auto" = 2): ResolvedConfig {
+  return {
+    logger: null,
+    workers: { count, env: undefined, execArgv: undefined, maxAgeMs: 0 },
+    restart: {
+      crashThreshold: 5,
+      crashWindowMs: 60_000,
+      backoffMs: 1_000,
+      maxBackoffMs: 30_000,
+      backoffMultiplier: 2,
+      stabilityWindowMs: 30_000,
+    },
+    shutdown: {
+      timeoutMs: 12_000,
+      ackTimeoutMs: 3_000,
+      messagePrefix: "__wm",
+      sigtermDelayMs: 2_000,
+      sigintDelayMs: 1_000,
+    },
+    clusterModule: undefined,
+  };
+}
+
+describe("file-watcher plugin", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("no-ops in single-worker mode", async () => {
+    Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
+    const plugin = createFileWatcherPlugin({ watch: ["./src"] });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(1));
+
+    expect(plugin.isWatching).toBe(false);
+  });
+
+  it("no-ops in worker process", async () => {
+    Object.defineProperty(cluster, "isPrimary", { value: false, configurable: true });
+    const plugin = createFileWatcherPlugin({ watch: ["./src"] });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+
+    expect(plugin.isWatching).toBe(false);
+    Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
+  });
+
+  it("registers shutdown callback", async () => {
+    const plugin = createFileWatcherPlugin({ watch: [] });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+
+    expect(orch.registerOnShutdown).toHaveBeenCalled();
+  });
+
+  it("dryRun mode does not call restartWorkers", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const tempFile = join(tempDir, "test.txt");
+    writeFileSync(tempFile, "initial");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempFile],
+      debounceMs: 50,
+      dryRun: true,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+    expect(plugin.isWatching).toBe(true);
+
+    // Give chokidar time to fully initialize and settle spurious initial events
+    await new Promise((r) => setTimeout(r, 500));
+
+    // Clear any calls from spurious initial events
+    orch.restartWorkers.mockClear();
+
+    // Trigger a file change
+    writeFileSync(tempFile, "changed");
+
+    // Wait for debounce
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(orch.restartWorkers).not.toHaveBeenCalled();
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("calls restartWorkers on file change after debounce", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const tempFile = join(tempDir, "test.txt");
+    writeFileSync(tempFile, "initial");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      debounceMs: 50,
+      staggerMs: 0,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+
+    // Give chokidar time to fully initialize and settle spurious initial events
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+
+    // Trigger a file change
+    writeFileSync(tempFile, "changed");
+
+    // Wait for debounce + buffer
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+    expect(orch.restartWorkers).toHaveBeenCalledWith(expect.objectContaining({ reason: "file-change", staggerMs: 0 }));
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("parses .env file and passes env to restartWorkers", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const envPath = join(tempDir, ".env");
+    writeFileSync(envPath, "FOO=bar\nBAZ=qux");
+
+    const plugin = createFileWatcherPlugin({
+      envFile: [envPath],
+      debounceMs: 50,
+      staggerMs: 0,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+
+    // Give chokidar time to fully initialize and settle spurious initial events
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+
+    // Modify .env file
+    writeFileSync(envPath, "FOO=updated\nBAZ=qux\nNEW=key");
+
+    // Wait for debounce + buffer
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+    const callArgs = orch.restartWorkers.mock.calls[0][0];
+    expect(callArgs.env).toEqual({ FOO: "updated", BAZ: "qux", NEW: "key" });
+    expect(callArgs.reason).toBe("env-change");
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("coalesces rapid changes into a single restartWorkers call", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const tempFile = join(tempDir, "test.txt");
+    writeFileSync(tempFile, "initial");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      debounceMs: 100,
+      staggerMs: 0,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+
+    // Give chokidar time to fully initialize and settle spurious initial events
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+
+    // Rapidly change the file multiple times
+    for (let i = 0; i < 5; i++) {
+      writeFileSync(tempFile, `change-${i}`);
+    }
+
+    // Wait for debounce + buffer
+    await new Promise((r) => setTimeout(r, 400));
+
+    expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("stops watching on uninstall", async () => {
+    const plugin = createFileWatcherPlugin({ watch: [] });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+    expect(plugin.isWatching).toBe(true);
+
+    await plugin.uninstall?.();
+    expect(plugin.isWatching).toBe(false);
   });
 });
