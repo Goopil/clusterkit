@@ -156,7 +156,10 @@ orchestrator.getHealth();               // { ready: boolean, live: boolean }
 orchestrator.setNotReady();             // mark ready=false (e.g. during rolling deploys)
 orchestrator.setReady();                // restore ready=true (no-op during shutdown)
 orchestrator.resetCircuitBreaker();     // re-arm after a crash-loop trip; refills missing workers
+orchestrator.restartWorkers(opts);     // rolling-restart workers without dropping connections
 orchestrator.workerCount;               // resolved worker count (number)
+
+// restartWorkers opts: { env?: NodeJS.ProcessEnv, filter?: (id: number) => boolean, staggerMs?: number, reason?: string }
 
 // Plugin helpers — available to plugins during install(), throw once workers are forked
 orchestrator.patchWorkerEnv(env);       // merge additional env vars into workerEnv (chainable)
@@ -179,6 +182,10 @@ orchestrator.on('shutdown:start', ({signal}) => {
 orchestrator.on('shutdown:complete', ({metrics}) => {
 });
 orchestrator.on('circuit-breaker:tripped', ({crashCount, windowMs}) => {
+});
+orchestrator.on('restart:start', ({reason, workerIds}) => {
+});
+orchestrator.on('restart:complete', ({restartedWorkerIds, reason}) => {
 });
 ```
 
