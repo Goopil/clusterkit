@@ -15,7 +15,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(__dirname, "results");
 const REPO_ROOT = join(__dirname, "..");
 
-const ALL_TARGETS = ["single", "clusterkit-3", "native-cluster-3", "throng-3", "pm2-3", "pm2-reload-3"];
+const ALL_TARGETS = [
+  "single",
+  "clusterkit-3",
+  "native-cluster-3",
+  "native-cluster-reuseport-3",
+  "throng-3",
+  "pm2-3",
+  "pm2-reload-3",
+];
 const ALL_WORKLOADS = [
   "hello",
   "latency-10ms",
@@ -30,6 +38,7 @@ const EXPECTED_PIDS = {
   single: 1,
   "clusterkit-3": 3,
   "native-cluster-3": 3,
+  "native-cluster-reuseport-3": 3,
   "throng-3": 3,
   "pm2-3": 3,
   "pm2-reload-3": 3,
@@ -83,6 +92,11 @@ async function main() {
         console.error(`  ERROR: ${err.message}`);
         results[workload][target] = { failed: true, error: err.message };
       }
+
+      // Wait between pm2 runs to ensure daemon is fully dead
+      if (target.startsWith("pm2")) {
+        await sleep(2000);
+      }
     }
   }
 
@@ -117,7 +131,7 @@ async function main() {
 async function runScenarioForTarget(target, workload, config) {
   const targetScript = join(__dirname, "targets", `${target}.mjs`);
   const url = `http://127.0.0.1:${config.port}`;
-  const connections = target === "single" ? config.connsPerWorker : config.connsPerWorker * 3;
+  const connections = config.connsPerWorker * 3;
 
   const bootStartTs = Date.now();
   const child = fork(targetScript, [], {
@@ -163,7 +177,8 @@ async function runScenarioForTarget(target, workload, config) {
 
       const shutdownStartTs = Date.now();
       child.kill("SIGTERM");
-      await waitForChildExit(child, 5000);
+      const shutdownTimeoutMs = target.startsWith("pm2") ? 15000 : 5000;
+      await waitForChildExit(child, shutdownTimeoutMs);
       const shutdownEndTs = Date.now();
       const shutdownTimeMs = shutdownEndTs - shutdownStartTs;
 
@@ -208,7 +223,8 @@ async function runSmokeTest(targets, workloads, port) {
         await waitForPort(port, 10000);
         console.log(`  OK — listening on :${port}`);
         child.kill("SIGTERM");
-        await waitForChildExit(child, 5000);
+        const shutdownTimeoutMs = target.startsWith("pm2") ? 15000 : 5000;
+        await waitForChildExit(child, shutdownTimeoutMs);
         await sleep(500);
       } catch (err) {
         console.error(`  FAIL: ${err.message}`);

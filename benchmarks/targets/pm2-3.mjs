@@ -8,6 +8,15 @@ const script = join(__dirname, "..", "pm2-server.mjs");
 const workload = process.env.BENCH_WORKLOAD || "hello";
 const port = Number.parseInt(process.env.PORT || "3100", 10);
 
+function shutdown() {
+  pm2.delete("all", () => {
+    pm2.killDaemon(() => {
+      pm2.disconnect();
+      process.exit(0);
+    });
+  });
+}
+
 pm2.connect((err) => {
   if (err) {
     console.error("pm2 connect failed:", err);
@@ -32,20 +41,5 @@ pm2.connect((err) => {
   );
 });
 
-process.on("SIGTERM", () => {
-  pm2.delete("all", () => {
-    pm2.killDaemon(() => {
-      pm2.disconnect();
-      process.exit(0);
-    });
-  });
-});
-
-process.on("SIGINT", () => {
-  pm2.delete("all", () => {
-    pm2.killDaemon(() => {
-      pm2.disconnect();
-      process.exit(0);
-    });
-  });
-});
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
