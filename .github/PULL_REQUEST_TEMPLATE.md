@@ -14,7 +14,7 @@
 
 - [ ] Tests added or updated in `packages/*/test/`
 - [ ] `pnpm build && pnpm test` passes locally
-- [ ] `pnpm biome check .` passes
+- [ ] `pnpm lint && pnpm format:check` passes
 - [ ] Changeset added (`pnpm changeset`) — required for any package change
 - [ ] `README.md` / package READMEs / examples updated if behaviour changed
 - [ ] Public API changes reflected in the barrel file and adjacent tests

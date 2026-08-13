@@ -101,9 +101,10 @@ corepack pnpm build                  # build all packages (turbo, dependency ord
 corepack pnpm test                   # all package tests via turbo
 corepack pnpm test:coverage          # tests with coverage
 corepack pnpm test:packages          # publint packaging smoke test (CI runs this)
-corepack pnpm lint                   # biome check .
-corepack pnpm lint:fix              # biome check --write .
-corepack pnpm format                 # biome format --write .
+corepack pnpm lint                   # oxlint
+corepack pnpm lint:fix              # oxlint --fix
+corepack pnpm format                 # oxfmt --write .
+corepack pnpm format:check          # oxfmt --check (CI uses this)
 ```
 
 ### Single package / single test
@@ -138,7 +139,7 @@ corepack pnpm examples:start    # docker compose up examples --build (all 8 exam
 
 CI (`.github/workflows/ci.yml`) runs in this order — a change must pass all of it:
 
-1. **Lint** — `pnpm biome check .`
+1. **Lint** — `pnpm oxlint && pnpm oxfmt --check`
 2. **Build** — `pnpm build`
 3. **Test** — `pnpm test` on Node 22, 24, and 26
 4. **Linux Docker** — `docker compose run --build --rm test` (SO_REUSEPORT)

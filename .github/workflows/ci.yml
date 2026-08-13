@@ -25,7 +25,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm biome check .
+      - run: pnpm oxlint
+      - run: pnpm oxfmt --check
 
   build:
     name: Build
