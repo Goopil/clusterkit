@@ -8,7 +8,7 @@ import {
   type ResolvedConfig,
   withLoggerPrefix,
 } from "@goopil/clusterkit";
-import chokidar, { type FSWatcher } from "chokidar";
+import chokidar, { type ChokidarOptions, type FSWatcher } from "chokidar";
 import { parseEnvFile } from "./parse-env";
 
 export { parseEnvFile } from "./parse-env";
@@ -17,7 +17,7 @@ export interface FileWatcherOptions {
   /** Globs/paths to watch for file changes. */
   watch?: string[] | string;
   /** Options passed through to chokidar. */
-  watchOptions?: chokidar.WatchOptions;
+  watchOptions?: ChokidarOptions;
   /** Globs to ignore. */
   ignore?: string[] | string;
 
@@ -107,7 +107,7 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
       const startWatchers = (): void => {
         // File watchers — chokidar for glob support and cross-platform reliability
         if (watchPaths.length > 0) {
-          const chokidarOpts: chokidar.WatchOptions = {
+          const chokidarOpts: ChokidarOptions = {
             ignoreInitial: true,
             ignored: ignorePaths.length > 0 ? ignorePaths : undefined,
             ...options?.watchOptions,
