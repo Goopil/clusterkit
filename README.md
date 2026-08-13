@@ -657,6 +657,21 @@ pnpm examples:start
 All 6 example servers start inside a single container with their ports mapped to the host (3000–3001, 3005–3008 for
 apps; 9090–9095 for metrics).
 
+### Benchmarks
+
+The `benchmarks/` package compares clusterkit against other Node.js process orchestrators (native cluster, throng, pm2)
+on 3 HTTP workloads. Results are written to `BENCHMARKS.md` at the repo root.
+
+```bash
+pnpm bench:docker                                                      # full suite, Docker (~36 min)
+pnpm bench                                                             # full suite, local
+pnpm --filter benchmarks exec node runner.mjs --quick                  # quick mode (~8 min)
+pnpm --filter benchmarks exec node runner.mjs --target clusterkit-3   # single target
+pnpm --filter benchmarks smoke                                         # boot check, no perf
+```
+
+See [`benchmarks/README.md`](./benchmarks/README.md) for the target/workload contract and CLI flags.
+
 ---
 
 ## Contributing

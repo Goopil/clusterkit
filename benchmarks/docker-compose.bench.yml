@@ -16,6 +16,8 @@ services:
     environment:
       TURBO_DAEMON: "false"
       TURBO_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./results:/app/benchmarks/results
     security_opt:
       - no-new-privileges:true
     cap_drop:
