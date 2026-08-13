@@ -1,0 +1,51 @@
+# ============================================================================
+# Benchmark harness — runs performance benchmarks on Linux (SO_REUSEPORT available)
+# ============================================================================
+FROM node:22-slim
+
+ENV TURBO_DAEMON=false
+ENV TURBO_TELEMETRY_DISABLED=1
+ENV CI=true
+
+WORKDIR /app
+
+# ---- pnpm setup --------------------------------------------------------
+RUN corepack enable && corepack prepare pnpm@10.30.1 --activate
+
+# ---- dependency layer (cached until manifests / lockfile change) --------
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
+# Copy every package manifest so Docker can cache the install layer
+COPY packages/worker-manager/package.json           packages/worker-manager/
+COPY packages/plugin-prometheus/package.json        packages/plugin-prometheus/
+COPY packages/plugin-container-sizing/package.json  packages/plugin-container-sizing/
+COPY packages/plugin-otlp-meter/package.json        packages/plugin-otlp-meter/
+COPY examples/express/package.json                  examples/express/
+COPY examples/fastify/package.json                  examples/fastify/
+COPY examples/hono/package.json                     examples/hono/
+COPY examples/koa/package.json                      examples/koa/
+COPY examples/nestjs-express/package.json           examples/nestjs-express/
+COPY examples/nestjs-fastify/package.json           examples/nestjs-fastify/
+COPY examples/express-otlp/package.json            examples/express-otlp/
+COPY examples/inertia-ssr/package.json              examples/inertia-ssr/
+COPY examples/inertia-ssr-react/package.json        examples/inertia-ssr-react/
+COPY benchmarks/package.json                        benchmarks/
+
+RUN pnpm install --frozen-lockfile
+
+# ---- source + turbo config ----------------------------------------------
+COPY packages/ packages/
+COPY benchmarks/ benchmarks/
+COPY turbo.json ./
+
+# Build the publishable packages (benchmarks depend on @goopil/clusterkit dist)
+RUN pnpm turbo run build --filter="./packages/**"
+
+RUN groupadd -r app && useradd -r -g app app -m
+RUN chown -R app:app /app
+ENV COREPACK_HOME=/app/.cache/corepack
+RUN mkdir -p /app/.cache/corepack && chown -R app:app /app/.cache
+USER app
+
+WORKDIR /app/benchmarks
+ENTRYPOINT ["node", "runner.mjs"]
