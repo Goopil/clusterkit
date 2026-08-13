@@ -181,7 +181,7 @@ Nine standalone apps in `examples/`, each integrating core + plugins:
 | nestjs-fastify    | 3008  | 9095         |
 | inertia-ssr       | 13714 | 9096         |
 | inertia-ssr-react | 13715 | 9097         |
-| hot-reload        | 3010  | 9098         |
+| hot-reload        | 3010  | —            |
 
 NestJS examples require `app.init()` (not `app.listen()`) to bind the raw server socket with `reusePort`. The Fastify
 adapter additionally needs `await fastifyInstance.ready()` between `app.init()` and

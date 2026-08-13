@@ -583,7 +583,7 @@ Nine ready-to-run examples live in [`examples/`](./examples/).
 | `examples/nestjs-fastify`    | 3008  | 9095         | NestJS (Fastify adapter) |
 | `examples/inertia-ssr`       | 13714 | 9096         | Inertia + Vue 3 SSR renderer |
 | `examples/inertia-ssr-react` | 13715 | 9097         | Inertia + React 18 SSR renderer |
-| `examples/hot-reload`        | 3010  | 9098         | Signal-based + file watcher hot restart demo |
+| `examples/hot-reload`        | 3010  | —            | Signal-based + file watcher hot restart demo |
 
 **Run all examples at once (Docker):**
 
