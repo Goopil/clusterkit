@@ -32,9 +32,10 @@
     "test:coverage": "turbo run test:coverage --filter=./packages/**",
     "test:packages": "node scripts/package-smoke-test.mjs",
     "clean": "turbo run clean && rm -rf node_modules",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "format": "biome format --write .",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt --write",
+    "format:check": "oxfmt --check",
     "test:linux": "docker-compose run --build --rm test",
     "examples:start": "docker-compose up examples --build",
     "changeset": "changeset",
@@ -45,9 +46,10 @@
   "packageManager": "pnpm@10.30.1",
   "type": "module",
   "devDependencies": {
-    "@biomejs/biome": "^2.5.7",
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.1",
+    "oxfmt": "^0.63.0",
+    "oxlint": "^1.78.0",
     "turbo": "^2.10.9"
   },
   "pnpm": {
