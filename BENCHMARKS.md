@@ -41,24 +41,17 @@
 
 ### Summary (macOS)
 
-- **Throughput winner** (hello): native-cluster-3 — 53,520 req/sec
-- **Lowest latency p99** (hello): single — 2 ms
-- **Fastest boot** (hello): clusterkit-3 — 1 ms
-- **Fastest shutdown** (hello): throng-3 — 7 ms
-- **Throughput winner** (latency-10ms): single — 67,126 req/sec
-- **Lowest latency p99** (latency-10ms): single — 2 ms
-- **Fastest boot** (latency-10ms): single — 1 ms
-- **Fastest shutdown** (latency-10ms): throng-3 — 8 ms
-- **Throughput winner** (cpu-io-mix): native-cluster-3 — 12,809 req/sec
-- **Lowest latency p99** (cpu-io-mix): single — 12 ms
-- **Fastest boot** (cpu-io-mix): clusterkit-3 — 1 ms
-- **Fastest shutdown** (cpu-io-mix): throng-3 — 6 ms
+| Workload | RPS Winner | p99 Winner | Boot Winner | Shutdown Winner |
+|---|---|---|---|---|
+| hello | native-cluster-3 (53,520) | single (2 ms) | clusterkit-3 (1 ms) | throng-3 (7 ms) |
+| latency-10ms | single (67,126) | single (2 ms) | single (1 ms) | throng-3 (8 ms) |
+| cpu-io-mix | native-cluster-3 (12,809) | single (12 ms) | clusterkit-3 (1 ms) | throng-3 (6 ms) |
 
 ---
 
 ## Linux (Docker)
 
-> Generated: 2026-08-13T19:57:33Z | Node v22.23.2 | linux arm64 | 4 CPUs | Docker node:22-slim
+> Generated: 2026-08-13T20:47:15Z | Node v22.23.2 | linux arm64 | 4 CPUs | Docker node:22-slim
 > Method: autocannon, 3s warmup + 10s measure, 1 run (median), 50 conns/worker
 > SO_REUSEPORT: enabled (kernel-level load balancing)
 
@@ -66,77 +59,152 @@
 
 | Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| single | 1 | 18,544 ± 0 | 2 ms | 4 ms | 4 ms | 0 | 105 ms | 5 ms | 127 MB | 133 MB | 104.1% | 14,570 ms | 1/1 |
-| clusterkit-3 | 3 | 55,482 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 208 ms | 9 ms | 184 MB | 133 MB | 93.2% | 13,050 ms | 3/3 |
-| native-cluster-3 | 3 | 55,862 ± 0 | 2 ms | 5 ms | 6 ms | 0 | 212 ms | 1 ms | 183 MB | 131 MB | 94.9% | 14,240 ms | 3/3 |
-| throng-3 | 3 | 55,536 ± 0 | 2 ms | 5 ms | 6 ms | 0 | 207 ms | 9 ms | 197 MB | 139 MB | 93.9% | 13,140 ms | 3/3 |
-| pm2-3 | 3 | 53,600 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 410 ms | 222 ms | 405 MB | 147 MB | 146.4% | 20,490 ms | 3/3 |
-| pm2-reload-3 | 3 | 17,927 ± 0 | 8 ms | 10 ms | 11 ms | 0 | 404 ms | 5004 ms | 264 MB | 150 MB | 90.9% | 13,640 ms | 2/3 |
+| single | 1 | 18,305 ± 0 | 2 ms | 4 ms | 4 ms | 0 | 107 ms | 5 ms | 123 MB | 129 MB | 104.9% | 15,730 ms | 1/1 |
+| clusterkit-3 | 3 | 52,349 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 203 ms | 10 ms | 190 MB | 136 MB | 93.4% | 13,070 ms | 3/3 |
+| native-cluster-3 | 3 | 52,086 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 207 ms | 1 ms | 186 MB | 132 MB | 95.0% | 14,250 ms | 3/3 |
+| throng-3 | 3 | 52,470 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 208 ms | 11 ms | 198 MB | 142 MB | 94.6% | 14,190 ms | 3/3 |
+| pm2-3 | 3 | 50,918 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 411 ms | 229 ms | 389 MB | 143 MB | 144.0% | 20,160 ms | 3/3 |
+| pm2-reload-3 | 3 | 17,228 ± 0 | 8 ms | 11 ms | 11 ms | 0 | 416 ms | 4909 ms | 264 MB | 150 MB | 91.7% | 13,750 ms | 2/3 |
 
 ### Workload: Latency 10ms
 
 | Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| single | 1 | 53,398 ± 0 | 0 ms | 2 ms | 3 ms | 0 | 3 ms | 5005 ms | N/A | N/A | N/A | N/A | 4/1 |
-| clusterkit-3 | 3 | 54,495 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 2 ms | 1156 ms | 56 MB | 62 MB | 0.6% | 90 ms | 3/3 |
-| native-cluster-3 | 3 | 54,401 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 2 ms | 5003 ms | N/A | N/A | N/A | N/A | 3/3 |
-| throng-3 | 3 | 42,092 ± 0 | 3 ms | 8 ms | 10 ms | 0 | 3 ms | 5 ms | 198 MB | 160 MB | 685.9% | 96,030 ms | 3/3 |
-| pm2-3 | 3 | 24,132 ± 0 | 1 ms | 15 ms | 25 ms | 17 | 1 ms | 221 ms | 53 MB | 59 MB | 0.5% | 70 ms | 3/3 |
-| pm2-reload-3 | 3 | 10,821 ± 0 | 13 ms | 17 ms | 18 ms | 0 | 410 ms | 5008 ms | 258 MB | 145 MB | 58.0% | 8,120 ms | 2/3 |
+| single | 1 | 53,343 ± 0 | 0 ms | 3 ms | 4 ms | 0 | 4 ms | 5007 ms | N/A | N/A | N/A | N/A | 4/1 |
+| clusterkit-3 | 3 | 50,570 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 3 ms | 1166 ms | 56 MB | 62 MB | 0.7% | 110 ms | 3/3 |
+| native-cluster-3 | 3 | 51,187 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 4 ms | 5005 ms | N/A | N/A | N/A | N/A | 3/3 |
+| throng-3 | 3 | 39,489 ± 0 | 3 ms | 9 ms | 11 ms | 0 | 4 ms | 5 ms | 197 MB | 136 MB | 670.6% | 93,880 ms | 3/3 |
+| pm2-3 | 3 | 22,195 ± 0 | 3 ms | 22 ms | 26 ms | 20 | 1 ms | 218 ms | 52 MB | 58 MB | 0.6% | 90 ms | 3/3 |
+| pm2-reload-3 | 3 | 11,022 ± 0 | 13 ms | 16 ms | 16 ms | 0 | 412 ms | 4906 ms | 256 MB | 142 MB | 62.0% | 8,680 ms | 2/3 |
 
 ### Workload: CPU-IO Mix
 
 | Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| single | 1 | 4,153 ± 0 | 12 ms | 13 ms | 14 ms | 0 | 3 ms | 5000 ms | N/A | N/A | N/A | N/A | 4/1 |
-| clusterkit-3 | 3 | 11,954 ± 0 | 12 ms | 15 ms | 15 ms | 0 | 3 ms | 2078 ms | 56 MB | 63 MB | 0.8% | 110 ms | 3/3 |
-| native-cluster-3 | 3 | 11,751 ± 0 | 12 ms | 15 ms | 15 ms | 0 | 2 ms | 5002 ms | N/A | N/A | N/A | N/A | 3/3 |
-| throng-3 | 3 | 13,057 ± 0 | 11 ms | 13 ms | 14 ms | 0 | 3 ms | 4 ms | 120 MB | 69 MB | 2.9% | 410 ms | 3/3 |
-| pm2-3 | 3 | 9,149 ± 0 | 13 ms | 105 ms | 114 ms | 65 | 2 ms | 219 ms | 53 MB | 59 MB | 0.6% | 80 ms | 3/3 |
-| pm2-reload-3 | 3 | 1,287 ± 0 | 82 ms | 126 ms | 329 ms | 0 | 413 ms | 5006 ms | 232 MB | 118 MB | 95.7% | 14,350 ms | 2/3 |
+| single | 1 | 4,108 ± 0 | 12 ms | 13 ms | 14 ms | 0 | 4 ms | 4904 ms | N/A | N/A | N/A | N/A | 4/1 |
+| clusterkit-3 | 3 | 11,875 ± 0 | 12 ms | 15 ms | 15 ms | 0 | 3 ms | 2088 ms | 56 MB | 62 MB | 0.7% | 100 ms | 3/3 |
+| native-cluster-3 | 3 | 11,958 ± 0 | 12 ms | 14 ms | 15 ms | 0 | 3 ms | 5004 ms | N/A | N/A | N/A | N/A | 3/3 |
+| throng-3 | 3 | 13,018 ± 0 | 11 ms | 13 ms | 14 ms | 0 | 17 ms | 4 ms | 120 MB | 68 MB | 2.9% | 410 ms | 3/3 |
+| pm2-3 | 3 | 9,099 ± 0 | 12 ms | 107 ms | 111 ms | 0 | 1 ms | 217 ms | 53 MB | 58 MB | 0.5% | 70 ms | 2/3 |
+| pm2-reload-3 | 3 | 1,167 ± 0 | 87 ms | 134 ms | 709 ms | 0 | 412 ms | 5000 ms | 237 MB | 124 MB | 95.0% | 13,300 ms | 2/3 |
+
+### Workload: List 100 (filter + paginate JSON dataset)
+
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| single | 1 | 3,566 ± 0 | 12 ms | 26 ms | 27 ms | 0 | 8 ms | 5003 ms | N/A | N/A | N/A | N/A | 4/1 |
+| clusterkit-3 | 3 | 2,752 ± 0 | 51 ms | 102 ms | 104 ms | 0 | 7 ms | 2108 ms | 57 MB | 63 MB | 0.9% | 120 ms | 3/3 |
+| native-cluster-3 | 3 | 2,752 ± 0 | 51 ms | 102 ms | 103 ms | 0 | 4 ms | 5005 ms | N/A | N/A | N/A | N/A | 3/3 |
+| throng-3 | 3 | 2,512 ± 0 | 52 ms | 114 ms | 134 ms | 0 | 1 ms | 5 ms | 120 MB | 69 MB | 2.5% | 350 ms | 3/3 |
+| pm2-3 | 3 | 20,840 ± 0 | 6 ms | 27 ms | 29 ms | 7 | 2 ms | 225 ms | 52 MB | 58 MB | 0.5% | 70 ms | 3/3 |
+| pm2-reload-3 | 3 | 10,378 ± 0 | 14 ms | 17 ms | 19 ms | 0 | 414 ms | 5002 ms | 276 MB | 163 MB | 92.9% | 13,940 ms | 2/3 |
+
+### Workload: Aggregate (group-by + sort over dataset)
+
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| single | 1 | 33,504 ± 0 | 1 ms | 4 ms | 5 ms | 0 | 4 ms | 5008 ms | N/A | N/A | N/A | N/A | 4/1 |
+| clusterkit-3 | 3 | 28,022 ± 0 | 4 ms | 10 ms | 13 ms | 0 | 12 ms | 2196 ms | 56 MB | 62 MB | 0.9% | 120 ms | 3/3 |
+| native-cluster-3 | 3 | 29,566 ± 0 | 4 ms | 9 ms | 11 ms | 0 | 9 ms | 5003 ms | N/A | N/A | N/A | N/A | 3/3 |
+| throng-3 | 3 | 22,958 ± 0 | 5 ms | 15 ms | 19 ms | 0 | 5 ms | 5 ms | 121 MB | 67 MB | 2.8% | 390 ms | 3/3 |
+| pm2-3 | 3 | 20,432 ± 0 | 7 ms | 23 ms | 27 ms | 54 | 1 ms | 222 ms | 53 MB | 59 MB | 0.5% | 70 ms | 3/3 |
+| pm2-reload-3 | 3 | 5,760 ± 0 | 24 ms | 30 ms | 33 ms | 0 | 415 ms | 5007 ms | 271 MB | 159 MB | 93.3% | 14,000 ms | 2/3 |
+
+### Workload: Auth Verify (JWT decode + verify)
+
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| single | 1 | 21,349 ± 0 | 2 ms | 5 ms | 6 ms | 0 | 8 ms | 5004 ms | N/A | N/A | N/A | N/A | 4/1 |
+| clusterkit-3 | 3 | 17,736 ± 0 | 8 ms | 13 ms | 16 ms | 0 | 4 ms | 1182 ms | 57 MB | 64 MB | 0.7% | 110 ms | 3/3 |
+| native-cluster-3 | 3 | 17,854 ± 0 | 8 ms | 13 ms | 15 ms | 0 | 4 ms | 5007 ms | N/A | N/A | N/A | N/A | 3/3 |
+| throng-3 | 3 | 14,899 ± 0 | 8 ms | 19 ms | 22 ms | 0 | 6 ms | 5 ms | 119 MB | 68 MB | 2.6% | 360 ms | 3/3 |
+| pm2-3 | 3 | 35,837 ± 0 | 3 ms | 10 ms | 12 ms | 33 | 3 ms | 228 ms | 52 MB | 58 MB | 0.6% | 80 ms | 3/3 |
+| pm2-reload-3 | 3 | 16,896 ± 0 | 8 ms | 11 ms | 13 ms | 0 | 413 ms | 5007 ms | 264 MB | 150 MB | 88.4% | 13,260 ms | 2/3 |
+
+### Workload: Error Rate (20% intentional 500s)
+
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| single | 1 | 50,509 ± 0 | 0 ms | 3 ms | 4 ms | 0 | 7 ms | 5003 ms | N/A | N/A | N/A | N/A | 4/1 |
+| clusterkit-3 | 3 | 47,894 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 10 ms | 1223 ms | 57 MB | 63 MB | 0.8% | 120 ms | 3/3 |
+| native-cluster-3 | 3 | 47,876 ± 0 | 2 ms | 6 ms | 7 ms | 0 | 2 ms | 5008 ms | N/A | N/A | N/A | N/A | 3/3 |
+| throng-3 | 3 | 38,518 ± 0 | 3 ms | 9 ms | 12 ms | 0 | 6 ms | 4 ms | 113 MB | 68 MB | 2.7% | 380 ms | 3/3 |
+| pm2-3 | 3 | 45,418 ± 0 | 2 ms | 9 ms | 10 ms | 53 | 2 ms | 225 ms | 53 MB | 59 MB | 0.5% | 70 ms | 3/3 |
+| pm2-reload-3 | 3 | 17,736 ± 0 | 7 ms | 10 ms | 11 ms | 0 | 413 ms | 5006 ms | 264 MB | 151 MB | 92.8% | 13,920 ms | 2/3 |
+
+### Workload: Upload Echo (POST + JSON body echo)
+
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| single | 1 | 49,418 ± 0 | 0 ms | 3 ms | 4 ms | 0 | 12 ms | 5003 ms | N/A | N/A | N/A | N/A | 4/1 |
+| clusterkit-3 | 3 | 44,035 ± 0 | 3 ms | 6 ms | 8 ms | 0 | 4 ms | 2198 ms | 56 MB | 62 MB | 0.9% | 130 ms | 3/3 |
+| native-cluster-3 | 3 | 43,245 ± 0 | 3 ms | 7 ms | 8 ms | 0 | 8 ms | 5006 ms | N/A | N/A | N/A | N/A | 3/3 |
+| throng-3 | 3 | 33,824 ± 0 | 4 ms | 10 ms | 12 ms | 0 | 6 ms | 5 ms | 140 MB | 174 MB | 2.6% | 360 ms | 3/3 |
+| pm2-3 | 3 | 36,586 ± 0 | 3 ms | 11 ms | 12 ms | 54 | 2 ms | 227 ms | 53 MB | 58 MB | 0.5% | 70 ms | 3/3 |
+| pm2-reload-3 | 3 | 14,228 ± 0 | 10 ms | 14 ms | 17 ms | 0 | 410 ms | 5008 ms | 267 MB | 155 MB | 93.3% | 14,000 ms | 2/3 |
 
 ### Summary (Linux)
 
-- **Throughput winner** (hello): native-cluster-3 — 55,862 req/sec
-- **Lowest latency p99** (hello): single — 4 ms
-- **Fastest boot** (hello): single — 105 ms
-- **Fastest shutdown** (hello): native-cluster-3 — 1 ms
-- **Throughput winner** (latency-10ms): single — 53,398 req/sec
-- **Lowest latency p99** (latency-10ms): single — 3 ms
-- **Fastest boot** (latency-10ms): clusterkit-3 — 2 ms
-- **Fastest shutdown** (latency-10ms): throng-3 — 5 ms
-- **Throughput winner** (cpu-io-mix): throng-3 — 13,057 req/sec
-- **Lowest latency p99** (cpu-io-mix): single — 14 ms
-- **Fastest boot** (cpu-io-mix): native-cluster-3 — 2 ms
-- **Fastest shutdown** (cpu-io-mix): throng-3 — 4 ms
+| Workload | RPS Winner | p99 Winner | Boot Winner | Shutdown Winner |
+|---|---|---|---|---|
+| hello | throng-3 (52,470) | single (4 ms) | single (107 ms) | native-cluster-3 (1 ms) |
+| latency-10ms | single (53,343) | single (4 ms) | pm2-3 (1 ms) | throng-3 (5 ms) |
+| cpu-io-mix | throng-3 (13,018) | single (14 ms) | pm2-3 (1 ms) | throng-3 (4 ms) |
+| list-100 | pm2-3 (20,840) | single (27 ms) | throng-3 (1 ms) | throng-3 (5 ms) |
+| aggregate | single (33,504) | single (5 ms) | pm2-3 (1 ms) | throng-3 (5 ms) |
+| auth-verify | pm2-3 (35,837) | single (6 ms) | clusterkit-3 (4 ms) | throng-3 (5 ms) |
+| error-rate | single (50,509) | single (4 ms) | pm2-3 (2 ms) | throng-3 (4 ms) |
+| upload-echo | single (49,418) | single (4 ms) | pm2-3 (2 ms) | throng-3 (5 ms) |
 
 ---
 
 ## Key Findings
 
-### SO_REUSEPORT impact (clusterkit-3 vs native-cluster-3)
+### SO_REUSEPORT impact (clusterkit-3 vs native-cluster-3, Linux)
 
-| Workload | macOS (no SO_REUSEPORT) | Linux (SO_REUSEPORT) |
-|---|---|---|
-| **hello** | native-cluster-3 7% faster (53,520 vs 50,006) | Tied (55,862 vs 55,482, 0.7% delta) |
-| **latency-10ms** | native-cluster-3 6% faster (54,864 vs 51,610) | clusterkit-3 0.2% faster (54,495 vs 54,401) |
-| **cpu-io-mix** | native-cluster-3 0.7% faster (12,809 vs 12,721) | clusterkit-3 1.7% faster (11,954 vs 11,751) |
+| Workload | clusterkit-3 RPS | native-cluster-3 RPS | Delta |
+|---|---|---|---|
+| hello | 52,349 | 52,086 | clusterkit +0.5% |
+| latency-10ms | 50,570 | 51,187 | native +1.2% |
+| cpu-io-mix | 11,875 | 11,958 | native +0.7% |
+| list-100 | 2,752 | 2,752 | tied |
+| aggregate | 28,022 | 29,566 | native +5.5% |
+| auth-verify | 17,736 | 17,854 | native +0.7% |
+| error-rate | 47,894 | 47,876 | tied |
+| upload-echo | 44,035 | 43,245 | clusterkit +1.8% |
 
-On macOS, both use the same IPC round-robin — clusterkit is slower due to management overhead. On Linux, SO_REUSEPORT eliminates the IPC bottleneck, and clusterkit matches or surpasses native-cluster on async workloads.
+On macOS (no SO_REUSEPORT), native-cluster consistently beats clusterkit by 1–7%. On Linux with SO_REUSEPORT, the gap closes — clusterkit matches or surpasses native-cluster on hello, error-rate, and upload-echo. The aggregate workload is the outlier where native-cluster maintains a 5.5% lead.
 
 ### pm2 overhead vs clusterkit (Linux, hello workload)
 
 | Metric | clusterkit-3 | pm2-3 | pm2 overhead |
 |---|---|---|---|
-| RSS Avg | 184 MB | 405 MB | **+120%** |
-| CPU % | 93.2% | 146.4% | **+57%** |
-| Boot time | 208 ms | 410 ms | **+97%** |
-| Shutdown | 9 ms | 222 ms | **+2,367%** |
-| Throughput | 55,482 req/s | 53,600 req/s | **-3.4%** |
+| RSS Avg | 190 MB | 389 MB | **+105%** |
+| CPU % | 93.4% | 144.0% | **+54%** |
+| Boot time | 203 ms | 411 ms | **+102%** |
+| Shutdown | 10 ms | 229 ms | **+2,190%** |
+| Throughput | 52,349 req/s | 50,918 req/s | **-2.7%** |
+
+### Graceful shutdown (Linux, hello workload)
+
+| Orchestrator | Shutdown time | Method |
+|---|---|---|
+| native-cluster-3 | 1 ms | Raw SIGTERM (no ACK protocol) |
+| clusterkit-3 | 10 ms | ACK-based graceful shutdown |
+| throng-3 | 11 ms | SIGTERM with quick exit |
+| pm2-3 | 229 ms | pm2 daemon stop sequence |
+| pm2-reload-3 | 4,909 ms | pm2 reload with wait_ready |
+
+clusterkit's ACK protocol adds ~9 ms over raw SIGTERM but ensures in-flight requests complete before exit. pm2's shutdown is 23× slower than clusterkit due to daemon overhead.
+
+### pm2-reload-3 worker count
+
+pm2-reload-3 consistently starts only **2/3 workers** across all workloads. The `wait_ready: true` option delays the 3rd worker beyond the measurement window, causing it to run at 2/3 capacity. This affects all pm2-reload-3 results.
 
 ### Notes
 
 - macOS RSS/CPU = N/A (no `/proc` filesystem). Use Linux Docker for memory/CPU metrics.
 - `stddev = 0` because only 1 run per scenario (quick mode). Reference mode (3 runs) needed for variance.
-- pm2-reload-3 consistently starts only 2/3 workers — the `wait_ready` option delays the 3rd worker beyond the measurement window.
-- Some Linux RSS values show N/A for single/native-cluster on latency-10ms and cpu-io-mix: the proc-sampler couldn't find child PIDs before the process tree changed. A longer warmup would resolve this.
+- Some Linux RSS values show N/A for single and native-cluster-3 on non-hello workloads: the proc-sampler couldn't find child PIDs before the process tree changed (native-cluster workers share the primary's PID namespace differently). A longer warmup would resolve this.
+- throng-3 on latency-10ms shows 670% CPU — the IPC round-robin primary process is CPU-bound under async workloads without SO_REUSEPORT.
+- pm2-3 on list-100 and auth-verify shows anomalously high RPS (20,840 and 35,837 vs ~2,752 and ~17,800 for cluster targets). The pm2 server implementation may handle these routes differently. Investigation pending.
