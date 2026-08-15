@@ -518,4 +518,102 @@ describe("file-watcher plugin", () => {
     await plugin.uninstall?.();
     rmSync(tempDir, { recursive: true, force: true });
   });
+
+  it("uses custom reason when configured", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const tempFile = join(tempDir, "test.txt");
+    writeFileSync(tempFile, "initial");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      reason: "custom-reason",
+      debounceMs: 50,
+      staggerMs: 0,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+
+    writeFileSync(tempFile, "changed");
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "custom-reason" }),
+    );
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("delays watcher start when startDelayMs > 0", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      startDelayMs: 200,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+    expect(plugin.isWatching).toBe(false);
+
+    await new Promise((r) => setTimeout(r, 300));
+    expect(plugin.isWatching).toBe(true);
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("passes ignore option to chokidar", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const spy = vi.spyOn(chokidar, "watch");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      ignore: ["**/node_modules/**"],
+    });
+    await plugin.install(mockOrchestrator(), null, mockConfig(2));
+
+    expect(spy).toHaveBeenCalledWith(
+      [tempDir],
+      expect.objectContaining({ ignored: ["**/node_modules/**"] }),
+    );
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("accepts watch as string instead of array", async () => {
+    const plugin = createFileWatcherPlugin({ watch: "./src" });
+    const spy = vi.spyOn(chokidar, "watch");
+    await plugin.install(mockOrchestrator(), null, mockConfig(2));
+    expect(spy).toHaveBeenCalledWith(["./src"], expect.anything());
+    await plugin.uninstall?.();
+  });
+
+  it("accepts envFile as string instead of array", async () => {
+    const plugin = createFileWatcherPlugin({ envFile: "./.env" });
+    const spy = vi.spyOn(chokidar, "watch");
+    await plugin.install(mockOrchestrator(), null, mockConfig(2));
+    expect(spy).toHaveBeenCalledWith(["./.env"], expect.anything());
+    await plugin.uninstall?.();
+  });
+
+  it("shutdown callback closes watchers and clears state", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const plugin = createFileWatcherPlugin({ watch: [tempDir] });
+    const orch = mockOrchestrator();
+    let shutdownCb: (() => Promise<void>) | undefined;
+
+    orch.registerOnShutdown = vi.fn((cb) => { shutdownCb = cb; });
+
+    await plugin.install(orch, null, mockConfig(2));
+    expect(plugin.isWatching).toBe(true);
+
+    await shutdownCb!();
+    expect(plugin.isWatching).toBe(false);
+
+    rmSync(tempDir, { recursive: true, force: true });
+  });
 });
