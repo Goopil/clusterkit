@@ -8,7 +8,10 @@ const packages = [
   "packages/plugin-container-sizing",
   "packages/plugin-prometheus",
   "packages/plugin-otlp-meter",
+  "packages/plugin-signal-restart",
+  "packages/plugin-file-watcher",
 ];
+
 const dryRun = process.argv.includes("--dry-run");
 const tarballsDirectory = mkdtempSync(join(tmpdir(), "clusterkit-publish-"));
 
