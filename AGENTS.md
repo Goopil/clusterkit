@@ -175,6 +175,20 @@ CI (`.github/workflows/ci.yml`) runs in this order — a change must pass all of
 4. **Linux Docker** — `docker compose run --build --rm test` (SO_REUSEPORT)
 5. **Packaging** — `pnpm test:packages` + `publint` on each publishable package
 
+## SonarCloud
+
+`sonar-project.properties` at the repo root defines a SonarQube module per package under `packages/`.
+When adding a new package, register it in `sonar-project.properties`:
+
+1. Add the module key to `sonar.modules` (comma-separated).
+2. Add a block with `projectBaseDir`, `sources`, `tests`, `typescript.tsconfigPath`, and
+   `javascript.lcov.reportPaths` — copy an existing plugin block as a template.
+3. Ensure the package's `vitest.config.ts` coverage reporters include `"lcov"` so `coverage/lcov.info`
+   is generated for SonarCloud ingestion.
+
+The `SonarCloud` workflow (`.github/workflows/cq.yml`) runs install, build, `test:coverage`, then the
+scan — no manual coverage step is needed.
+
 ## Changesets and releases
 
 - Add a changeset for any PR that changes a package: `corepack pnpm changeset`. Commit the generated `.changeset/*.md`
