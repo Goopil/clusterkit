@@ -428,7 +428,7 @@ describe("file-watcher plugin", () => {
     let callCount = 0;
     vi.spyOn(chokidar, "watch").mockImplementation(() => {
       callCount++;
-      if (callCount === 1) throw new Error("watch failed");
+      if (callCount === 2) throw new Error("watch failed");
       const emitter = new EventEmitter();
       return Object.assign(emitter, { close: () => Promise.resolve() }) as any;
     });
