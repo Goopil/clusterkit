@@ -21,17 +21,25 @@ pnpm build
 
 ```
 packages/
-  worker-manager/          # @goopil/clusterkit — core library
-  plugin-prometheus/       # @goopil/clusterkit-prometheus — Prometheus plugin
-  plugin-container-sizing/ # @goopil/clusterkit-sizing — container sizing plugin
+  worker-manager/           # @goopil/clusterkit — core library
+  plugin-prometheus/        # @goopil/clusterkit-prometheus — Prometheus plugin
+  plugin-container-sizing/  # @goopil/clusterkit-sizing — container sizing plugin
+  plugin-otlp-meter/        # @goopil/clusterkit-otlp-meter — OpenTelemetry OTLP metrics plugin
+  plugin-signal-restart/    # @goopil/clusterkit-signal-restart — signal-based hot restart plugin
+  plugin-file-watcher/      # @goopil/clusterkit-file-watcher — file watcher hot restart plugin
 examples/
-  express/             # Express example with integrated Prometheus
-  fastify/             # Fastify example
-  hono/                # Hono example
-  koa/                 # Koa example
-  nestjs-express/      # NestJS (Express adapter) example
-  nestjs-fastify/      # NestJS (Fastify adapter) example
-docker/                # Dockerfiles and startup scripts
+  express/              # Express example with integrated Prometheus
+  express-otlp/         # Express + OTLP metrics (push to collector)
+  fastify/              # Fastify example
+  hono/                 # Hono example
+  koa/                  # Koa example
+  nestjs-express/       # NestJS (Express adapter) example
+  nestjs-fastify/       # NestJS (Fastify adapter) example
+  inertia-ssr/          # Inertia + Vue 3 SSR renderer
+  inertia-ssr-react/    # Inertia + React 18 SSR renderer
+  hot-reload/           # Signal-based + file watcher hot restart demo
+benchmarks/             # Performance benchmark suite (not published)
+docker/                 # Dockerfiles and startup scripts
 ```
 
 ## Development workflow

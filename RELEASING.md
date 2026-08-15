@@ -40,7 +40,7 @@ corepack pnpm publish -r --tag next
 > `--tag next` keeps the RC away from `latest` — `npm install @goopil/clusterkit`
 > will not resolve to it by accident.
 
-Then, for **each** of the three packages on npmjs.com
+Then, for **each** of the six publishable packages on npmjs.com
 (`Settings → Publishing access → Trusted publisher`):
 
 - Publisher: **GitHub Actions**
@@ -59,11 +59,12 @@ publishing access to "Require two-factor authentication or automation".
 
 ## Graduating the RC to stable
 
-Current versions are `1.0.0-rc.1` (core) and `0.1.0-rc.1` (plugins). Once the
-RC has been validated (examples running in Docker, ideally a real deployment):
+Current versions are `1.0.0-rc.1` (core) and `0.1.0-rc.1` (prometheus, sizing,
+otlp-meter). The `signal-restart` and `file-watcher` plugins start at `0.1.0`.
+Once the RC has been validated (examples running in Docker, ideally a real deployment):
 
 ```bash
-corepack pnpm changeset       # select all three packages, bump type: patch
+corepack pnpm changeset       # select all packages, bump type: patch
 ```
 
 A `patch` bump on a prerelease graduates it (`1.0.0-rc.1` → `1.0.0`,
