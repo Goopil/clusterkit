@@ -32,6 +32,7 @@ services:
   #   http://localhost:3007  nestjs-express
   #   http://localhost:3008  nestjs-fastify
   #   http://localhost:3009  express-otlp (pushes to OTLP collector, no metrics port)
+  #   http://localhost:3010  hot-reload
   #
   # Prometheus metrics (one per app):
   #   http://localhost:9090  express     http://localhost:9093  koa
@@ -59,6 +60,7 @@ services:
       - "3007:3007"
       - "3008:3008"
       - "3009:3009"
+      - "3010:3010"
       # Metrics servers
       - "9090:9090"
       - "9091:9091"

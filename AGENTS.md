@@ -32,8 +32,10 @@ current package boundaries and public API shape.
 - `packages/plugin-prometheus/`: Prometheus integration plugin (`@goopil/clusterkit-prometheus`)
 - `packages/plugin-container-sizing/`: container-aware sizing plugin (`@goopil/clusterkit-sizing`)
 - `packages/plugin-otlp-meter/`: OpenTelemetry OTLP metrics plugin (`@goopil/clusterkit-otlp-meter`)
+- `packages/plugin-signal-restart/`: signal-based hot restart plugin (`@goopil/clusterkit-signal-restart`)
+- `packages/plugin-file-watcher/`: file watcher hot restart plugin (`@goopil/clusterkit-file-watcher`)
 - `examples/`: standalone framework examples (express, express-otlp, fastify, hono, koa, nestjs-express,
-  nestjs-fastify, inertia-ssr, inertia-ssr-react)
+  nestjs-fastify, inertia-ssr, inertia-ssr-react, hot-reload)
 - `benchmarks/`: performance benchmark suite (private package, not published) — compares clusterkit vs other
   orchestrators (native cluster, throng, pm2) on 3 HTTP workloads. See `benchmarks/README.md`.
 - `docker/`: Linux test harness and example container setup
@@ -80,6 +82,20 @@ Use `new Orchestrator(config)` as the single creation path. Query `Orchestrator.
 There is no built-in HTTP server; the host app exposes the endpoint via `plugin.getMetrics()`. When editing plugin
 tests, use `new Registry()` per test and `defaultMetrics: false` to avoid global metric pollution and port conflicts.
 
+### Hot restart
+
+`Orchestrator.restartWorkers()` performs a rolling restart: forks a replacement for each
+worker, then drains the old one via the existing `handleWorkerRecycle` flow. Emits
+`restart:start` and `restart:complete` events. Idempotent via a `restartInProgress` guard.
+Returns early in single-worker mode. The `env` overlay parameter passes per-restart env
+to newly forked workers without mutating `cfg.workers.env`.
+
+Two plugins trigger it:
+- `plugin-signal-restart`: listens for SIGHUP (or custom signal). In single-worker mode,
+  delivers SIGTERM for external restart.
+- `plugin-file-watcher`: watches files, `.env` files, and/or `process.env` for changes.
+  Debounced triggers. Supports `dryRun` mode.
+
 ## Build tooling
 
 - **tsdown** builds each package as dual ESM+CJS (`dist/index.mjs` + `dist/index.cjs` + type declarations).
@@ -123,7 +139,7 @@ corepack pnpm --filter @goopil/clusterkit-sizing test
 
 ```bash
 corepack pnpm test:linux        # docker compose run --build --rm test (full suite on real Linux kernel)
-corepack pnpm examples:start    # docker compose up examples --build (all 8 examples)
+corepack pnpm examples:start    # docker compose up examples --build (all 9 examples)
 ```
 
 ### Benchmarks
@@ -168,7 +184,7 @@ CI (`.github/workflows/ci.yml`) runs in this order — a change must pass all of
 
 ## Examples
 
-Eight standalone apps in `examples/`, each integrating core + plugins:
+Nine standalone apps in `examples/`, each integrating core + plugins:
 
 | Example           | Port  | Metrics port |
 |-------------------|-------|--------------|
@@ -180,6 +196,7 @@ Eight standalone apps in `examples/`, each integrating core + plugins:
 | nestjs-fastify    | 3008  | 9095         |
 | inertia-ssr       | 13714 | 9096         |
 | inertia-ssr-react | 13715 | 9097         |
+| hot-reload        | 3010  | —            |
 
 NestJS examples require `app.init()` (not `app.listen()`) to bind the raw server socket with `reusePort`. The Fastify
 adapter additionally needs `await fastifyInstance.ready()` between `app.init()` and

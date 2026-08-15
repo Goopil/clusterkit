@@ -3,6 +3,7 @@
 #
 # App ports:     3000 (express) · 3001 (fastify) · 3005 (hono)
 #                3006 (koa)     · 3007 (nestjs-express) · 3008 (nestjs-fastify)
+#                3010 (hot-reload)
 # Metrics ports: 9090–9095 (sequential, one per app)
 
 set -e
@@ -21,6 +22,7 @@ PORT=3005 METRICS_PORT=9092 node examples/hono/src/index.mjs &
 PORT=3006 METRICS_PORT=9093 node examples/koa/src/index.mjs &
 PORT=3007 METRICS_PORT=9094 node examples/nestjs-express/dist/main.js &
 PORT=3008 METRICS_PORT=9095 node examples/nestjs-fastify/dist/main.js &
+PORT=3010 node examples/hot-reload/src/index.mjs &
 
 # Exit as soon as any process exits (propagates crashes to Docker)
 wait -n

@@ -69,7 +69,7 @@ export class WorkerManager {
   /**
    * Fork a new worker with the configured environment.
    */
-  forkWorker(): Worker {
+  forkWorker(envOverlay?: NodeJS.ProcessEnv): Worker {
     if (!this.appliedExecArgv && this.cfg.workers.execArgv?.length) {
       this.clusterRef.setupPrimary({
         execArgv: [...this.baseWorkerExecArgv, ...this.cfg.workers.execArgv],
@@ -77,7 +77,8 @@ export class WorkerManager {
       this.appliedExecArgv = true;
     }
 
-    const worker = this.clusterRef.fork(this.cfg.workers.env);
+    const env = envOverlay !== undefined ? { ...this.cfg.workers.env, ...envOverlay } : this.cfg.workers.env;
+    const worker = this.clusterRef.fork(env);
     this.workerStartTimes.set(worker.id, Date.now());
     this.metrics.activeWorkers++;
     return worker;
