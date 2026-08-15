@@ -141,6 +141,8 @@ export interface OrchestratorEvents {
   "shutdown:start": [data: { signal: string }];
   "shutdown:complete": [data: { metrics: WorkerMetrics }];
   "circuit-breaker:tripped": [data: { crashCount: number; windowMs: number }];
+  "restart:start": [data: { reason: string; workerIds: number[] }];
+  "restart:complete": [data: { restartedWorkerIds: number[]; reason: string }];
 }
 
 /** Type guard for IPC messages with required 'type' field */

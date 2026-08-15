@@ -876,6 +876,116 @@ describe("Orchestrator", () => {
   });
 
   // --------------------------------------------------------------------------
+  describe("restartWorkers()", () => {
+    async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
+      await orch.run(() => {});
+      return orch;
+    }
+
+    it("replaces all workers with rolling restart", async () => {
+      const orchestrator = await setupPrimary(3);
+      const originalIds = Object.values(mockCluster.workers).map((w) => w!.id);
+
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+
+      const restartStartEvents: Array<{ reason: string; workerIds: number[] }> = [];
+      const restartCompleteEvents: Array<{ restartedWorkerIds: number[]; reason: string }> = [];
+      orchestrator.on("restart:start", (d) => restartStartEvents.push(d));
+      orchestrator.on("restart:complete", (d) => restartCompleteEvents.push(d));
+
+      await orchestrator.restartWorkers({ staggerMs: 0, reason: "test" });
+
+      expect(restartStartEvents).toHaveLength(1);
+      expect(restartStartEvents[0].reason).toBe("test");
+      expect(restartStartEvents[0].workerIds).toHaveLength(3);
+
+      expect(restartCompleteEvents).toHaveLength(1);
+      expect(restartCompleteEvents[0].restartedWorkerIds).toHaveLength(3);
+      expect(restartCompleteEvents[0].reason).toBe("test");
+
+      for (const id of originalIds) {
+        const w = mockCluster.workers[id];
+        expect(w?.isDead()).toBe(true);
+      }
+    });
+
+    it("is idempotent — second call during restart is a no-op", async () => {
+      const orchestrator = await setupPrimary(2);
+
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+
+      const completeEvents: Array<{ reason: string }> = [];
+      orchestrator.on("restart:complete", (d) => completeEvents.push(d));
+
+      const p1 = orchestrator.restartWorkers({ staggerMs: 50, reason: "first" });
+      const p2 = orchestrator.restartWorkers({ staggerMs: 50, reason: "second" });
+
+      await Promise.all([p1, p2]);
+
+      expect(completeEvents).toHaveLength(1);
+      expect(completeEvents[0].reason).toBe("first");
+    });
+
+    it("returns early in single-worker mode", async () => {
+      mockCluster.isPrimary = true;
+      const orchestrator = new Orchestrator(cfg({ workers: 1 }));
+      await orchestrator.run(() => {});
+
+      const events: Array<{ reason: string }> = [];
+      orchestrator.on("restart:start", (d) => events.push(d));
+
+      await orchestrator.restartWorkers({ reason: "test" });
+
+      expect(events).toHaveLength(0);
+    });
+
+    it("passes env overlay to forked workers", async () => {
+      const orchestrator = await setupPrimary(2);
+      const forkCalls = vi.spyOn(mockCluster, "fork");
+
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+
+      await orchestrator.restartWorkers({ env: { HOT_RESTART_KEY: "value" }, staggerMs: 0, reason: "env-test" });
+
+      const hasOverlay = forkCalls.mock.calls.some(
+        (call: unknown[]) => call[0] && (call[0] as NodeJS.ProcessEnv).HOT_RESTART_KEY === "value",
+      );
+      expect(hasOverlay).toBe(true);
+    });
+
+    it("respects filter to restart only matching workers", async () => {
+      const orchestrator = await setupPrimary(3);
+
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+
+      const allIds = Object.values(mockCluster.workers).map((w) => w!.id);
+      const targetId = allIds[0];
+
+      const completeEvents: Array<{ restartedWorkerIds: number[] }> = [];
+      orchestrator.on("restart:complete", (d) => completeEvents.push(d));
+
+      await orchestrator.restartWorkers({
+        filter: (id) => id === targetId,
+        staggerMs: 0,
+        reason: "filter-test",
+      });
+
+      expect(completeEvents).toHaveLength(1);
+      expect(completeEvents[0].restartedWorkerIds).toEqual([targetId]);
+    });
+  });
+
+  // --------------------------------------------------------------------------
   describe("circuit breaker", () => {
     // workers must be >= 2 to enter cluster primary mode
     async function setupAndCrash(threshold: number, crashes: number) {

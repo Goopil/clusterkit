@@ -58,6 +58,25 @@ describe("WorkerManager", () => {
     expect(cluster.setupPrimary).not.toHaveBeenCalled();
   });
 
+  it("merges envOverlay on top of cfg.workers.env for this fork only", () => {
+    const cluster = new MockCluster();
+    const cfg = {
+      ...config,
+      workers: { count: 2, env: { BASE: "1", SHARED: "base" } as NodeJS.ProcessEnv, execArgv: undefined, maxAgeMs: 0 },
+    };
+    const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+
+    // Fork with overlay
+    manager.forkWorker({ SHARED: "overlay", NEW: "2" });
+
+    // Overlay merged on top of base env
+    expect(cluster.fork).toHaveBeenCalledWith({ BASE: "1", SHARED: "overlay", NEW: "2" });
+
+    // Subsequent fork without overlay uses original env (not mutated)
+    manager.forkWorker();
+    expect(cluster.fork).toHaveBeenLastCalledWith({ BASE: "1", SHARED: "base" });
+  });
+
   // ── cleanupWorker ─────────────────────────────────────────────────────────
 
   it("cleans worker state when the cluster reports an exit", () => {

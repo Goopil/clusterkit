@@ -1,0 +1,69 @@
+{
+  "name": "@goopil/clusterkit-signal-restart",
+  "version": "0.1.0",
+  "description": "Signal-based hot restart plugin for @goopil/clusterkit: SIGHUP triggers rolling worker restart",
+  "keywords": [
+    "cluster",
+    "clusterkit",
+    "sighup",
+    "restart",
+    "hot-reload",
+    "rolling-restart"
+  ],
+  "homepage": "https://github.com/Goopil/clusterkit#readme",
+  "bugs": {
+    "url": "https://github.com/Goopil/clusterkit/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Goopil/clusterkit.git",
+    "directory": "packages/plugin-signal-restart"
+  },
+  "license": "LGPL-3.0-or-later",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "pnpm build",
+    "clean": "rm -rf dist coverage"
+  },
+  "peerDependencies": {
+    "@goopil/clusterkit": "workspace:*"
+  },
+  "devDependencies": {
+    "@goopil/clusterkit": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -46,6 +46,8 @@ shutdown so you don't have to.
 | [`@goopil/clusterkit-prometheus`](#goopilclusterkit-prometheus) | Prometheus metrics export plugin                          | [`packages/plugin-prometheus/README.md`](./packages/plugin-prometheus/README.md) |
 | [`@goopil/clusterkit-sizing`](#goopilclusterkit-sizing) | Kubernetes / container-aware CPU and memory sizing plugin | [`packages/plugin-container-sizing/README.md`](./packages/plugin-container-sizing/README.md) |
 | [`@goopil/clusterkit-otlp-meter`](#goopilclusterkit-otlp-meter) | OpenTelemetry OTLP metrics export plugin                  | [`packages/plugin-otlp-meter/README.md`](./packages/plugin-otlp-meter/README.md) |
+| [`@goopil/clusterkit-signal-restart`](#goopilclusterkit-signal-restart) | Signal-based hot restart plugin (SIGHUP → rolling restart) | [`packages/plugin-signal-restart/README.md`](./packages/plugin-signal-restart/README.md) |
+| [`@goopil/clusterkit-file-watcher`](#goopilclusterkit-file-watcher) | File watcher hot restart plugin (file/env changes → rolling restart) | [`packages/plugin-file-watcher/README.md`](./packages/plugin-file-watcher/README.md) |
 
 This root README gives the monorepo overview. Each package also has a dedicated README focused on its own capabilities,
 options, and API surface.
@@ -156,7 +158,10 @@ orchestrator.getHealth();               // { ready: boolean, live: boolean }
 orchestrator.setNotReady();             // mark ready=false (e.g. during rolling deploys)
 orchestrator.setReady();                // restore ready=true (no-op during shutdown)
 orchestrator.resetCircuitBreaker();     // re-arm after a crash-loop trip; refills missing workers
+orchestrator.restartWorkers(opts);     // rolling-restart workers without dropping connections
 orchestrator.workerCount;               // resolved worker count (number)
+
+// restartWorkers opts: { env?: NodeJS.ProcessEnv, filter?: (id: number) => boolean, staggerMs?: number, reason?: string }
 
 // Plugin helpers — available to plugins during install(), throw once workers are forked
 orchestrator.patchWorkerEnv(env);       // merge additional env vars into workerEnv (chainable)
@@ -179,6 +184,10 @@ orchestrator.on('shutdown:start', ({signal}) => {
 orchestrator.on('shutdown:complete', ({metrics}) => {
 });
 orchestrator.on('circuit-breaker:tripped', ({crashCount, windowMs}) => {
+});
+orchestrator.on('restart:start', ({reason, workerIds}) => {
+});
+orchestrator.on('restart:complete', ({restartedWorkerIds, reason}) => {
 });
 ```
 
@@ -456,6 +465,66 @@ const otlp = createOtlpMeterPlugin({
 });
 ```
 
+---
+
+## `@goopil/clusterkit-signal-restart`
+
+Detailed package README: [`packages/plugin-signal-restart/README.md`](./packages/plugin-signal-restart/README.md)
+
+Triggers a rolling worker restart on `SIGHUP` (or a custom signal) without dropping connections.
+
+### Installation
+
+```bash
+pnpm add @goopil/clusterkit-signal-restart
+```
+
+### Usage
+
+```js
+import { Orchestrator } from '@goopil/clusterkit';
+import { createSignalRestartPlugin } from '@goopil/clusterkit-signal-restart';
+
+const orchestrator = new Orchestrator({ logger: console });
+
+orchestrator
+  .use(createSignalRestartPlugin())  // SIGHUP → rolling restart
+  .run(async () => { /* ... */ });
+```
+
+Send `kill -HUP <pid>` to trigger a rolling restart.
+
+---
+
+## `@goopil/clusterkit-file-watcher`
+
+Detailed package README: [`packages/plugin-file-watcher/README.md`](./packages/plugin-file-watcher/README.md)
+
+Watches source files, `.env` files, and `process.env` for changes and triggers a rolling worker restart.
+
+### Installation
+
+```bash
+pnpm add @goopil/clusterkit-file-watcher
+```
+
+### Usage
+
+```js
+import { Orchestrator } from '@goopil/clusterkit';
+import { createFileWatcherPlugin } from '@goopil/clusterkit-file-watcher';
+
+const orchestrator = new Orchestrator({ logger: console });
+
+orchestrator
+  .use(createFileWatcherPlugin({
+    watch: ['./src'],    // source file changes
+    envFile: './.env',  // .env file changes
+    debounceMs: 300,
+  }))
+  .run(async () => { /* ... */ });
+```
+
 ## Plugin system
 
 Extend the orchestrator with custom plugins:
@@ -501,7 +570,7 @@ fleet. They throw if called after workers have been forked.
 
 ## Examples
 
-Eight ready-to-run examples live in [`examples/`](./examples/).
+Nine ready-to-run examples live in [`examples/`](./examples/).
 
 | Example                      | Port  | Metrics port | Description |
 |------------------------------|-------|--------------|-------------|
@@ -514,6 +583,7 @@ Eight ready-to-run examples live in [`examples/`](./examples/).
 | `examples/nestjs-fastify`    | 3008  | 9095         | NestJS (Fastify adapter) |
 | `examples/inertia-ssr`       | 13714 | 9096         | Inertia + Vue 3 SSR renderer |
 | `examples/inertia-ssr-react` | 13715 | 9097         | Inertia + React 18 SSR renderer |
+| `examples/hot-reload`        | 3010  | —            | Signal-based + file watcher hot restart demo |
 
 **Run all examples at once (Docker):**
 

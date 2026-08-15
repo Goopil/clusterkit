@@ -4,6 +4,7 @@
 # Ports exposed:
 #   App servers:     3000 (express) · 3001 (fastify) · 3005 (hono)
 #                    3006 (koa)     · 3007 (nestjs-express) · 3008 (nestjs-fastify)
+#                    3010 (hot-reload)
 #   Metrics servers: 9090–9095 (one per app, sequential)
 # ============================================================================
 FROM node:22-slim
@@ -26,13 +27,18 @@ COPY packages/worker-manager/package.json           packages/worker-manager/
 COPY packages/plugin-prometheus/package.json        packages/plugin-prometheus/
 COPY packages/plugin-container-sizing/package.json  packages/plugin-container-sizing/
 COPY packages/plugin-otlp-meter/package.json        packages/plugin-otlp-meter/
-COPY examples/express/package.json          examples/express/
-COPY examples/express-otlp/package.json     examples/express-otlp/
-COPY examples/fastify/package.json          examples/fastify/
-COPY examples/hono/package.json             examples/hono/
-COPY examples/koa/package.json              examples/koa/
-COPY examples/nestjs-express/package.json   examples/nestjs-express/
-COPY examples/nestjs-fastify/package.json   examples/nestjs-fastify/
+COPY packages/plugin-signal-restart/package.json    packages/plugin-signal-restart/
+COPY packages/plugin-file-watcher/package.json       packages/plugin-file-watcher/
+COPY examples/express/package.json                  examples/express/
+COPY examples/express-otlp/package.json             examples/express-otlp/
+COPY examples/fastify/package.json                  examples/fastify/
+COPY examples/hono/package.json                     examples/hono/
+COPY examples/koa/package.json                      examples/koa/
+COPY examples/nestjs-express/package.json           examples/nestjs-express/
+COPY examples/nestjs-fastify/package.json           examples/nestjs-fastify/
+COPY examples/inertia-ssr/package.json              examples/inertia-ssr/
+COPY examples/inertia-ssr-react/package.json        examples/inertia-ssr-react/
+COPY examples/hot-reload/package.json               examples/hot-reload/
 
 RUN pnpm install --frozen-lockfile
 
@@ -55,7 +61,7 @@ ENV COREPACK_HOME=/app/.cache/corepack
 RUN mkdir -p /app/.cache/corepack && chown -R app:app /app/.cache
 USER app
 
-EXPOSE 3000 3001 3005 3006 3007 3008 3009
+EXPOSE 3000 3001 3005 3006 3007 3008 3009 3010
 EXPOSE 9090 9091 9092 9093 9094 9095
 
 CMD ["/start-examples.sh"]
