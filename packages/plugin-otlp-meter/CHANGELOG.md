@@ -1,5 +1,11 @@
 # @goopil/clusterkit-otlp-meter
 
+## 1.0.1
+
+### Patch Changes
+
+- [#54](https://github.com/Goopil/clusterkit/pull/54) [`957635c`](https://github.com/Goopil/clusterkit/commit/957635c642121b88ff0c56dff6518d99f5571c31) Thanks [@Goopil](https://github.com/Goopil)! - Add `lcov` coverage reporter to align with other packages and enable SonarCloud coverage ingestion.
+
 ## 1.0.0
 
 ### Patch Changes
