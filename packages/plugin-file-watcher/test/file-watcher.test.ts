@@ -4,8 +4,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
-import { afterEach, describe, expect, it, vi } from "vitest";
 import chokidar from "chokidar";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFileWatcherPlugin } from "../src/index";
 import { parseEnvFile } from "../src/parse-env";
 
@@ -288,9 +288,7 @@ describe("file-watcher plugin", () => {
       await vi.advanceTimersByTimeAsync(51);
 
       expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
-      expect(orch.restartWorkers).toHaveBeenCalledWith(
-        expect.objectContaining({ reason: "env-change" }),
-      );
+      expect(orch.restartWorkers).toHaveBeenCalledWith(expect.objectContaining({ reason: "env-change" }));
     } finally {
       delete process.env.__TEST_POLL;
       vi.useRealTimers();
@@ -393,7 +391,9 @@ describe("file-watcher plugin", () => {
 
     const plugin = createFileWatcherPlugin({
       envFile: [envPath],
-      envParser: () => { throw new Error("parse error"); },
+      envParser: () => {
+        throw new Error("parse error");
+      },
       debounceMs: 50,
     });
     const orch = mockOrchestrator();
@@ -511,9 +511,7 @@ describe("file-watcher plugin", () => {
     await new Promise((r) => setTimeout(r, 300));
 
     expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
-    expect(orch.restartWorkers).toHaveBeenCalledWith(
-      expect.objectContaining({ reason: "env-change" }),
-    );
+    expect(orch.restartWorkers).toHaveBeenCalledWith(expect.objectContaining({ reason: "env-change" }));
 
     await plugin.uninstall?.();
     rmSync(tempDir, { recursive: true, force: true });
@@ -539,9 +537,7 @@ describe("file-watcher plugin", () => {
     writeFileSync(tempFile, "changed");
     await new Promise((r) => setTimeout(r, 300));
 
-    expect(orch.restartWorkers).toHaveBeenCalledWith(
-      expect.objectContaining({ reason: "custom-reason" }),
-    );
+    expect(orch.restartWorkers).toHaveBeenCalledWith(expect.objectContaining({ reason: "custom-reason" }));
 
     await plugin.uninstall?.();
     rmSync(tempDir, { recursive: true, force: true });
@@ -575,10 +571,7 @@ describe("file-watcher plugin", () => {
     });
     await plugin.install(mockOrchestrator(), null, mockConfig(2));
 
-    expect(spy).toHaveBeenCalledWith(
-      [tempDir],
-      expect.objectContaining({ ignored: ["**/node_modules/**"] }),
-    );
+    expect(spy).toHaveBeenCalledWith([tempDir], expect.objectContaining({ ignored: ["**/node_modules/**"] }));
 
     await plugin.uninstall?.();
     rmSync(tempDir, { recursive: true, force: true });
@@ -606,7 +599,9 @@ describe("file-watcher plugin", () => {
     const orch = mockOrchestrator();
     let shutdownCb: (() => Promise<void>) | undefined;
 
-    orch.registerOnShutdown = vi.fn((cb) => { shutdownCb = cb; });
+    orch.registerOnShutdown = vi.fn((cb) => {
+      shutdownCb = cb;
+    });
 
     await plugin.install(orch, null, mockConfig(2));
     expect(plugin.isWatching).toBe(true);
