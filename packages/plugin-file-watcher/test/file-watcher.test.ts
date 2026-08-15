@@ -442,4 +442,80 @@ describe("file-watcher plugin", () => {
 
     await plugin.uninstall?.();
   });
+
+  it("triggers restart on file add event", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      debounceMs: 50,
+      staggerMs: 0,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+
+    writeFileSync(join(tempDir, "new-file.txt"), "content");
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("triggers restart on file unlink event", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const tempFile = join(tempDir, "to-delete.txt");
+    writeFileSync(tempFile, "initial");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      debounceMs: 50,
+      staggerMs: 0,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+
+    rmSync(tempFile);
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("does not double-trigger when a path is in both watch and envFile", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const envPath = join(tempDir, ".env");
+    writeFileSync(envPath, "FOO=bar");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      envFile: [envPath],
+      debounceMs: 50,
+      staggerMs: 0,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+
+    writeFileSync(envPath, "FOO=updated");
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+    expect(orch.restartWorkers).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "env-change" }),
+    );
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
 });
