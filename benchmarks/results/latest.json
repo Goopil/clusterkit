@@ -22,23 +22,15 @@
           "min": 17784,
           "max": 17784,
           "stddev": 0,
-          "runs": [
-            17784
-          ]
+          "runs": [17784]
         },
         "latency": {
           "p50": 8,
           "p95": 10,
           "p99": 11,
-          "p50Runs": [
-            8
-          ],
-          "p95Runs": [
-            10
-          ],
-          "p99Runs": [
-            11
-          ]
+          "p50Runs": [8],
+          "p95Runs": [10],
+          "p99Runs": [11]
         },
         "errors": 0,
         "bootTimeMs": 108,
@@ -66,23 +58,15 @@
           "min": 53005,
           "max": 53005,
           "stddev": 0,
-          "runs": [
-            53005
-          ]
+          "runs": [53005]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 208,
@@ -112,23 +96,15 @@
           "min": 52355,
           "max": 52355,
           "stddev": 0,
-          "runs": [
-            52355
-          ]
+          "runs": [52355]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 209,
@@ -158,23 +134,15 @@
           "min": 51565,
           "max": 51565,
           "stddev": 0,
-          "runs": [
-            51565
-          ]
+          "runs": [51565]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 203,
@@ -204,23 +172,15 @@
           "min": 51779,
           "max": 51779,
           "stddev": 0,
-          "runs": [
-            51779
-          ]
+          "runs": [51779]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 5,
@@ -250,23 +210,15 @@
           "min": 51059,
           "max": 51059,
           "stddev": 0,
-          "runs": [
-            51059
-          ]
+          "runs": [51059]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 512,
@@ -296,23 +248,15 @@
           "min": 16649,
           "max": 16649,
           "stddev": 0,
-          "runs": [
-            16649
-          ]
+          "runs": [16649]
         },
         "latency": {
           "p50": 8,
           "p95": 12,
           "p99": 16,
-          "p50Runs": [
-            8
-          ],
-          "p95Runs": [
-            12
-          ],
-          "p99Runs": [
-            16
-          ]
+          "p50Runs": [8],
+          "p95Runs": [12],
+          "p99Runs": [16]
         },
         "errors": 0,
         "bootTimeMs": 417,
@@ -343,23 +287,15 @@
           "min": 11130,
           "max": 11130,
           "stddev": 0,
-          "runs": [
-            11130
-          ]
+          "runs": [11130]
         },
         "latency": {
           "p50": 13,
           "p95": 15,
           "p99": 16,
-          "p50Runs": [
-            13
-          ],
-          "p95Runs": [
-            15
-          ],
-          "p99Runs": [
-            16
-          ]
+          "p50Runs": [13],
+          "p95Runs": [15],
+          "p99Runs": [16]
         },
         "errors": 0,
         "bootTimeMs": 212,
@@ -387,23 +323,15 @@
           "min": 11980,
           "max": 11980,
           "stddev": 0,
-          "runs": [
-            11980
-          ]
+          "runs": [11980]
         },
         "latency": {
           "p50": 12,
           "p95": 14,
           "p99": 15,
-          "p50Runs": [
-            12
-          ],
-          "p95Runs": [
-            14
-          ],
-          "p99Runs": [
-            15
-          ]
+          "p50Runs": [12],
+          "p95Runs": [14],
+          "p99Runs": [15]
         },
         "errors": 0,
         "bootTimeMs": 203,
@@ -433,23 +361,15 @@
           "min": 11745,
           "max": 11745,
           "stddev": 0,
-          "runs": [
-            11745
-          ]
+          "runs": [11745]
         },
         "latency": {
           "p50": 12,
           "p95": 15,
           "p99": 15,
-          "p50Runs": [
-            12
-          ],
-          "p95Runs": [
-            15
-          ],
-          "p99Runs": [
-            15
-          ]
+          "p50Runs": [12],
+          "p95Runs": [15],
+          "p99Runs": [15]
         },
         "errors": 0,
         "bootTimeMs": 208,
@@ -479,23 +399,15 @@
           "min": 11659,
           "max": 11659,
           "stddev": 0,
-          "runs": [
-            11659
-          ]
+          "runs": [11659]
         },
         "latency": {
           "p50": 12,
           "p95": 15,
           "p99": 16,
-          "p50Runs": [
-            12
-          ],
-          "p95Runs": [
-            15
-          ],
-          "p99Runs": [
-            16
-          ]
+          "p50Runs": [12],
+          "p95Runs": [15],
+          "p99Runs": [16]
         },
         "errors": 0,
         "bootTimeMs": 203,
@@ -525,23 +437,15 @@
           "min": 11998,
           "max": 11998,
           "stddev": 0,
-          "runs": [
-            11998
-          ]
+          "runs": [11998]
         },
         "latency": {
           "p50": 12,
           "p95": 14,
           "p99": 15,
-          "p50Runs": [
-            12
-          ],
-          "p95Runs": [
-            14
-          ],
-          "p99Runs": [
-            15
-          ]
+          "p50Runs": [12],
+          "p95Runs": [14],
+          "p99Runs": [15]
         },
         "errors": 0,
         "bootTimeMs": 2,
@@ -571,23 +475,15 @@
           "min": 12098,
           "max": 12098,
           "stddev": 0,
-          "runs": [
-            12098
-          ]
+          "runs": [12098]
         },
         "latency": {
           "p50": 12,
           "p95": 14,
           "p99": 15,
-          "p50Runs": [
-            12
-          ],
-          "p95Runs": [
-            14
-          ],
-          "p99Runs": [
-            15
-          ]
+          "p50Runs": [12],
+          "p95Runs": [14],
+          "p99Runs": [15]
         },
         "errors": 0,
         "bootTimeMs": 412,
@@ -617,23 +513,15 @@
           "min": 11129,
           "max": 11129,
           "stddev": 0,
-          "runs": [
-            11129
-          ]
+          "runs": [11129]
         },
         "latency": {
           "p50": 13,
           "p95": 15,
           "p99": 16,
-          "p50Runs": [
-            13
-          ],
-          "p95Runs": [
-            15
-          ],
-          "p99Runs": [
-            16
-          ]
+          "p50Runs": [13],
+          "p95Runs": [15],
+          "p99Runs": [16]
         },
         "errors": 0,
         "bootTimeMs": 411,
@@ -664,23 +552,15 @@
           "min": 917,
           "max": 917,
           "stddev": 0,
-          "runs": [
-            917
-          ]
+          "runs": [917]
         },
         "latency": {
           "p50": 104,
           "p95": 145,
           "p99": 1174,
-          "p50Runs": [
-            104
-          ],
-          "p95Runs": [
-            145
-          ],
-          "p99Runs": [
-            1174
-          ]
+          "p50Runs": [104],
+          "p95Runs": [145],
+          "p99Runs": [1174]
         },
         "errors": 26,
         "bootTimeMs": 112,
@@ -708,23 +588,15 @@
           "min": 2757,
           "max": 2757,
           "stddev": 0,
-          "runs": [
-            2757
-          ]
+          "runs": [2757]
         },
         "latency": {
           "p50": 53,
           "p95": 105,
           "p99": 112,
-          "p50Runs": [
-            53
-          ],
-          "p95Runs": [
-            105
-          ],
-          "p99Runs": [
-            112
-          ]
+          "p50Runs": [53],
+          "p95Runs": [105],
+          "p99Runs": [112]
         },
         "errors": 0,
         "bootTimeMs": 207,
@@ -754,23 +626,15 @@
           "min": 2722,
           "max": 2722,
           "stddev": 0,
-          "runs": [
-            2722
-          ]
+          "runs": [2722]
         },
         "latency": {
           "p50": 50,
           "p95": 101,
           "p99": 111,
-          "p50Runs": [
-            50
-          ],
-          "p95Runs": [
-            101
-          ],
-          "p99Runs": [
-            111
-          ]
+          "p50Runs": [50],
+          "p95Runs": [101],
+          "p99Runs": [111]
         },
         "errors": 0,
         "bootTimeMs": 208,
@@ -800,23 +664,15 @@
           "min": 2743,
           "max": 2743,
           "stddev": 0,
-          "runs": [
-            2743
-          ]
+          "runs": [2743]
         },
         "latency": {
           "p50": 51,
           "p95": 103,
           "p99": 105,
-          "p50Runs": [
-            51
-          ],
-          "p95Runs": [
-            103
-          ],
-          "p99Runs": [
-            105
-          ]
+          "p50Runs": [51],
+          "p95Runs": [103],
+          "p99Runs": [105]
         },
         "errors": 0,
         "bootTimeMs": 317,
@@ -846,23 +702,15 @@
           "min": 2755,
           "max": 2755,
           "stddev": 0,
-          "runs": [
-            2755
-          ]
+          "runs": [2755]
         },
         "latency": {
           "p50": 51,
           "p95": 101,
           "p99": 106,
-          "p50Runs": [
-            51
-          ],
-          "p95Runs": [
-            101
-          ],
-          "p99Runs": [
-            106
-          ]
+          "p50Runs": [51],
+          "p95Runs": [101],
+          "p99Runs": [106]
         },
         "errors": 0,
         "bootTimeMs": 4,
@@ -892,23 +740,15 @@
           "min": 2735,
           "max": 2735,
           "stddev": 0,
-          "runs": [
-            2735
-          ]
+          "runs": [2735]
         },
         "latency": {
           "p50": 51,
           "p95": 102,
           "p99": 105,
-          "p50Runs": [
-            51
-          ],
-          "p95Runs": [
-            102
-          ],
-          "p99Runs": [
-            105
-          ]
+          "p50Runs": [51],
+          "p95Runs": [102],
+          "p99Runs": [105]
         },
         "errors": 0,
         "bootTimeMs": 414,
@@ -938,23 +778,15 @@
           "min": 1281,
           "max": 1281,
           "stddev": 0,
-          "runs": [
-            1281
-          ]
+          "runs": [1281]
         },
         "latency": {
           "p50": 81,
           "p95": 126,
           "p99": 344,
-          "p50Runs": [
-            81
-          ],
-          "p95Runs": [
-            126
-          ],
-          "p99Runs": [
-            344
-          ]
+          "p50Runs": [81],
+          "p95Runs": [126],
+          "p99Runs": [344]
         },
         "errors": 0,
         "bootTimeMs": 417,
@@ -984,23 +816,15 @@
           "min": 10378,
           "max": 10378,
           "stddev": 0,
-          "runs": [
-            10378
-          ]
+          "runs": [10378]
         },
         "latency": {
           "p50": 14,
           "p95": 17,
           "p99": 18,
-          "p50Runs": [
-            14
-          ],
-          "p95Runs": [
-            17
-          ],
-          "p99Runs": [
-            18
-          ]
+          "p50Runs": [14],
+          "p95Runs": [17],
+          "p99Runs": [18]
         },
         "errors": 0,
         "bootTimeMs": 107,
@@ -1028,23 +852,15 @@
           "min": 29934,
           "max": 29934,
           "stddev": 0,
-          "runs": [
-            29934
-          ]
+          "runs": [29934]
         },
         "latency": {
           "p50": 4,
           "p95": 10,
           "p99": 12,
-          "p50Runs": [
-            4
-          ],
-          "p95Runs": [
-            10
-          ],
-          "p99Runs": [
-            12
-          ]
+          "p50Runs": [4],
+          "p95Runs": [10],
+          "p99Runs": [12]
         },
         "errors": 0,
         "bootTimeMs": 206,
@@ -1074,23 +890,15 @@
           "min": 31050,
           "max": 31050,
           "stddev": 0,
-          "runs": [
-            31050
-          ]
+          "runs": [31050]
         },
         "latency": {
           "p50": 4,
           "p95": 8,
           "p99": 10,
-          "p50Runs": [
-            4
-          ],
-          "p95Runs": [
-            8
-          ],
-          "p99Runs": [
-            10
-          ]
+          "p50Runs": [4],
+          "p95Runs": [8],
+          "p99Runs": [10]
         },
         "errors": 0,
         "bootTimeMs": 208,
@@ -1120,23 +928,15 @@
           "min": 30818,
           "max": 30818,
           "stddev": 0,
-          "runs": [
-            30818
-          ]
+          "runs": [30818]
         },
         "latency": {
           "p50": 4,
           "p95": 9,
           "p99": 10,
-          "p50Runs": [
-            4
-          ],
-          "p95Runs": [
-            9
-          ],
-          "p99Runs": [
-            10
-          ]
+          "p50Runs": [4],
+          "p95Runs": [9],
+          "p99Runs": [10]
         },
         "errors": 0,
         "bootTimeMs": 208,
@@ -1166,23 +966,15 @@
           "min": 30450,
           "max": 30450,
           "stddev": 0,
-          "runs": [
-            30450
-          ]
+          "runs": [30450]
         },
         "latency": {
           "p50": 4,
           "p95": 9,
           "p99": 10,
-          "p50Runs": [
-            4
-          ],
-          "p95Runs": [
-            9
-          ],
-          "p99Runs": [
-            10
-          ]
+          "p50Runs": [4],
+          "p95Runs": [9],
+          "p99Runs": [10]
         },
         "errors": 0,
         "bootTimeMs": 2,
@@ -1212,23 +1004,15 @@
           "min": 30251,
           "max": 30251,
           "stddev": 0,
-          "runs": [
-            30251
-          ]
+          "runs": [30251]
         },
         "latency": {
           "p50": 4,
           "p95": 9,
           "p99": 10,
-          "p50Runs": [
-            4
-          ],
-          "p95Runs": [
-            9
-          ],
-          "p99Runs": [
-            10
-          ]
+          "p50Runs": [4],
+          "p95Runs": [9],
+          "p99Runs": [10]
         },
         "errors": 0,
         "bootTimeMs": 410,
@@ -1258,23 +1042,15 @@
           "min": 10078,
           "max": 10078,
           "stddev": 0,
-          "runs": [
-            10078
-          ]
+          "runs": [10078]
         },
         "latency": {
           "p50": 14,
           "p95": 18,
           "p99": 19,
-          "p50Runs": [
-            14
-          ],
-          "p95Runs": [
-            18
-          ],
-          "p99Runs": [
-            19
-          ]
+          "p50Runs": [14],
+          "p95Runs": [18],
+          "p99Runs": [19]
         },
         "errors": 0,
         "bootTimeMs": 415,
@@ -1305,23 +1081,15 @@
           "min": 6159,
           "max": 6159,
           "stddev": 0,
-          "runs": [
-            6159
-          ]
+          "runs": [6159]
         },
         "latency": {
           "p50": 23,
           "p95": 28,
           "p99": 29,
-          "p50Runs": [
-            23
-          ],
-          "p95Runs": [
-            28
-          ],
-          "p99Runs": [
-            29
-          ]
+          "p50Runs": [23],
+          "p95Runs": [28],
+          "p99Runs": [29]
         },
         "errors": 0,
         "bootTimeMs": 104,
@@ -1349,23 +1117,15 @@
           "min": 17905,
           "max": 17905,
           "stddev": 0,
-          "runs": [
-            17905
-          ]
+          "runs": [17905]
         },
         "latency": {
           "p50": 8,
           "p95": 13,
           "p99": 16,
-          "p50Runs": [
-            8
-          ],
-          "p95Runs": [
-            13
-          ],
-          "p99Runs": [
-            16
-          ]
+          "p50Runs": [8],
+          "p95Runs": [13],
+          "p99Runs": [16]
         },
         "errors": 0,
         "bootTimeMs": 204,
@@ -1395,23 +1155,15 @@
           "min": 18005,
           "max": 18005,
           "stddev": 0,
-          "runs": [
-            18005
-          ]
+          "runs": [18005]
         },
         "latency": {
           "p50": 7,
           "p95": 12,
           "p99": 15,
-          "p50Runs": [
-            7
-          ],
-          "p95Runs": [
-            12
-          ],
-          "p99Runs": [
-            15
-          ]
+          "p50Runs": [7],
+          "p95Runs": [12],
+          "p99Runs": [15]
         },
         "errors": 0,
         "bootTimeMs": 205,
@@ -1441,23 +1193,15 @@
           "min": 18216,
           "max": 18216,
           "stddev": 0,
-          "runs": [
-            18216
-          ]
+          "runs": [18216]
         },
         "latency": {
           "p50": 7,
           "p95": 13,
           "p99": 15,
-          "p50Runs": [
-            7
-          ],
-          "p95Runs": [
-            13
-          ],
-          "p99Runs": [
-            15
-          ]
+          "p50Runs": [7],
+          "p95Runs": [13],
+          "p99Runs": [15]
         },
         "errors": 0,
         "bootTimeMs": 209,
@@ -1487,23 +1231,15 @@
           "min": 18424,
           "max": 18424,
           "stddev": 0,
-          "runs": [
-            18424
-          ]
+          "runs": [18424]
         },
         "latency": {
           "p50": 7,
           "p95": 12,
           "p99": 15,
-          "p50Runs": [
-            7
-          ],
-          "p95Runs": [
-            12
-          ],
-          "p99Runs": [
-            15
-          ]
+          "p50Runs": [7],
+          "p95Runs": [12],
+          "p99Runs": [15]
         },
         "errors": 0,
         "bootTimeMs": 2,
@@ -1533,23 +1269,15 @@
           "min": 17730,
           "max": 17730,
           "stddev": 0,
-          "runs": [
-            17730
-          ]
+          "runs": [17730]
         },
         "latency": {
           "p50": 8,
           "p95": 13,
           "p99": 16,
-          "p50Runs": [
-            8
-          ],
-          "p95Runs": [
-            13
-          ],
-          "p99Runs": [
-            16
-          ]
+          "p50Runs": [8],
+          "p95Runs": [13],
+          "p99Runs": [16]
         },
         "errors": 0,
         "bootTimeMs": 409,
@@ -1579,23 +1307,15 @@
           "min": 6119,
           "max": 6119,
           "stddev": 0,
-          "runs": [
-            6119
-          ]
+          "runs": [6119]
         },
         "latency": {
           "p50": 23,
           "p95": 28,
           "p99": 29,
-          "p50Runs": [
-            23
-          ],
-          "p95Runs": [
-            28
-          ],
-          "p99Runs": [
-            29
-          ]
+          "p50Runs": [23],
+          "p95Runs": [28],
+          "p99Runs": [29]
         },
         "errors": 0,
         "bootTimeMs": 413,
@@ -1625,23 +1345,15 @@
           "min": 16672,
           "max": 16672,
           "stddev": 0,
-          "runs": [
-            16672
-          ]
+          "runs": [16672]
         },
         "latency": {
           "p50": 8,
           "p95": 11,
           "p99": 12,
-          "p50Runs": [
-            8
-          ],
-          "p95Runs": [
-            11
-          ],
-          "p99Runs": [
-            12
-          ]
+          "p50Runs": [8],
+          "p95Runs": [11],
+          "p99Runs": [12]
         },
         "errors": 0,
         "bootTimeMs": 105,
@@ -1669,23 +1381,15 @@
           "min": 49939,
           "max": 49939,
           "stddev": 0,
-          "runs": [
-            49939
-          ]
+          "runs": [49939]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 202,
@@ -1715,23 +1419,15 @@
           "min": 50563,
           "max": 50563,
           "stddev": 0,
-          "runs": [
-            50563
-          ]
+          "runs": [50563]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 209,
@@ -1761,23 +1457,15 @@
           "min": 50433,
           "max": 50433,
           "stddev": 0,
-          "runs": [
-            50433
-          ]
+          "runs": [50433]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 208,
@@ -1807,23 +1495,15 @@
           "min": 49978,
           "max": 49978,
           "stddev": 0,
-          "runs": [
-            49978
-          ]
+          "runs": [49978]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 1,
@@ -1853,23 +1533,15 @@
           "min": 48566,
           "max": 48566,
           "stddev": 0,
-          "runs": [
-            48566
-          ]
+          "runs": [48566]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 414,
@@ -1899,23 +1571,15 @@
           "min": 16158,
           "max": 16158,
           "stddev": 0,
-          "runs": [
-            16158
-          ]
+          "runs": [16158]
         },
         "latency": {
           "p50": 8,
           "p95": 11,
           "p99": 12,
-          "p50Runs": [
-            8
-          ],
-          "p95Runs": [
-            11
-          ],
-          "p99Runs": [
-            12
-          ]
+          "p50Runs": [8],
+          "p95Runs": [11],
+          "p99Runs": [12]
         },
         "errors": 0,
         "bootTimeMs": 415,
@@ -1946,23 +1610,15 @@
           "min": 17615,
           "max": 17615,
           "stddev": 0,
-          "runs": [
-            17615
-          ]
+          "runs": [17615]
         },
         "latency": {
           "p50": 8,
           "p95": 10,
           "p99": 11,
-          "p50Runs": [
-            8
-          ],
-          "p95Runs": [
-            10
-          ],
-          "p99Runs": [
-            11
-          ]
+          "p50Runs": [8],
+          "p95Runs": [10],
+          "p99Runs": [11]
         },
         "errors": 0,
         "bootTimeMs": 107,
@@ -1990,23 +1646,15 @@
           "min": 53066,
           "max": 53066,
           "stddev": 0,
-          "runs": [
-            53066
-          ]
+          "runs": [53066]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 6,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            6
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [6]
         },
         "errors": 0,
         "bootTimeMs": 209,
@@ -2036,23 +1684,15 @@
           "min": 53194,
           "max": 53194,
           "stddev": 0,
-          "runs": [
-            53194
-          ]
+          "runs": [53194]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 205,
@@ -2082,23 +1722,15 @@
           "min": 53130,
           "max": 53130,
           "stddev": 0,
-          "runs": [
-            53130
-          ]
+          "runs": [53130]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 208,
@@ -2128,23 +1760,15 @@
           "min": 53447,
           "max": 53447,
           "stddev": 0,
-          "runs": [
-            53447
-          ]
+          "runs": [53447]
         },
         "latency": {
           "p50": 2,
           "p95": 5,
           "p99": 6,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            5
-          ],
-          "p99Runs": [
-            6
-          ]
+          "p50Runs": [2],
+          "p95Runs": [5],
+          "p99Runs": [6]
         },
         "errors": 0,
         "bootTimeMs": 3,
@@ -2174,23 +1798,15 @@
           "min": 51424,
           "max": 51424,
           "stddev": 0,
-          "runs": [
-            51424
-          ]
+          "runs": [51424]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 414,
@@ -2220,23 +1836,15 @@
           "min": 17140,
           "max": 17140,
           "stddev": 0,
-          "runs": [
-            17140
-          ]
+          "runs": [17140]
         },
         "latency": {
           "p50": 8,
           "p95": 11,
           "p99": 12,
-          "p50Runs": [
-            8
-          ],
-          "p95Runs": [
-            11
-          ],
-          "p99Runs": [
-            12
-          ]
+          "p50Runs": [8],
+          "p95Runs": [11],
+          "p99Runs": [12]
         },
         "errors": 0,
         "bootTimeMs": 411,
@@ -2267,23 +1875,15 @@
           "min": 14876,
           "max": 14876,
           "stddev": 0,
-          "runs": [
-            14876
-          ]
+          "runs": [14876]
         },
         "latency": {
           "p50": 9,
           "p95": 12,
           "p99": 14,
-          "p50Runs": [
-            9
-          ],
-          "p95Runs": [
-            12
-          ],
-          "p99Runs": [
-            14
-          ]
+          "p50Runs": [9],
+          "p95Runs": [12],
+          "p99Runs": [14]
         },
         "errors": 0,
         "bootTimeMs": 110,
@@ -2311,23 +1911,15 @@
           "min": 44525,
           "max": 44525,
           "stddev": 0,
-          "runs": [
-            44525
-          ]
+          "runs": [44525]
         },
         "latency": {
           "p50": 3,
           "p95": 6,
           "p99": 8,
-          "p50Runs": [
-            3
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            8
-          ]
+          "p50Runs": [3],
+          "p95Runs": [6],
+          "p99Runs": [8]
         },
         "errors": 0,
         "bootTimeMs": 211,
@@ -2357,23 +1949,15 @@
           "min": 44448,
           "max": 44448,
           "stddev": 0,
-          "runs": [
-            44448
-          ]
+          "runs": [44448]
         },
         "latency": {
           "p50": 2,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            2
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 213,
@@ -2403,23 +1987,15 @@
           "min": 44487,
           "max": 44487,
           "stddev": 0,
-          "runs": [
-            44487
-          ]
+          "runs": [44487]
         },
         "latency": {
           "p50": 3,
           "p95": 6,
           "p99": 7,
-          "p50Runs": [
-            3
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            7
-          ]
+          "p50Runs": [3],
+          "p95Runs": [6],
+          "p99Runs": [7]
         },
         "errors": 0,
         "bootTimeMs": 215,
@@ -2449,23 +2025,15 @@
           "min": 44112,
           "max": 44112,
           "stddev": 0,
-          "runs": [
-            44112
-          ]
+          "runs": [44112]
         },
         "latency": {
           "p50": 3,
           "p95": 6,
           "p99": 8,
-          "p50Runs": [
-            3
-          ],
-          "p95Runs": [
-            6
-          ],
-          "p99Runs": [
-            8
-          ]
+          "p50Runs": [3],
+          "p95Runs": [6],
+          "p99Runs": [8]
         },
         "errors": 0,
         "bootTimeMs": 3,
@@ -2495,23 +2063,15 @@
           "min": 42099,
           "max": 42099,
           "stddev": 0,
-          "runs": [
-            42099
-          ]
+          "runs": [42099]
         },
         "latency": {
           "p50": 3,
           "p95": 7,
           "p99": 8,
-          "p50Runs": [
-            3
-          ],
-          "p95Runs": [
-            7
-          ],
-          "p99Runs": [
-            8
-          ]
+          "p50Runs": [3],
+          "p95Runs": [7],
+          "p99Runs": [8]
         },
         "errors": 0,
         "bootTimeMs": 411,
@@ -2541,23 +2101,15 @@
           "min": 14520,
           "max": 14520,
           "stddev": 0,
-          "runs": [
-            14520
-          ]
+          "runs": [14520]
         },
         "latency": {
           "p50": 10,
           "p95": 13,
           "p99": 14,
-          "p50Runs": [
-            10
-          ],
-          "p95Runs": [
-            13
-          ],
-          "p99Runs": [
-            14
-          ]
+          "p50Runs": [10],
+          "p95Runs": [13],
+          "p99Runs": [14]
         },
         "errors": 0,
         "bootTimeMs": 416,

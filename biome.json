@@ -34,7 +34,7 @@
       "!**/.pnpm-store",
       "!**/pnpm-lock.yaml",
       "!.worktrees",
-      "!benchmarks/data/records.json"
+      "!benchmarks/data"
     ]
   }
 }
