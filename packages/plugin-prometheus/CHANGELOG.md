@@ -1,5 +1,12 @@
 # @goopil/clusterkit-prometheus
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [[`7c3a622`](https://github.com/Goopil/clusterkit/commit/7c3a6225729f3d2e1a0e569ce363e00326419921)]:
+  - @goopil/clusterkit@1.1.0
+
 ## 0.1.4
 
 ### Patch Changes
