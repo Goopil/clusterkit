@@ -139,4 +139,36 @@ describe("signal-restart plugin", () => {
 
     expect(restartWorkers).toHaveBeenCalledWith({ staggerMs: 500, reason: "custom" });
   });
+
+  it("logs error when restartWorkers rejects with Error", async () => {
+    const plugin = createSignalRestartPlugin();
+    const orch = mockOrchestrator();
+    (orch as any).restartWorkers.mockRejectedValueOnce(new Error("boom"));
+
+    await plugin.install(orch, null, mockConfig(3));
+    const sighupHandler = handlers.find((h) => h.signal === "SIGHUP")!.handler;
+    await sighupHandler();
+
+    expect(plugin.lastRestart).toBeUndefined();
+  });
+
+  it("logs error when restartWorkers rejects with non-Error", async () => {
+    const plugin = createSignalRestartPlugin();
+    const orch = mockOrchestrator();
+    (orch as any).restartWorkers.mockRejectedValueOnce("string error");
+
+    await plugin.install(orch, null, mockConfig(3));
+    const sighupHandler = handlers.find((h) => h.signal === "SIGHUP")!.handler;
+    await sighupHandler();
+
+    expect(plugin.lastRestart).toBeUndefined();
+  });
+
+  it("does not remove listener on uninstall when not in primary", async () => {
+    Object.defineProperty(cluster, "isPrimary", { value: false, configurable: true });
+    const plugin = createSignalRestartPlugin();
+    await plugin.install(mockOrchestrator(), null, mockConfig(2));
+    await plugin.uninstall?.();
+    Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
+  });
 });
