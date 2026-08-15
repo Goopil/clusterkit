@@ -12,18 +12,13 @@ import { parseEnvFile } from "../src/parse-env";
 vi.mock("node:cluster", () => ({ default: { isPrimary: true } }));
 
 describe("parseEnvFile", () => {
-  it("parses simple KEY=VALUE pairs", () => {
-    const result = parseEnvFile("FOO=bar\nBAZ=qux");
-    expect(result).toEqual({ FOO: "bar", BAZ: "qux" });
-  });
-
-  it("skips empty lines", () => {
-    const result = parseEnvFile("FOO=bar\n\nBAZ=qux\n\n");
-    expect(result).toEqual({ FOO: "bar", BAZ: "qux" });
-  });
-
-  it("skips comments starting with #", () => {
-    const result = parseEnvFile("# comment\nFOO=bar\n# another\nBAZ=qux");
+  it.each([
+    ["FOO=bar\nBAZ=qux", "parses simple KEY=VALUE pairs"],
+    ["FOO=bar\n\nBAZ=qux\n\n", "skips empty lines"],
+    ["# comment\nFOO=bar\n# another\nBAZ=qux", "skips comments starting with #"],
+    ["FOO=bar\nINVALID\nBAZ=qux", "skips lines without ="],
+  ])("parses env file: %s", (input: string) => {
+    const result = parseEnvFile(input);
     expect(result).toEqual({ FOO: "bar", BAZ: "qux" });
   });
 
@@ -35,11 +30,6 @@ describe("parseEnvFile", () => {
   it("strips surrounding single quotes", () => {
     const result = parseEnvFile("FOO='bar baz'");
     expect(result).toEqual({ FOO: "bar baz" });
-  });
-
-  it("skips lines without =", () => {
-    const result = parseEnvFile("FOO=bar\nINVALID\nBAZ=qux");
-    expect(result).toEqual({ FOO: "bar", BAZ: "qux" });
   });
 
   it("handles empty file", () => {
@@ -440,6 +430,7 @@ describe("file-watcher plugin", () => {
     const orch = mockOrchestrator();
     await plugin.install(orch, null, mockConfig(2));
 
+    expect(plugin.isWatching).toBe(true);
     await plugin.uninstall?.();
   });
 

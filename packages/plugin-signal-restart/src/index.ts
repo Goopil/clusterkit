@@ -40,7 +40,7 @@ export function createSignalRestartPlugin(options?: SignalRestartOptions): Signa
 
       const log = withLoggerPrefix(logger, "clusterkit:signal-restart");
 
-      handler = async () => {
+      const handleSignal = async () => {
         const reason = defaultReason;
 
         if (config.workers.count === 1) {
@@ -62,6 +62,10 @@ export function createSignalRestartPlugin(options?: SignalRestartOptions): Signa
             error: err instanceof Error ? err.message : String(err),
           });
         }
+      };
+
+      handler = () => {
+        void handleSignal();
       };
 
       process.on(signal, handler);

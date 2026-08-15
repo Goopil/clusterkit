@@ -282,7 +282,7 @@ describe("Orchestrator", () => {
       mockCluster.isPrimary = true;
       const orch = new Orchestrator(cfg({ workers: 3 }));
       await orch.run(() => {});
-      expect(Object.keys(mockCluster.workers).length).toBe(3);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3);
     });
 
     it("should track activeWorkers", async () => {
@@ -300,7 +300,7 @@ describe("Orchestrator", () => {
       await orch.run(() => {});
       // Let setImmediate callbacks fire
       await new Promise<void>((r) => setImmediate(r));
-      expect(events.length).toBe(2);
+      expect(events).toHaveLength(2);
     });
 
     it("should throw if called a second time on the same instance", async () => {
@@ -325,7 +325,7 @@ describe("Orchestrator", () => {
       mockCluster.isPrimary = false;
       const orch = new Orchestrator(cfg({ workers: 2 }));
       await orch.run(() => {});
-      expect(Object.keys(mockCluster.workers).length).toBe(0);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(0);
     });
 
     it("should throw if called a second time on the same worker instance", async () => {
@@ -407,7 +407,7 @@ describe("Orchestrator", () => {
       const start = vi.fn().mockResolvedValue(undefined);
       await orch.run(start);
       expect(start).toHaveBeenCalledOnce();
-      expect(Object.keys(mockCluster.workers).length).toBe(0);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(0);
     });
 
     it("should run shutdown callbacks and emit shutdown events on SIGTERM", async () => {
@@ -469,7 +469,7 @@ describe("Orchestrator", () => {
         },
       });
       await orch.run(() => {});
-      expect(Object.keys(mockCluster.workers).length).toBe(3);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3);
     });
 
     it("patchWorkerEnv() from a plugin install() applies to the initial fleet", async () => {
@@ -559,7 +559,7 @@ describe("Orchestrator", () => {
       const worker = Object.values(mockCluster.workers)[0];
       mockCluster.emit("exit", worker, 1, null);
       // 2 initial + 1 replacement = 3
-      expect(Object.keys(mockCluster.workers).length).toBe(3);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3);
     });
 
     it("should emit worker:crash on unclean exit", async () => {
@@ -568,7 +568,7 @@ describe("Orchestrator", () => {
       orch.on("worker:crash", (d) => crashEvents.push(d));
       const worker = Object.values(mockCluster.workers)[0];
       mockCluster.emit("exit", worker, 1, null);
-      expect(crashEvents.length).toBe(1);
+      expect(crashEvents).toHaveLength(1);
     });
 
     it("should emit worker:restart after crash", async () => {
@@ -577,7 +577,7 @@ describe("Orchestrator", () => {
       orch.on("worker:restart", (d) => restartEvents.push(d));
       const worker = Object.values(mockCluster.workers)[0];
       mockCluster.emit("exit", worker, 1, null);
-      expect(restartEvents.length).toBe(1);
+      expect(restartEvents).toHaveLength(1);
     });
 
     it("should increment workerRestarts metric", async () => {
@@ -612,8 +612,8 @@ describe("Orchestrator", () => {
       const worker = Object.values(mockCluster.workers)[0];
       worker.exitedAfterDisconnect = true;
       mockCluster.emit("exit", worker, 0, null);
-      expect(restartEvents.length).toBe(0);
-      expect(Object.keys(mockCluster.workers).length).toBe(2); // no new worker forked
+      expect(restartEvents).toHaveLength(0);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(2); // no new worker forked
     });
 
     it("should emit worker:exit on graceful worker shutdown", async () => {
@@ -640,10 +640,10 @@ describe("Orchestrator", () => {
       mockCluster.emit("exit", second, 1, null);
 
       await vi.advanceTimersByTimeAsync(1_000);
-      expect(restartEvents.length).toBe(1);
+      expect(restartEvents).toHaveLength(1);
 
       await vi.advanceTimersByTimeAsync(2_000);
-      expect(restartEvents.length).toBe(2);
+      expect(restartEvents).toHaveLength(2);
       expect(orch.getMetrics().activeWorkers).toBe(3);
     });
 
@@ -786,7 +786,7 @@ describe("Orchestrator", () => {
           }
         ).processRestartQueue();
 
-        expect(restartEvents.length).toBe(0);
+        expect(restartEvents).toHaveLength(0);
       } finally {
         if (prevWebConcurrency === undefined) {
           delete process.env.WEB_CONCURRENCY;
@@ -1013,12 +1013,12 @@ describe("Orchestrator", () => {
 
     it("should trip after reaching the threshold", async () => {
       const { tripEvents } = await setupAndCrash(3, 3);
-      expect(tripEvents.length).toBe(1);
+      expect(tripEvents).toHaveLength(1);
     });
 
     it("should not trip before the threshold", async () => {
       const { tripEvents } = await setupAndCrash(3, 2);
-      expect(tripEvents.length).toBe(0);
+      expect(tripEvents).toHaveLength(0);
     });
 
     it("should stop forking new workers after tripping", async () => {
@@ -1248,7 +1248,7 @@ describe("Orchestrator", () => {
 
       // shutdownPrimary emits the event synchronously before the first await
       void orch.shutdownPrimary("SIGTERM");
-      expect(events.length).toBe(1);
+      expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({ signal: "SIGTERM" });
     });
 
@@ -1291,7 +1291,7 @@ describe("Orchestrator", () => {
 
       void orch.shutdownPrimary("SIGTERM");
       void orch.shutdownPrimary("SIGINT");
-      expect(events.length).toBe(1); // only one event emitted
+      expect(events).toHaveLength(1); // only one event emitted
     });
 
     it("should keep external cluster listeners after shutdown dispose", async () => {
