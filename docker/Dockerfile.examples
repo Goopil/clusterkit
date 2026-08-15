@@ -36,6 +36,8 @@ COPY examples/hono/package.json             examples/hono/
 COPY examples/koa/package.json              examples/koa/
 COPY examples/nestjs-express/package.json   examples/nestjs-express/
 COPY examples/nestjs-fastify/package.json   examples/nestjs-fastify/
+COPY examples/inertia-ssr/package.json      examples/inertia-ssr/
+COPY examples/inertia-ssr-react/package.json examples/inertia-ssr-react/
 COPY examples/hot-reload/package.json       examples/hot-reload/
 
 RUN pnpm install --frozen-lockfile

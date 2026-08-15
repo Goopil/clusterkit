@@ -21,13 +21,18 @@ COPY packages/worker-manager/package.json           packages/worker-manager/
 COPY packages/plugin-prometheus/package.json        packages/plugin-prometheus/
 COPY packages/plugin-container-sizing/package.json  packages/plugin-container-sizing/
 COPY packages/plugin-otlp-meter/package.json        packages/plugin-otlp-meter/
+COPY packages/plugin-signal-restart/package.json    packages/plugin-signal-restart/
+COPY packages/plugin-file-watcher/package.json      packages/plugin-file-watcher/
 COPY examples/express/package.json                  examples/express/
-COPY examples/fastify/package.json                  examples/fastify/
-COPY examples/hono/package.json                     examples/hono/
-COPY examples/koa/package.json                      examples/koa/
-COPY examples/nestjs-express/package.json           examples/nestjs-express/
-COPY examples/nestjs-fastify/package.json           examples/nestjs-fastify/
 COPY examples/express-otlp/package.json             examples/express-otlp/
+COPY examples/fastify/package.json                 examples/fastify/
+COPY examples/hono/package.json                    examples/hono/
+COPY examples/koa/package.json                     examples/koa/
+COPY examples/nestjs-express/package.json          examples/nestjs-express/
+COPY examples/nestjs-fastify/package.json          examples/nestjs-fastify/
+COPY examples/inertia-ssr/package.json              examples/inertia-ssr/
+COPY examples/inertia-ssr-react/package.json        examples/inertia-ssr-react/
+COPY examples/hot-reload/package.json               examples/hot-reload/
 
 RUN pnpm install --frozen-lockfile
 
