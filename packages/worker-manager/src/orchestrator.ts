@@ -239,9 +239,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     if (this.hasForked) {
       throw new Error("patchWorkerEnv: cannot be called after workers have been forked");
     }
-    const dangerous = ["__proto__", "constructor", "prototype"];
+    const dangerous = new Set(["__proto__", "constructor", "prototype"]);
     for (const key of Object.keys(env)) {
-      if (dangerous.includes(key)) {
+      if (dangerous.has(key)) {
         throw new Error(`patchWorkerEnv: key '${key}' is not allowed (prototype pollution risk)`);
       }
     }
@@ -889,9 +889,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
     // Cache the auto resolution: cgroup limits cannot change for a running
     // container, and re-reading them does sync fs work on the event loop.
-    if (this.cachedAutoWorkerCount === undefined) {
-      this.cachedAutoWorkerCount = this.computeAutoWorkerCount();
-    }
+    this.cachedAutoWorkerCount ??= this.computeAutoWorkerCount();
     return this.cachedAutoWorkerCount;
   }
 

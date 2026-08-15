@@ -170,5 +170,6 @@ describe("signal-restart plugin", () => {
     await plugin.install(mockOrchestrator(), null, mockConfig(2));
     await plugin.uninstall?.();
     Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
+    expect(process.off).not.toHaveBeenCalled();
   });
 });

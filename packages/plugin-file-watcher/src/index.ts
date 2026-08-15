@@ -49,10 +49,15 @@ export interface FileWatcherPlugin extends OrchestratorPlugin {
   readonly isWatching: boolean;
 }
 
+function toArray(value: string[] | string | undefined): string[] {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
 export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatcherPlugin {
-  const watchPaths = options?.watch ? (Array.isArray(options.watch) ? options.watch : [options.watch]) : [];
-  const ignorePaths = options?.ignore ? (Array.isArray(options.ignore) ? options.ignore : [options.ignore]) : [];
-  const envFiles = options?.envFile ? (Array.isArray(options.envFile) ? options.envFile : [options.envFile]) : [];
+  const watchPaths = toArray(options?.watch);
+  const ignorePaths = toArray(options?.ignore);
+  const envFiles = toArray(options?.envFile);
   const envParser = options?.envParser ?? parseEnvFile;
   const pollEnv = options?.pollEnv ?? false;
   const pollEnvIntervalMs = options?.pollEnvIntervalMs ?? 5_000;
