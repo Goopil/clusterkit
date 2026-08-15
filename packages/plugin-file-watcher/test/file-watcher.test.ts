@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import chokidar from "chokidar";
 import { createFileWatcherPlugin } from "../src/index";
 import { parseEnvFile } from "../src/parse-env";
 
@@ -356,5 +357,89 @@ describe("file-watcher plugin", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("logs error when restartWorkers rejects", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const tempFile = join(tempDir, "test.txt");
+    writeFileSync(tempFile, "initial");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      debounceMs: 50,
+      staggerMs: 0,
+    });
+    const orch = mockOrchestrator();
+    orch.restartWorkers.mockRejectedValueOnce(new Error("restart failed"));
+
+    await plugin.install(orch, null, mockConfig(2));
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+    orch.restartWorkers.mockRejectedValueOnce(new Error("restart failed"));
+
+    writeFileSync(tempFile, "changed");
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("logs error when envParser throws on .env change", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const envPath = join(tempDir, ".env");
+    writeFileSync(envPath, "FOO=bar");
+
+    const plugin = createFileWatcherPlugin({
+      envFile: [envPath],
+      envParser: () => { throw new Error("parse error"); },
+      debounceMs: 50,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+
+    writeFileSync(envPath, "FOO=updated");
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).not.toHaveBeenCalled();
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("logs error when chokidar.watch throws for file watcher", async () => {
+    vi.spyOn(chokidar, "watch").mockImplementation(() => {
+      throw new Error("watch failed");
+    });
+
+    const plugin = createFileWatcherPlugin({ watch: ["./src"] });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, mockConfig(2));
+
+    expect(plugin.isWatching).toBe(true);
+    await plugin.uninstall?.();
+  });
+
+  it("logs error when chokidar.watch throws for env watcher", async () => {
+    let callCount = 0;
+    vi.spyOn(chokidar, "watch").mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) throw new Error("watch failed");
+      const emitter = new EventEmitter();
+      return Object.assign(emitter, { close: () => Promise.resolve() }) as any;
+    });
+
+    const plugin = createFileWatcherPlugin({
+      watch: ["./src"],
+      envFile: ["./.env"],
+    });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, mockConfig(2));
+
+    await plugin.uninstall?.();
   });
 });
