@@ -34,6 +34,8 @@ current package boundaries and public API shape.
 - `packages/plugin-otlp-meter/`: OpenTelemetry OTLP metrics plugin (`@goopil/clusterkit-otlp-meter`)
 - `examples/`: standalone framework examples (express, express-otlp, fastify, hono, koa, nestjs-express,
   nestjs-fastify, inertia-ssr, inertia-ssr-react)
+- `benchmarks/`: performance benchmark suite (private package, not published) — compares clusterkit vs other
+  orchestrators (native cluster, throng, pm2) on 3 HTTP workloads. See `benchmarks/README.md`.
 - `docker/`: Linux test harness and example container setup
 - `scripts/`: `package-smoke-test.mjs` (publint packaging check), `publish-with-oidc.mjs` (release publishing)
 
@@ -123,6 +125,19 @@ corepack pnpm --filter @goopil/clusterkit-sizing test
 corepack pnpm test:linux        # docker compose run --build --rm test (full suite on real Linux kernel)
 corepack pnpm examples:start    # docker compose up examples --build (all 8 examples)
 ```
+
+### Benchmarks
+
+```bash
+corepack pnpm bench:docker                                          # full suite, Docker (reference results, ~36 min)
+corepack pnpm bench                                                 # full suite, local (~36 min)
+corepack pnpm --filter benchmarks exec node runner.mjs --quick      # quick mode (~8 min)
+corepack pnpm --filter benchmarks exec node runner.mjs --target clusterkit-3 --workload hello
+corepack pnpm --filter benchmarks smoke                             # smoke test (boot check, no perf)
+```
+
+The `benchmarks/` package is private and not published. RSS/CPU sampling via `/proc` requires Linux; on macOS the
+harness runs but those metrics are unavailable. See `benchmarks/README.md` for the target/workload contract.
 
 ## Testing guidance
 

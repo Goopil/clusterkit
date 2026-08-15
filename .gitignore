@@ -6,6 +6,7 @@
 node_modules
 .turbo
 .worktrees
+.superpowers
 **/node_modules
 **/dist
 **/.turbo/*
