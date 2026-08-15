@@ -266,4 +266,95 @@ describe("file-watcher plugin", () => {
     await plugin.uninstall?.();
     expect(plugin.isWatching).toBe(false);
   });
+
+  it("pollEnv detects new env var and triggers restart", async () => {
+    vi.useFakeTimers();
+    try {
+      delete process.env.__TEST_POLL;
+      const plugin = createFileWatcherPlugin({
+        pollEnv: true,
+        pollEnvIntervalMs: 5_000,
+        debounceMs: 50,
+        staggerMs: 0,
+      });
+      const orch = mockOrchestrator();
+      await plugin.install(orch, null, mockConfig(2));
+      expect(plugin.isWatching).toBe(true);
+
+      process.env.__TEST_POLL = "hello";
+
+      await vi.advanceTimersByTimeAsync(5_001);
+      await vi.advanceTimersByTimeAsync(51);
+
+      expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+      expect(orch.restartWorkers).toHaveBeenCalledWith(
+        expect.objectContaining({ reason: "env-change" }),
+      );
+    } finally {
+      delete process.env.__TEST_POLL;
+      vi.useRealTimers();
+    }
+  });
+
+  it("pollEnv detects removed env var and triggers restart", async () => {
+    vi.useFakeTimers();
+    try {
+      process.env.__TEST_POLL_RM = "initial";
+      const plugin = createFileWatcherPlugin({
+        pollEnv: true,
+        pollEnvIntervalMs: 5_000,
+        debounceMs: 50,
+        staggerMs: 0,
+      });
+      const orch = mockOrchestrator();
+      await plugin.install(orch, null, mockConfig(2));
+
+      delete process.env.__TEST_POLL_RM;
+
+      await vi.advanceTimersByTimeAsync(5_001);
+      await vi.advanceTimersByTimeAsync(51);
+
+      expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+    } finally {
+      delete process.env.__TEST_POLL_RM;
+      vi.useRealTimers();
+    }
+  });
+
+  it("pollEnv does not trigger restart when env unchanged", async () => {
+    vi.useFakeTimers();
+    try {
+      const plugin = createFileWatcherPlugin({
+        pollEnv: true,
+        pollEnvIntervalMs: 5_000,
+        debounceMs: 50,
+      });
+      const orch = mockOrchestrator();
+      await plugin.install(orch, null, mockConfig(2));
+
+      await vi.advanceTimersByTimeAsync(20_000);
+
+      expect(orch.restartWorkers).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("pollEnv interval is cleaned up on uninstall", async () => {
+    vi.useFakeTimers();
+    try {
+      const plugin = createFileWatcherPlugin({
+        pollEnv: true,
+        pollEnvIntervalMs: 5_000,
+      });
+      await plugin.install(mockOrchestrator(), null, mockConfig(2));
+      await plugin.uninstall?.();
+
+      const spy = vi.spyOn(global, "clearInterval");
+      await plugin.uninstall?.();
+      expect(spy).not.toHaveBeenCalledWith(expect.any(Number));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
