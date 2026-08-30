@@ -95,6 +95,17 @@ describe("validation", () => {
       );
     });
 
+    it.each([
+      "--import=data:text/javascript,console.log('rce')",
+      "--import=./payload.js",
+      "--import",
+      "--import=x",
+      "--experimental-loader=./loader.mjs",
+      "--loader=./loader.mjs",
+    ])("rejects dangerous execArgv flag %s", (arg) => {
+      expect(() => validateConfig({ workers: { execArgv: [arg] } })).toThrow(WorkerManagerValidationError);
+    });
+
     it("should reject dangerous execArgv flags with space separator", () => {
       expect(() => validateConfig({ workers: { execArgv: ["--require ./evil.js"] } })).toThrow(
         WorkerManagerValidationError,

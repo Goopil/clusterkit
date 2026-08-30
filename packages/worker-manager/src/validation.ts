@@ -50,6 +50,8 @@ const DANGEROUS_ARG_PATTERNS = [
   /^--eval(?:[=\s]|$)/,
   /^--print(?:[=\s]|$)/,
   /^--inspect(?:-brk|-port|[=\s]|$)/,
+  /^--import(?:[=\s]|$)/,
+  /^--(?:experimental-)?loader(?:[=\s]|$)/,
   /^-r(?:$|\s)/,
   /^-e(?:$|\s)/,
   /^-p(?:$|\s)/,
