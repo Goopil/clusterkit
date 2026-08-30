@@ -14,7 +14,7 @@
   "type": "module",
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
-    "koa": "^2",
+    "koa": "^3",
     "@goopil/clusterkit-sizing": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
     "prom-client": "^15"
