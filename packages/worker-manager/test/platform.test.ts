@@ -18,14 +18,20 @@ describe("platform", () => {
       expect(result1).toBe(result2);
     });
 
-    it("should always return false on Windows", async () => {
-      if (process.platform !== "win32") return;
+    it("should always return false on Windows", async (ctx) => {
+      if (process.platform !== "win32") {
+        ctx.skip();
+        return;
+      }
       const result = await detectReusePortSupport();
       expect(result).toBe(false);
     });
 
-    it("should always return false on macOS (unreliable SO_REUSEPORT)", async () => {
-      if (process.platform !== "darwin") return;
+    it("should always return false on macOS (unreliable SO_REUSEPORT)", async (ctx) => {
+      if (process.platform !== "darwin") {
+        ctx.skip();
+        return;
+      }
       const result = await detectReusePortSupport();
       expect(result).toBe(false);
     });

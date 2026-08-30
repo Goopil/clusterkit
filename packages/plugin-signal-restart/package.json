@@ -1,6 +1,6 @@
 {
   "name": "@goopil/clusterkit-signal-restart",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Signal-based hot restart plugin for @goopil/clusterkit: SIGHUP triggers rolling worker restart",
   "keywords": [
     "cluster",

@@ -1,4 +1,4 @@
-import type { CgroupLimits, OrchestratorPlugin } from "@goopil/clusterkit";
+import type { OrchestratorPlugin } from "@goopil/clusterkit";
 import type { SizingResult } from "./calculator.js";
 
 export interface ContainerSizingOptions {
@@ -48,4 +48,4 @@ export interface ContainerSizingPlugin extends OrchestratorPlugin {
   readonly sizing: SizingResult | undefined;
 }
 
-export type { CgroupLimits };
+export type { CgroupLimits } from "@goopil/clusterkit";
