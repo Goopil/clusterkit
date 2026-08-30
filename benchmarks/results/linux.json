@@ -1,0 +1,2137 @@
+{
+  "metadata": {
+    "generatedAt": "2026-08-13T21:15:56.812Z",
+    "nodeVersion": "v22.23.2",
+    "platform": "linux arm64",
+    "cpuCount": 4,
+    "cpuModel": "unknown",
+    "dockerImage": "node:22-slim",
+    "method": {
+      "warmupSec": 3,
+      "measureSec": 10,
+      "repetitions": 1,
+      "connsPerWorker": 50,
+      "mode": "quick"
+    }
+  },
+  "results": {
+    "hello": {
+      "single": {
+        "rps": {
+          "median": 17784,
+          "min": 17784,
+          "max": 17784,
+          "stddev": 0,
+          "runs": [17784]
+        },
+        "latency": {
+          "p50": 8,
+          "p95": 10,
+          "p99": 11,
+          "p50Runs": [8],
+          "p95Runs": [10],
+          "p99Runs": [11]
+        },
+        "errors": 0,
+        "bootTimeMs": 108,
+        "shutdownTimeMs": 5,
+        "rss": {
+          "avgKb": 137581,
+          "peakKb": 145792
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 104.4,
+          "timeMs": 15660
+        },
+        "pids": {
+          "active": 1,
+          "expected": 1,
+          "distribution": {
+            "16": 100
+          }
+        }
+      },
+      "clusterkit-3": {
+        "rps": {
+          "median": 53005,
+          "min": 53005,
+          "max": 53005,
+          "stddev": 0,
+          "runs": [53005]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 208,
+        "shutdownTimeMs": 24,
+        "rss": {
+          "avgKb": 195533,
+          "peakKb": 140656
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 95,
+          "timeMs": 13300
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "30": 22,
+            "31": 49,
+            "32": 29
+          }
+        }
+      },
+      "native-cluster-3": {
+        "rps": {
+          "median": 52355,
+          "min": 52355,
+          "max": 52355,
+          "stddev": 0,
+          "runs": [52355]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 209,
+        "shutdownTimeMs": 1,
+        "rss": {
+          "avgKb": 188860,
+          "peakKb": 136124
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 93.9,
+          "timeMs": 13140
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "58": 37,
+            "59": 28,
+            "60": 35
+          }
+        }
+      },
+      "native-cluster-reuseport-3": {
+        "rps": {
+          "median": 51565,
+          "min": 51565,
+          "max": 51565,
+          "stddev": 0,
+          "runs": [51565]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 203,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 188993,
+          "peakKb": 136496
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 94.4,
+          "timeMs": 14160
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "86": 41,
+            "87": 36,
+            "88": 23
+          }
+        }
+      },
+      "throng-3": {
+        "rps": {
+          "median": 51779,
+          "min": 51779,
+          "max": 51779,
+          "stddev": 0,
+          "runs": [51779]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 5,
+        "shutdownTimeMs": 12,
+        "rss": {
+          "avgKb": 197027,
+          "peakKb": 145236
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 91.8,
+          "timeMs": 12850
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "114": 38,
+            "115": 25,
+            "116": 37
+          }
+        }
+      },
+      "pm2-3": {
+        "rps": {
+          "median": 51059,
+          "min": 51059,
+          "max": 51059,
+          "stddev": 0,
+          "runs": [51059]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 512,
+        "shutdownTimeMs": 229,
+        "rss": {
+          "avgKb": 442560,
+          "peakKb": 179320
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 146,
+          "timeMs": 21900
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "154": 37,
+            "161": 33,
+            "168": 30
+          }
+        }
+      },
+      "pm2-reload-3": {
+        "rps": {
+          "median": 16649,
+          "min": 16649,
+          "max": 16649,
+          "stddev": 0,
+          "runs": [16649]
+        },
+        "latency": {
+          "p50": 8,
+          "p95": 12,
+          "p99": 16,
+          "p50Runs": [8],
+          "p95Runs": [12],
+          "p99Runs": [16]
+        },
+        "errors": 0,
+        "bootTimeMs": 417,
+        "shutdownTimeMs": 234,
+        "rss": {
+          "avgKb": 270852,
+          "peakKb": 154124
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 91.3,
+          "timeMs": 12780
+        },
+        "pids": {
+          "active": 2,
+          "expected": 3,
+          "distribution": {
+            "213": 81,
+            "224": 19
+          }
+        }
+      }
+    },
+    "latency-10ms": {
+      "single": {
+        "rps": {
+          "median": 11130,
+          "min": 11130,
+          "max": 11130,
+          "stddev": 0,
+          "runs": [11130]
+        },
+        "latency": {
+          "p50": 13,
+          "p95": 15,
+          "p99": 16,
+          "p50Runs": [13],
+          "p95Runs": [15],
+          "p99Runs": [16]
+        },
+        "errors": 0,
+        "bootTimeMs": 212,
+        "shutdownTimeMs": 7,
+        "rss": {
+          "avgKb": 131200,
+          "peakKb": 138576
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 67.6,
+          "timeMs": 9470
+        },
+        "pids": {
+          "active": 1,
+          "expected": 1,
+          "distribution": {
+            "241": 100
+          }
+        }
+      },
+      "clusterkit-3": {
+        "rps": {
+          "median": 11980,
+          "min": 11980,
+          "max": 11980,
+          "stddev": 0,
+          "runs": [11980]
+        },
+        "latency": {
+          "p50": 12,
+          "p95": 14,
+          "p99": 15,
+          "p50Runs": [12],
+          "p95Runs": [14],
+          "p99Runs": [15]
+        },
+        "errors": 0,
+        "bootTimeMs": 203,
+        "shutdownTimeMs": 12,
+        "rss": {
+          "avgKb": 182643,
+          "peakKb": 126728
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 29.9,
+          "timeMs": 4180
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "255": 41,
+            "256": 31,
+            "257": 28
+          }
+        }
+      },
+      "native-cluster-3": {
+        "rps": {
+          "median": 11745,
+          "min": 11745,
+          "max": 11745,
+          "stddev": 0,
+          "runs": [11745]
+        },
+        "latency": {
+          "p50": 12,
+          "p95": 15,
+          "p99": 15,
+          "p50Runs": [12],
+          "p95Runs": [15],
+          "p99Runs": [15]
+        },
+        "errors": 0,
+        "bootTimeMs": 208,
+        "shutdownTimeMs": 1,
+        "rss": {
+          "avgKb": 178818,
+          "peakKb": 124464
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 27.6,
+          "timeMs": 3860
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "283": 26,
+            "284": 35,
+            "285": 39
+          }
+        }
+      },
+      "native-cluster-reuseport-3": {
+        "rps": {
+          "median": 11659,
+          "min": 11659,
+          "max": 11659,
+          "stddev": 0,
+          "runs": [11659]
+        },
+        "latency": {
+          "p50": 12,
+          "p95": 15,
+          "p99": 16,
+          "p50Runs": [12],
+          "p95Runs": [15],
+          "p99Runs": [16]
+        },
+        "errors": 0,
+        "bootTimeMs": 203,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 175540,
+          "peakKb": 122540
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 30.3,
+          "timeMs": 4240
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "311": 43,
+            "312": 37,
+            "313": 20
+          }
+        }
+      },
+      "throng-3": {
+        "rps": {
+          "median": 11998,
+          "min": 11998,
+          "max": 11998,
+          "stddev": 0,
+          "runs": [11998]
+        },
+        "latency": {
+          "p50": 12,
+          "p95": 14,
+          "p99": 15,
+          "p50Runs": [12],
+          "p95Runs": [14],
+          "p99Runs": [15]
+        },
+        "errors": 0,
+        "bootTimeMs": 2,
+        "shutdownTimeMs": 11,
+        "rss": {
+          "avgKb": 184318,
+          "peakKb": 134820
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 33.1,
+          "timeMs": 4640
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "339": 25,
+            "340": 64,
+            "341": 11
+          }
+        }
+      },
+      "pm2-3": {
+        "rps": {
+          "median": 12098,
+          "min": 12098,
+          "max": 12098,
+          "stddev": 0,
+          "runs": [12098]
+        },
+        "latency": {
+          "p50": 12,
+          "p95": 14,
+          "p99": 15,
+          "p50Runs": [12],
+          "p95Runs": [14],
+          "p99Runs": [15]
+        },
+        "errors": 0,
+        "bootTimeMs": 412,
+        "shutdownTimeMs": 231,
+        "rss": {
+          "avgKb": 254054,
+          "peakKb": 137568
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 33.5,
+          "timeMs": 4690
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "379": 18,
+            "386": 26,
+            "393": 56
+          }
+        }
+      },
+      "pm2-reload-3": {
+        "rps": {
+          "median": 11129,
+          "min": 11129,
+          "max": 11129,
+          "stddev": 0,
+          "runs": [11129]
+        },
+        "latency": {
+          "p50": 13,
+          "p95": 15,
+          "p99": 16,
+          "p50Runs": [13],
+          "p95Runs": [15],
+          "p99Runs": [16]
+        },
+        "errors": 0,
+        "bootTimeMs": 411,
+        "shutdownTimeMs": 229,
+        "rss": {
+          "avgKb": 266760,
+          "peakKb": 149924
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 60.4,
+          "timeMs": 8450
+        },
+        "pids": {
+          "active": 2,
+          "expected": 3,
+          "distribution": {
+            "438": 15,
+            "449": 85
+          }
+        }
+      }
+    },
+    "cpu-io-mix": {
+      "single": {
+        "rps": {
+          "median": 917,
+          "min": 917,
+          "max": 917,
+          "stddev": 0,
+          "runs": [917]
+        },
+        "latency": {
+          "p50": 104,
+          "p95": 145,
+          "p99": 1174,
+          "p50Runs": [104],
+          "p95Runs": [145],
+          "p99Runs": [1174]
+        },
+        "errors": 26,
+        "bootTimeMs": 112,
+        "shutdownTimeMs": 6,
+        "rss": {
+          "avgKb": 115696,
+          "peakKb": 125536
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 96.1,
+          "timeMs": 13460
+        },
+        "pids": {
+          "active": 1,
+          "expected": 1,
+          "distribution": {
+            "466": 100
+          }
+        }
+      },
+      "clusterkit-3": {
+        "rps": {
+          "median": 2757,
+          "min": 2757,
+          "max": 2757,
+          "stddev": 0,
+          "runs": [2757]
+        },
+        "latency": {
+          "p50": 53,
+          "p95": 105,
+          "p99": 112,
+          "p50Runs": [53],
+          "p95Runs": [105],
+          "p99Runs": [112]
+        },
+        "errors": 0,
+        "bootTimeMs": 207,
+        "shutdownTimeMs": 9,
+        "rss": {
+          "avgKb": 175875,
+          "peakKb": 121788
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 94.5,
+          "timeMs": 13230
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "480": 33,
+            "481": 33,
+            "482": 34
+          }
+        }
+      },
+      "native-cluster-3": {
+        "rps": {
+          "median": 2722,
+          "min": 2722,
+          "max": 2722,
+          "stddev": 0,
+          "runs": [2722]
+        },
+        "latency": {
+          "p50": 50,
+          "p95": 101,
+          "p99": 111,
+          "p50Runs": [50],
+          "p95Runs": [101],
+          "p99Runs": [111]
+        },
+        "errors": 0,
+        "bootTimeMs": 208,
+        "shutdownTimeMs": 5,
+        "rss": {
+          "avgKb": 169405,
+          "peakKb": 114012
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 94.9,
+          "timeMs": 13280
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "508": 8,
+            "509": 47,
+            "510": 45
+          }
+        }
+      },
+      "native-cluster-reuseport-3": {
+        "rps": {
+          "median": 2743,
+          "min": 2743,
+          "max": 2743,
+          "stddev": 0,
+          "runs": [2743]
+        },
+        "latency": {
+          "p50": 51,
+          "p95": 103,
+          "p99": 105,
+          "p50Runs": [51],
+          "p95Runs": [103],
+          "p99Runs": [105]
+        },
+        "errors": 0,
+        "bootTimeMs": 317,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 178082,
+          "peakKb": 127244
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 94.7,
+          "timeMs": 13260
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "536": 34,
+            "537": 28,
+            "538": 38
+          }
+        }
+      },
+      "throng-3": {
+        "rps": {
+          "median": 2755,
+          "min": 2755,
+          "max": 2755,
+          "stddev": 0,
+          "runs": [2755]
+        },
+        "latency": {
+          "p50": 51,
+          "p95": 101,
+          "p99": 106,
+          "p50Runs": [51],
+          "p95Runs": [101],
+          "p99Runs": [106]
+        },
+        "errors": 0,
+        "bootTimeMs": 4,
+        "shutdownTimeMs": 7,
+        "rss": {
+          "avgKb": 168051,
+          "peakKb": 117480
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 94.9,
+          "timeMs": 13280
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "564": 5,
+            "565": 4,
+            "566": 91
+          }
+        }
+      },
+      "pm2-3": {
+        "rps": {
+          "median": 2735,
+          "min": 2735,
+          "max": 2735,
+          "stddev": 0,
+          "runs": [2735]
+        },
+        "latency": {
+          "p50": 51,
+          "p95": 102,
+          "p99": 105,
+          "p50Runs": [51],
+          "p95Runs": [102],
+          "p99Runs": [105]
+        },
+        "errors": 0,
+        "bootTimeMs": 414,
+        "shutdownTimeMs": 229,
+        "rss": {
+          "avgKb": 242211,
+          "peakKb": 132340
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 93.6,
+          "timeMs": 13110
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "604": 8,
+            "611": 48,
+            "618": 44
+          }
+        }
+      },
+      "pm2-reload-3": {
+        "rps": {
+          "median": 1281,
+          "min": 1281,
+          "max": 1281,
+          "stddev": 0,
+          "runs": [1281]
+        },
+        "latency": {
+          "p50": 81,
+          "p95": 126,
+          "p99": 344,
+          "p50Runs": [81],
+          "p95Runs": [126],
+          "p99Runs": [344]
+        },
+        "errors": 0,
+        "bootTimeMs": 417,
+        "shutdownTimeMs": 223,
+        "rss": {
+          "avgKb": 239994,
+          "peakKb": 122932
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 95.7,
+          "timeMs": 14350
+        },
+        "pids": {
+          "active": 1,
+          "expected": 3,
+          "distribution": {
+            "674": 100
+          }
+        }
+      }
+    },
+    "list-100": {
+      "single": {
+        "rps": {
+          "median": 10378,
+          "min": 10378,
+          "max": 10378,
+          "stddev": 0,
+          "runs": [10378]
+        },
+        "latency": {
+          "p50": 14,
+          "p95": 17,
+          "p99": 18,
+          "p50Runs": [14],
+          "p95Runs": [17],
+          "p99Runs": [18]
+        },
+        "errors": 0,
+        "bootTimeMs": 107,
+        "shutdownTimeMs": 6,
+        "rss": {
+          "avgKb": 150231,
+          "peakKb": 159200
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 101.1,
+          "timeMs": 15160
+        },
+        "pids": {
+          "active": 1,
+          "expected": 1,
+          "distribution": {
+            "691": 100
+          }
+        }
+      },
+      "clusterkit-3": {
+        "rps": {
+          "median": 29934,
+          "min": 29934,
+          "max": 29934,
+          "stddev": 0,
+          "runs": [29934]
+        },
+        "latency": {
+          "p50": 4,
+          "p95": 10,
+          "p99": 12,
+          "p50Runs": [4],
+          "p95Runs": [10],
+          "p99Runs": [12]
+        },
+        "errors": 0,
+        "bootTimeMs": 206,
+        "shutdownTimeMs": 10,
+        "rss": {
+          "avgKb": 201406,
+          "peakKb": 146620
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 91,
+          "timeMs": 12740
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "705": 39,
+            "706": 20,
+            "707": 41
+          }
+        }
+      },
+      "native-cluster-3": {
+        "rps": {
+          "median": 31050,
+          "min": 31050,
+          "max": 31050,
+          "stddev": 0,
+          "runs": [31050]
+        },
+        "latency": {
+          "p50": 4,
+          "p95": 8,
+          "p99": 10,
+          "p50Runs": [4],
+          "p95Runs": [8],
+          "p99Runs": [10]
+        },
+        "errors": 0,
+        "bootTimeMs": 208,
+        "shutdownTimeMs": 1,
+        "rss": {
+          "avgKb": 198669,
+          "peakKb": 146240
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 95,
+          "timeMs": 13300
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "733": 31,
+            "734": 39,
+            "735": 30
+          }
+        }
+      },
+      "native-cluster-reuseport-3": {
+        "rps": {
+          "median": 30818,
+          "min": 30818,
+          "max": 30818,
+          "stddev": 0,
+          "runs": [30818]
+        },
+        "latency": {
+          "p50": 4,
+          "p95": 9,
+          "p99": 10,
+          "p50Runs": [4],
+          "p95Runs": [9],
+          "p99Runs": [10]
+        },
+        "errors": 0,
+        "bootTimeMs": 208,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 195381,
+          "peakKb": 143260
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 94.2,
+          "timeMs": 13190
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "761": 29,
+            "762": 43,
+            "763": 28
+          }
+        }
+      },
+      "throng-3": {
+        "rps": {
+          "median": 30450,
+          "min": 30450,
+          "max": 30450,
+          "stddev": 0,
+          "runs": [30450]
+        },
+        "latency": {
+          "p50": 4,
+          "p95": 9,
+          "p99": 10,
+          "p50Runs": [4],
+          "p95Runs": [9],
+          "p99Runs": [10]
+        },
+        "errors": 0,
+        "bootTimeMs": 2,
+        "shutdownTimeMs": 10,
+        "rss": {
+          "avgKb": 201048,
+          "peakKb": 149524
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 93.9,
+          "timeMs": 14090
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "789": 54,
+            "790": 14,
+            "791": 32
+          }
+        }
+      },
+      "pm2-3": {
+        "rps": {
+          "median": 30251,
+          "min": 30251,
+          "max": 30251,
+          "stddev": 0,
+          "runs": [30251]
+        },
+        "latency": {
+          "p50": 4,
+          "p95": 9,
+          "p99": 10,
+          "p50Runs": [4],
+          "p95Runs": [9],
+          "p99Runs": [10]
+        },
+        "errors": 0,
+        "bootTimeMs": 410,
+        "shutdownTimeMs": 233,
+        "rss": {
+          "avgKb": 273948,
+          "peakKb": 157384
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 87.6,
+          "timeMs": 13140
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "829": 10,
+            "836": 10,
+            "843": 80
+          }
+        }
+      },
+      "pm2-reload-3": {
+        "rps": {
+          "median": 10078,
+          "min": 10078,
+          "max": 10078,
+          "stddev": 0,
+          "runs": [10078]
+        },
+        "latency": {
+          "p50": 14,
+          "p95": 18,
+          "p99": 19,
+          "p50Runs": [14],
+          "p95Runs": [18],
+          "p99Runs": [19]
+        },
+        "errors": 0,
+        "bootTimeMs": 415,
+        "shutdownTimeMs": 232,
+        "rss": {
+          "avgKb": 279527,
+          "peakKb": 162940
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 92.3,
+          "timeMs": 13850
+        },
+        "pids": {
+          "active": 2,
+          "expected": 3,
+          "distribution": {
+            "888": 9,
+            "899": 91
+          }
+        }
+      }
+    },
+    "aggregate": {
+      "single": {
+        "rps": {
+          "median": 6159,
+          "min": 6159,
+          "max": 6159,
+          "stddev": 0,
+          "runs": [6159]
+        },
+        "latency": {
+          "p50": 23,
+          "p95": 28,
+          "p99": 29,
+          "p50Runs": [23],
+          "p95Runs": [28],
+          "p99Runs": [29]
+        },
+        "errors": 0,
+        "bootTimeMs": 104,
+        "shutdownTimeMs": 6,
+        "rss": {
+          "avgKb": 145872,
+          "peakKb": 153236
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 98.7,
+          "timeMs": 14800
+        },
+        "pids": {
+          "active": 1,
+          "expected": 1,
+          "distribution": {
+            "916": 100
+          }
+        }
+      },
+      "clusterkit-3": {
+        "rps": {
+          "median": 17905,
+          "min": 17905,
+          "max": 17905,
+          "stddev": 0,
+          "runs": [17905]
+        },
+        "latency": {
+          "p50": 8,
+          "p95": 13,
+          "p99": 16,
+          "p50Runs": [8],
+          "p95Runs": [13],
+          "p99Runs": [16]
+        },
+        "errors": 0,
+        "bootTimeMs": 204,
+        "shutdownTimeMs": 12,
+        "rss": {
+          "avgKb": 197247,
+          "peakKb": 142320
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 96,
+          "timeMs": 14400
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "930": 42,
+            "931": 15,
+            "932": 43
+          }
+        }
+      },
+      "native-cluster-3": {
+        "rps": {
+          "median": 18005,
+          "min": 18005,
+          "max": 18005,
+          "stddev": 0,
+          "runs": [18005]
+        },
+        "latency": {
+          "p50": 7,
+          "p95": 12,
+          "p99": 15,
+          "p50Runs": [7],
+          "p95Runs": [12],
+          "p99Runs": [15]
+        },
+        "errors": 0,
+        "bootTimeMs": 205,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 196602,
+          "peakKb": 141496
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 96.3,
+          "timeMs": 14440
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "958": 42,
+            "959": 12,
+            "960": 46
+          }
+        }
+      },
+      "native-cluster-reuseport-3": {
+        "rps": {
+          "median": 18216,
+          "min": 18216,
+          "max": 18216,
+          "stddev": 0,
+          "runs": [18216]
+        },
+        "latency": {
+          "p50": 7,
+          "p95": 13,
+          "p99": 15,
+          "p50Runs": [7],
+          "p95Runs": [13],
+          "p99Runs": [15]
+        },
+        "errors": 0,
+        "bootTimeMs": 209,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 192371,
+          "peakKb": 138332
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 95.6,
+          "timeMs": 13390
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "986": 41,
+            "987": 18,
+            "988": 41
+          }
+        }
+      },
+      "throng-3": {
+        "rps": {
+          "median": 18424,
+          "min": 18424,
+          "max": 18424,
+          "stddev": 0,
+          "runs": [18424]
+        },
+        "latency": {
+          "p50": 7,
+          "p95": 12,
+          "p99": 15,
+          "p50Runs": [7],
+          "p95Runs": [12],
+          "p99Runs": [15]
+        },
+        "errors": 0,
+        "bootTimeMs": 2,
+        "shutdownTimeMs": 10,
+        "rss": {
+          "avgKb": 193213,
+          "peakKb": 145428
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 95,
+          "timeMs": 13300
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1014": 35,
+            "1015": 25,
+            "1016": 40
+          }
+        }
+      },
+      "pm2-3": {
+        "rps": {
+          "median": 17730,
+          "min": 17730,
+          "max": 17730,
+          "stddev": 0,
+          "runs": [17730]
+        },
+        "latency": {
+          "p50": 8,
+          "p95": 13,
+          "p99": 16,
+          "p50Runs": [8],
+          "p95Runs": [13],
+          "p99Runs": [16]
+        },
+        "errors": 0,
+        "bootTimeMs": 409,
+        "shutdownTimeMs": 223,
+        "rss": {
+          "avgKb": 267802,
+          "peakKb": 151808
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 91.5,
+          "timeMs": 13720
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1054": 34,
+            "1061": 33,
+            "1068": 33
+          }
+        }
+      },
+      "pm2-reload-3": {
+        "rps": {
+          "median": 6119,
+          "min": 6119,
+          "max": 6119,
+          "stddev": 0,
+          "runs": [6119]
+        },
+        "latency": {
+          "p50": 23,
+          "p95": 28,
+          "p99": 29,
+          "p50Runs": [23],
+          "p95Runs": [28],
+          "p99Runs": [29]
+        },
+        "errors": 0,
+        "bootTimeMs": 413,
+        "shutdownTimeMs": 229,
+        "rss": {
+          "avgKb": 276565,
+          "peakKb": 161748
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 93.7,
+          "timeMs": 14050
+        },
+        "pids": {
+          "active": 1,
+          "expected": 3,
+          "distribution": {
+            "1124": 100
+          }
+        }
+      }
+    },
+    "auth-verify": {
+      "single": {
+        "rps": {
+          "median": 16672,
+          "min": 16672,
+          "max": 16672,
+          "stddev": 0,
+          "runs": [16672]
+        },
+        "latency": {
+          "p50": 8,
+          "p95": 11,
+          "p99": 12,
+          "p50Runs": [8],
+          "p95Runs": [11],
+          "p99Runs": [12]
+        },
+        "errors": 0,
+        "bootTimeMs": 105,
+        "shutdownTimeMs": 8,
+        "rss": {
+          "avgKb": 136867,
+          "peakKb": 143544
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 104.2,
+          "timeMs": 15630
+        },
+        "pids": {
+          "active": 1,
+          "expected": 1,
+          "distribution": {
+            "1141": 100
+          }
+        }
+      },
+      "clusterkit-3": {
+        "rps": {
+          "median": 49939,
+          "min": 49939,
+          "max": 49939,
+          "stddev": 0,
+          "runs": [49939]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 202,
+        "shutdownTimeMs": 11,
+        "rss": {
+          "avgKb": 193338,
+          "peakKb": 139916
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 94.3,
+          "timeMs": 13200
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1155": 27,
+            "1156": 34,
+            "1157": 39
+          }
+        }
+      },
+      "native-cluster-3": {
+        "rps": {
+          "median": 50563,
+          "min": 50563,
+          "max": 50563,
+          "stddev": 0,
+          "runs": [50563]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 209,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 187516,
+          "peakKb": 133928
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 96,
+          "timeMs": 13440
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1183": 46,
+            "1184": 44,
+            "1185": 10
+          }
+        }
+      },
+      "native-cluster-reuseport-3": {
+        "rps": {
+          "median": 50433,
+          "min": 50433,
+          "max": 50433,
+          "stddev": 0,
+          "runs": [50433]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 208,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 400892,
+          "peakKb": 215724
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 155.7,
+          "timeMs": 23360
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1211": 28,
+            "1212": 33,
+            "1213": 39
+          }
+        }
+      },
+      "throng-3": {
+        "rps": {
+          "median": 49978,
+          "min": 49978,
+          "max": 49978,
+          "stddev": 0,
+          "runs": [49978]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 1,
+        "shutdownTimeMs": 8,
+        "rss": {
+          "avgKb": 393531,
+          "peakKb": 215852
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 1675.4,
+          "timeMs": 234550
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1239": 13,
+            "1240": 57,
+            "1241": 30
+          }
+        }
+      },
+      "pm2-3": {
+        "rps": {
+          "median": 48566,
+          "min": 48566,
+          "max": 48566,
+          "stddev": 0,
+          "runs": [48566]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 414,
+        "shutdownTimeMs": 225,
+        "rss": {
+          "avgKb": 621632,
+          "peakKb": 215852
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 241,
+          "timeMs": 33740
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1279": 20,
+            "1286": 47,
+            "1293": 33
+          }
+        }
+      },
+      "pm2-reload-3": {
+        "rps": {
+          "median": 16158,
+          "min": 16158,
+          "max": 16158,
+          "stddev": 0,
+          "runs": [16158]
+        },
+        "latency": {
+          "p50": 8,
+          "p95": 11,
+          "p99": 12,
+          "p50Runs": [8],
+          "p95Runs": [11],
+          "p99Runs": [12]
+        },
+        "errors": 0,
+        "bootTimeMs": 415,
+        "shutdownTimeMs": 225,
+        "rss": {
+          "avgKb": 272482,
+          "peakKb": 155928
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 92.1,
+          "timeMs": 13820
+        },
+        "pids": {
+          "active": 2,
+          "expected": 3,
+          "distribution": {
+            "1338": 49,
+            "1349": 51
+          }
+        }
+      }
+    },
+    "error-rate": {
+      "single": {
+        "rps": {
+          "median": 17615,
+          "min": 17615,
+          "max": 17615,
+          "stddev": 0,
+          "runs": [17615]
+        },
+        "latency": {
+          "p50": 8,
+          "p95": 10,
+          "p99": 11,
+          "p50Runs": [8],
+          "p95Runs": [10],
+          "p99Runs": [11]
+        },
+        "errors": 0,
+        "bootTimeMs": 107,
+        "shutdownTimeMs": 6,
+        "rss": {
+          "avgKb": 138016,
+          "peakKb": 144548
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 104.8,
+          "timeMs": 15720
+        },
+        "pids": {
+          "active": 1,
+          "expected": 1,
+          "distribution": {
+            "1366": 100
+          }
+        }
+      },
+      "clusterkit-3": {
+        "rps": {
+          "median": 53066,
+          "min": 53066,
+          "max": 53066,
+          "stddev": 0,
+          "runs": [53066]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 6,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [6]
+        },
+        "errors": 0,
+        "bootTimeMs": 209,
+        "shutdownTimeMs": 10,
+        "rss": {
+          "avgKb": 407759,
+          "peakKb": 215852
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 158.7,
+          "timeMs": 22220
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1380": 42,
+            "1381": 33,
+            "1382": 25
+          }
+        }
+      },
+      "native-cluster-3": {
+        "rps": {
+          "median": 53194,
+          "min": 53194,
+          "max": 53194,
+          "stddev": 0,
+          "runs": [53194]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 205,
+        "shutdownTimeMs": 1,
+        "rss": {
+          "avgKb": 406033,
+          "peakKb": 215980
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 159.3,
+          "timeMs": 22300
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1408": 29,
+            "1409": 45,
+            "1410": 26
+          }
+        }
+      },
+      "native-cluster-reuseport-3": {
+        "rps": {
+          "median": 53130,
+          "min": 53130,
+          "max": 53130,
+          "stddev": 0,
+          "runs": [53130]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 208,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 531413,
+          "peakKb": 215980
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 252.8,
+          "timeMs": 35390
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1436": 44,
+            "1437": 25,
+            "1438": 31
+          }
+        }
+      },
+      "throng-3": {
+        "rps": {
+          "median": 53447,
+          "min": 53447,
+          "max": 53447,
+          "stddev": 0,
+          "runs": [53447]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 5,
+          "p99": 6,
+          "p50Runs": [2],
+          "p95Runs": [5],
+          "p99Runs": [6]
+        },
+        "errors": 0,
+        "bootTimeMs": 3,
+        "shutdownTimeMs": 8,
+        "rss": {
+          "avgKb": 395107,
+          "peakKb": 215980
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 1950,
+          "timeMs": 292500
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1464": 35,
+            "1465": 29,
+            "1466": 36
+          }
+        }
+      },
+      "pm2-3": {
+        "rps": {
+          "median": 51424,
+          "min": 51424,
+          "max": 51424,
+          "stddev": 0,
+          "runs": [51424]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 414,
+        "shutdownTimeMs": 227,
+        "rss": {
+          "avgKb": 480374,
+          "peakKb": 215980
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 148.1,
+          "timeMs": 20740
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1504": 49,
+            "1511": 28,
+            "1518": 23
+          }
+        }
+      },
+      "pm2-reload-3": {
+        "rps": {
+          "median": 17140,
+          "min": 17140,
+          "max": 17140,
+          "stddev": 0,
+          "runs": [17140]
+        },
+        "latency": {
+          "p50": 8,
+          "p95": 11,
+          "p99": 12,
+          "p50Runs": [8],
+          "p95Runs": [11],
+          "p99Runs": [12]
+        },
+        "errors": 0,
+        "bootTimeMs": 411,
+        "shutdownTimeMs": 230,
+        "rss": {
+          "avgKb": 271774,
+          "peakKb": 154420
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 91.9,
+          "timeMs": 13790
+        },
+        "pids": {
+          "active": 2,
+          "expected": 3,
+          "distribution": {
+            "1563": 64,
+            "1574": 36
+          }
+        }
+      }
+    },
+    "upload-echo": {
+      "single": {
+        "rps": {
+          "median": 14876,
+          "min": 14876,
+          "max": 14876,
+          "stddev": 0,
+          "runs": [14876]
+        },
+        "latency": {
+          "p50": 9,
+          "p95": 12,
+          "p99": 14,
+          "p50Runs": [9],
+          "p95Runs": [12],
+          "p99Runs": [14]
+        },
+        "errors": 0,
+        "bootTimeMs": 110,
+        "shutdownTimeMs": 7,
+        "rss": {
+          "avgKb": 141392,
+          "peakKb": 148372
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 104.6,
+          "timeMs": 15690
+        },
+        "pids": {
+          "active": 1,
+          "expected": 1,
+          "distribution": {
+            "1591": 100
+          }
+        }
+      },
+      "clusterkit-3": {
+        "rps": {
+          "median": 44525,
+          "min": 44525,
+          "max": 44525,
+          "stddev": 0,
+          "runs": [44525]
+        },
+        "latency": {
+          "p50": 3,
+          "p95": 6,
+          "p99": 8,
+          "p50Runs": [3],
+          "p95Runs": [6],
+          "p99Runs": [8]
+        },
+        "errors": 0,
+        "bootTimeMs": 211,
+        "shutdownTimeMs": 11,
+        "rss": {
+          "avgKb": 412051,
+          "peakKb": 215980
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 152.7,
+          "timeMs": 21380
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1605": 24,
+            "1606": 47,
+            "1607": 29
+          }
+        }
+      },
+      "native-cluster-3": {
+        "rps": {
+          "median": 44448,
+          "min": 44448,
+          "max": 44448,
+          "stddev": 0,
+          "runs": [44448]
+        },
+        "latency": {
+          "p50": 2,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [2],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 213,
+        "shutdownTimeMs": 2,
+        "rss": {
+          "avgKb": 539731,
+          "peakKb": 215980
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 248.5,
+          "timeMs": 34790
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1633": 40,
+            "1634": 28,
+            "1635": 32
+          }
+        }
+      },
+      "native-cluster-reuseport-3": {
+        "rps": {
+          "median": 44487,
+          "min": 44487,
+          "max": 44487,
+          "stddev": 0,
+          "runs": [44487]
+        },
+        "latency": {
+          "p50": 3,
+          "p95": 6,
+          "p99": 7,
+          "p50Runs": [3],
+          "p95Runs": [6],
+          "p99Runs": [7]
+        },
+        "errors": 0,
+        "bootTimeMs": 215,
+        "shutdownTimeMs": 1,
+        "rss": {
+          "avgKb": 407434,
+          "peakKb": 215980
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 153.6,
+          "timeMs": 23040
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1661": 30,
+            "1662": 22,
+            "1663": 48
+          }
+        }
+      },
+      "throng-3": {
+        "rps": {
+          "median": 44112,
+          "min": 44112,
+          "max": 44112,
+          "stddev": 0,
+          "runs": [44112]
+        },
+        "latency": {
+          "p50": 3,
+          "p95": 6,
+          "p99": 8,
+          "p50Runs": [3],
+          "p95Runs": [6],
+          "p99Runs": [8]
+        },
+        "errors": 0,
+        "bootTimeMs": 3,
+        "shutdownTimeMs": 14,
+        "rss": {
+          "avgKb": 395905,
+          "peakKb": 215980
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 2459.4,
+          "timeMs": 344310
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1689": 44,
+            "1690": 25,
+            "1691": 31
+          }
+        }
+      },
+      "pm2-3": {
+        "rps": {
+          "median": 42099,
+          "min": 42099,
+          "max": 42099,
+          "stddev": 0,
+          "runs": [42099]
+        },
+        "latency": {
+          "p50": 3,
+          "p95": 7,
+          "p99": 8,
+          "p50Runs": [3],
+          "p95Runs": [7],
+          "p99Runs": [8]
+        },
+        "errors": 0,
+        "bootTimeMs": 411,
+        "shutdownTimeMs": 231,
+        "rss": {
+          "avgKb": 485211,
+          "peakKb": 215980
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 142,
+          "timeMs": 19880
+        },
+        "pids": {
+          "active": 3,
+          "expected": 3,
+          "distribution": {
+            "1729": 40,
+            "1736": 12,
+            "1743": 48
+          }
+        }
+      },
+      "pm2-reload-3": {
+        "rps": {
+          "median": 14520,
+          "min": 14520,
+          "max": 14520,
+          "stddev": 0,
+          "runs": [14520]
+        },
+        "latency": {
+          "p50": 10,
+          "p95": 13,
+          "p99": 14,
+          "p50Runs": [10],
+          "p95Runs": [13],
+          "p99Runs": [14]
+        },
+        "errors": 0,
+        "bootTimeMs": 416,
+        "shutdownTimeMs": 237,
+        "rss": {
+          "avgKb": 275007,
+          "peakKb": 158428
+        },
+        "heap": null,
+        "cpu": {
+          "avgPercent": 93,
+          "timeMs": 13950
+        },
+        "pids": {
+          "active": 2,
+          "expected": 3,
+          "distribution": {
+            "1788": 19,
+            "1799": 81
+          }
+        }
+      }
+    }
+  }
+}

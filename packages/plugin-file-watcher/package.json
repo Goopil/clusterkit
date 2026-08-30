@@ -1,0 +1,72 @@
+{
+  "name": "@goopil/clusterkit-file-watcher",
+  "version": "1.0.1",
+  "description": "File watcher hot restart plugin for @goopil/clusterkit: watches files, .env, and process.env for changes and triggers rolling worker restarts",
+  "keywords": [
+    "cluster",
+    "clusterkit",
+    "file-watcher",
+    "hot-reload",
+    "chokidar",
+    "rolling-restart",
+    "env"
+  ],
+  "homepage": "https://github.com/Goopil/clusterkit#readme",
+  "bugs": {
+    "url": "https://github.com/Goopil/clusterkit/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Goopil/clusterkit.git",
+    "directory": "packages/plugin-file-watcher"
+  },
+  "license": "LGPL-3.0-or-later",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "pnpm build",
+    "clean": "rm -rf dist coverage"
+  },
+  "peerDependencies": {
+    "@goopil/clusterkit": "workspace:*",
+    "chokidar": "^4"
+  },
+  "devDependencies": {
+    "@goopil/clusterkit": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "chokidar": "^4.0.0",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

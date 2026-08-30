@@ -16,7 +16,7 @@
     "@goopil/clusterkit": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
     "@goopil/clusterkit-sizing": "workspace:*",
-    "@hono/node-server": "^1",
+    "@hono/node-server": "^2",
     "hono": "^4.13.1",
     "prom-client": "^15"
   }

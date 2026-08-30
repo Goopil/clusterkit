@@ -152,6 +152,8 @@ container or process supervisor kills the primary process.
 | `shutdown:start` | Primary shutdown coordination starts for `SIGTERM` or `SIGINT`. |
 | `shutdown:complete` | Primary shutdown coordination has finished. |
 | `circuit-breaker:tripped` | Crash count reached `restart.crashThreshold` inside `restart.crashWindowMs`. |
+| `restart:start` | A hot restart cycle begins via `restartWorkers()`. |
+| `restart:complete` | A hot restart cycle finishes — all targeted workers replaced. |
 
 ## Capability helpers
 

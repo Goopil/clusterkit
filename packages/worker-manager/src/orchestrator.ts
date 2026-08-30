@@ -1,5 +1,5 @@
 import cluster, { type Worker } from "node:cluster";
-import { EventEmitter } from "node:events";
+import { EventEmitter, once } from "node:events";
 import { CrashTracker } from "./crash-tracker";
 import { withLoggerPrefix } from "./logger";
 import { getPlatformCapabilities, getReusePortCached, type PlatformCapabilities } from "./platform";
@@ -82,6 +82,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
   // Exponential backoff for worker restarts
   private restartBackoffDelay = 0;
+
+  // Hot restart guard — prevents concurrent restartWorkers() calls
+  private restartInProgress = false;
 
   constructor(config: OrchestratorConfig = {}) {
     super();
@@ -236,9 +239,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     if (this.hasForked) {
       throw new Error("patchWorkerEnv: cannot be called after workers have been forked");
     }
-    const dangerous = ["__proto__", "constructor", "prototype"];
+    const dangerous = new Set(["__proto__", "constructor", "prototype"]);
     for (const key of Object.keys(env)) {
-      if (dangerous.includes(key)) {
+      if (dangerous.has(key)) {
         throw new Error(`patchWorkerEnv: key '${key}' is not allowed (prototype pollution risk)`);
       }
     }
@@ -320,6 +323,78 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    */
   registerOnShutdown(cb: (signal: string) => void | Promise<void>): void {
     this.shutdownCallbacks.push(cb);
+  }
+
+  /**
+   * Rolling-restart all (or filtered) workers without dropping connections.
+   * Forks a replacement for each worker, then drains the old one via the
+   * same `handleWorkerRecycle` path used by age-based recycling.
+   *
+   * Idempotent: no-op if a restart is already in progress or shutdown has
+   * started. Returns early in single-worker mode (no cluster to roll).
+   */
+  async restartWorkers(opts?: {
+    env?: NodeJS.ProcessEnv;
+    filter?: (workerId: number) => boolean;
+    staggerMs?: number;
+    reason?: string;
+  }): Promise<void> {
+    const reason = opts?.reason ?? "manual";
+
+    if (this.shutdownCoordinator.isShutdownInProgress()) {
+      this.log?.warn("restartWorkers() ignored — shutdown in progress", { reason });
+      return;
+    }
+
+    if (this.restartInProgress) {
+      this.log?.warn("restartWorkers() ignored — restart already in progress", { reason });
+      return;
+    }
+
+    if (this.workerCount === 1) {
+      this.log?.warn("restartWorkers() called in single-worker mode — no cluster to roll", { reason });
+      return;
+    }
+
+    this.restartInProgress = true;
+
+    try {
+      const staggerMs = opts?.staggerMs ?? 1_000;
+      const workers = this.workerManager.getActiveWorkers();
+      const targeted = opts?.filter ? workers.filter((w) => opts.filter!(w.id)) : workers;
+      const workerIds = targeted.map((w) => w.id);
+
+      this.log?.info("Hot restart initiated", { reason, workerIds });
+      this.safeEmit("restart:start", { reason, workerIds });
+
+      const restartedWorkerIds: number[] = [];
+
+      for (const oldWorker of targeted) {
+        if (this.shutdownCoordinator.isShutdownInProgress()) {
+          this.log?.info("Shutdown started during hot restart, aborting", { reason });
+          break;
+        }
+
+        this.workerManager.markForRecycling(oldWorker.id);
+
+        const newWorker = this.workerManager.forkWorker(opts?.env);
+
+        this.handleWorkerRecycle(oldWorker, newWorker);
+
+        await once(oldWorker, "exit");
+
+        restartedWorkerIds.push(oldWorker.id);
+
+        if (staggerMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, staggerMs));
+        }
+      }
+
+      this.log?.info("Hot restart complete", { reason, restartedWorkerIds });
+      this.safeEmit("restart:complete", { restartedWorkerIds, reason });
+    } finally {
+      this.restartInProgress = false;
+    }
   }
 
   /**
@@ -814,9 +889,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
     // Cache the auto resolution: cgroup limits cannot change for a running
     // container, and re-reading them does sync fs work on the event loop.
-    if (this.cachedAutoWorkerCount === undefined) {
-      this.cachedAutoWorkerCount = this.computeAutoWorkerCount();
-    }
+    this.cachedAutoWorkerCount ??= this.computeAutoWorkerCount();
     return this.cachedAutoWorkerCount;
   }
 

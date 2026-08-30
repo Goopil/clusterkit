@@ -1,0 +1,25 @@
+services:
+  # -------------------------------------------------------------------------
+  # benchmark — runs the full benchmark suite on Linux (SO_REUSEPORT available)
+  #
+  # Usage:
+  #   pnpm bench:docker                        # build image + run benchmarks
+  #   docker compose run --build --rm benchmark # same, manual
+  #   docker compose run --rm benchmark node runner.mjs --quick   # quick mode
+  #   docker compose run --rm benchmark node runner.mjs --target clusterkit-3
+  # -------------------------------------------------------------------------
+  benchmark:
+    build:
+      context: ..
+      dockerfile: benchmarks/Dockerfile.bench
+    cpus: "4"
+    environment:
+      TURBO_DAEMON: "false"
+      TURBO_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./results:/app/benchmarks/results
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tty: false

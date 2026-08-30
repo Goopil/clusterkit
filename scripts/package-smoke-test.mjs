@@ -10,6 +10,8 @@ const packages = [
   "@goopil/clusterkit-prometheus",
   "@goopil/clusterkit-sizing",
   "@goopil/clusterkit-otlp-meter",
+  "@goopil/clusterkit-signal-restart",
+  "@goopil/clusterkit-file-watcher",
 ];
 
 function run(command, args, options = {}) {
@@ -46,7 +48,7 @@ async function main() {
           private: true,
           type: "module",
           dependencies,
-          devDependencies: { "@types/node": "^22.12.0" },
+          devDependencies: { "@types/node": "^22.12.0", chokidar: "^4.0.0" },
         },
         null,
         2,
@@ -58,11 +60,15 @@ async function main() {
 import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 import { createContainerSizingPlugin } from "@goopil/clusterkit-sizing";
 import { createOtlpMeterPlugin } from "@goopil/clusterkit-otlp-meter";
+import { createSignalRestartPlugin } from "@goopil/clusterkit-signal-restart";
+import { createFileWatcherPlugin } from "@goopil/clusterkit-file-watcher";
 
 if (!(new Orchestrator() instanceof Orchestrator)) throw new Error("ESM core import failed");
 if (createPrometheusPlugin().name !== "prometheus") throw new Error("ESM Prometheus import failed");
 if (createContainerSizingPlugin().name !== "container-sizing") throw new Error("ESM sizing import failed");
 if (createOtlpMeterPlugin({ instrumentation: false }).name !== "otlp-meter") throw new Error("ESM OTLP import failed");
+if (createSignalRestartPlugin().name !== "signal-restart") throw new Error("ESM signal-restart import failed");
+if (createFileWatcherPlugin().name !== "file-watcher") throw new Error("ESM file-watcher import failed");
 `,
     );
     await writeFile(
@@ -71,11 +77,15 @@ if (createOtlpMeterPlugin({ instrumentation: false }).name !== "otlp-meter") thr
 const { createPrometheusPlugin } = require("@goopil/clusterkit-prometheus");
 const { createContainerSizingPlugin } = require("@goopil/clusterkit-sizing");
 const { createOtlpMeterPlugin } = require("@goopil/clusterkit-otlp-meter");
+const { createSignalRestartPlugin } = require("@goopil/clusterkit-signal-restart");
+const { createFileWatcherPlugin } = require("@goopil/clusterkit-file-watcher");
 
 if (!(new Orchestrator() instanceof Orchestrator)) throw new Error("CJS core import failed");
 if (createPrometheusPlugin().name !== "prometheus") throw new Error("CJS Prometheus import failed");
 if (createContainerSizingPlugin().name !== "container-sizing") throw new Error("CJS sizing import failed");
 if (createOtlpMeterPlugin({ instrumentation: false }).name !== "otlp-meter") throw new Error("CJS OTLP import failed");
+if (createSignalRestartPlugin().name !== "signal-restart") throw new Error("CJS signal-restart import failed");
+if (createFileWatcherPlugin().name !== "file-watcher") throw new Error("CJS file-watcher import failed");
 `,
     );
     await writeFile(
@@ -83,16 +93,22 @@ if (createOtlpMeterPlugin({ instrumentation: false }).name !== "otlp-meter") thr
       `import { Orchestrator, type OrchestratorPlugin } from "@goopil/clusterkit";
 import { createPrometheusPlugin, type PrometheusPlugin } from "@goopil/clusterkit-prometheus";
 import { createContainerSizingPlugin, type ContainerSizingPlugin } from "@goopil/clusterkit-sizing";
+import { createSignalRestartPlugin, type SignalRestartPlugin } from "@goopil/clusterkit-signal-restart";
+import { createFileWatcherPlugin, type FileWatcherPlugin } from "@goopil/clusterkit-file-watcher";
 
 const orchestrator = new Orchestrator();
 const plugins: OrchestratorPlugin[] = [createPrometheusPlugin(), createContainerSizingPlugin()];
 const prometheusPlugin: PrometheusPlugin = createPrometheusPlugin();
 const sizingPlugin: ContainerSizingPlugin = createContainerSizingPlugin();
+const signalRestartPlugin: SignalRestartPlugin = createSignalRestartPlugin();
+const fileWatcherPlugin: FileWatcherPlugin = createFileWatcherPlugin();
 
 void orchestrator;
 void plugins;
 void prometheusPlugin;
 void sizingPlugin;
+void signalRestartPlugin;
+void fileWatcherPlugin;
 `,
     );
     await writeFile(
