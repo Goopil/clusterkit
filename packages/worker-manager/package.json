@@ -1,6 +1,6 @@
 {
   "name": "@goopil/clusterkit",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Zero-dependency Node.js cluster orchestrator for containers: SO_REUSEPORT detection, graceful shutdown with ACK protocol, crash circuit breaker, worker recycling and cgroup-aware sizing.",
   "keywords": [
     "cluster",

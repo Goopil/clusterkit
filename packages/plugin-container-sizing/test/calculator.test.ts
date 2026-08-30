@@ -133,10 +133,14 @@ describe("mergeNodeOptions", () => {
     expect(mergeNodeOptions("--max-old-space-size=512", "")).toBe("--max-old-space-size=512");
   });
 
-  it("replaces an existing --max-old-space-size", () => {
-    const result = mergeNodeOptions("--max-old-space-size=512", "--max-old-space-size=256 --no-warnings");
+  it.each([
+    ["--max-old-space-size=256 --no-warnings", "replaces an existing --max-old-space-size", "--max-old-space-size=256"],
+    ["--max_old_space_size=8192 --no-warnings", "replaces the underscore spelling --max_old_space_size", "8192"],
+    ["--max-old-space-size 8192 --no-warnings", "replaces the space-separated form --max-old-space-size N", "8192"],
+  ])("%s", (existing: string, _label: string, oldValue: string) => {
+    const result = mergeNodeOptions("--max-old-space-size=512", existing);
     expect(result).toContain("--max-old-space-size=512");
-    expect(result).not.toContain("--max-old-space-size=256");
+    expect(result).not.toContain(oldValue);
     expect(result).toContain("--no-warnings");
   });
 
@@ -155,20 +159,6 @@ describe("mergeNodeOptions", () => {
     const result = mergeNodeOptions("--max-old-space-size=512", "");
     expect(result).toBe("--max-old-space-size=512");
     expect(result).not.toContain("  ");
-  });
-
-  it("replaces the underscore spelling --max_old_space_size", () => {
-    const result = mergeNodeOptions("--max-old-space-size=512", "--max_old_space_size=8192 --no-warnings");
-    expect(result).toContain("--max-old-space-size=512");
-    expect(result).not.toContain("8192");
-    expect(result).toContain("--no-warnings");
-  });
-
-  it("replaces the space-separated form --max-old-space-size N", () => {
-    const result = mergeNodeOptions("--max-old-space-size=512", "--max-old-space-size 8192 --no-warnings");
-    expect(result).toContain("--max-old-space-size=512");
-    expect(result).not.toContain("8192");
-    expect(result).toContain("--no-warnings");
   });
 
   it("strips --max-old-space-size from extraNodeOptions to prevent bypassing the computed value", () => {
