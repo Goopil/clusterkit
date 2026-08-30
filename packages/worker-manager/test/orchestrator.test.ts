@@ -795,6 +795,90 @@ describe("Orchestrator", () => {
         }
       }
     });
+
+    // Audit F3 invariant: once shutdown has begun, the crash-restart path must
+    // never fork a replacement. restartWorkerWithBackoff re-checks
+    // isShutdownInProgress() after its backoff wait and must abort there.
+    // shutdownPrimary() captures its kill list at initiation time, so any
+    // worker forked after that point would survive shutdown as an orphan —
+    // the "no worker left running" assertion below guards that side too.
+    it("should not fork a replacement when shutdown starts during crash backoff", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 1_000 },
+        shutdown: {
+          timeoutMs: 1_000,
+          ackTimeoutMs: 500,
+          sigtermDelayMs: 300,
+          sigintDelayMs: 200,
+        },
+      });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const restartEvents: unknown[] = [];
+      orch.on("worker:restart", (d) => restartEvents.push(d));
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+
+      // Crash one worker: the restart loop enters its backoff wait
+      const crashed = Object.values(mockCluster.workers)[0];
+      mockCluster.emit("exit", crashed, 1, null);
+      expect(orch.getMetrics().activeWorkers).toBe(1);
+      expect((orch as unknown as { restartLoopRunning: boolean }).restartLoopRunning).toBe(true);
+
+      // Shutdown begins while the backoff is still pending
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      expect(orch.getHealth().ready).toBe(false);
+
+      // The backoff elapses — the pending restart must be dropped, not forked
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(forkSpy).not.toHaveBeenCalled();
+      expect(restartEvents).toHaveLength(0);
+      expect(orch.getMetrics().workerRestarts).toBe(0);
+
+      // Drain the shutdown fully: no orphan worker may survive
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+      expect(forkSpy).not.toHaveBeenCalled();
+      expect(Object.keys(mockCluster.workers)).toHaveLength(2);
+      for (const w of Object.values(mockCluster.workers)) {
+        expect(w.isDead()).toBe(true);
+      }
+    });
+
+    it("should terminate a replacement forked before shutdown together with the initial fleet", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 1_000 },
+        shutdown: {
+          timeoutMs: 1_000,
+          ackTimeoutMs: 500,
+          sigtermDelayMs: 300,
+          sigintDelayMs: 200,
+        },
+      });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Crash + full restart completes BEFORE shutdown begins
+      mockCluster.emit("exit", Object.values(mockCluster.workers)[0], 1, null);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(orch.getMetrics().workerRestarts).toBe(1);
+
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+
+      // The replacement (not part of the initial fleet) is in the kill list too
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3);
+      for (const w of Object.values(mockCluster.workers)) {
+        expect(w.isDead()).toBe(true);
+      }
+    });
   });
 
   // --------------------------------------------------------------------------
