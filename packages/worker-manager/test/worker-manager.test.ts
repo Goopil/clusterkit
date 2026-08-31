@@ -91,7 +91,6 @@ describe("WorkerManager", () => {
     cluster.simulateExit(cluster.workers[1], 0, null);
 
     expect(manager.getActiveWorkers()).toEqual([]);
-    expect(manager.isMarkedForRecycling(worker.id)).toBe(false);
     expect(workerMetrics.activeWorkers).toBe(0);
     expect(onExit).toHaveBeenCalledWith(worker, 0, null);
   });
@@ -172,7 +171,6 @@ describe("WorkerManager", () => {
 
       expect(onRecycle).toHaveBeenCalledTimes(1);
       expect(onRecycle).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 }));
-      expect(manager.isMarkedForRecycling(1)).toBe(true);
     });
 
     it("stagger timer by 30s per worker", () => {

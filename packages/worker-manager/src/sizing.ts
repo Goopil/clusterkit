@@ -7,7 +7,7 @@ import { getCgroupCpuLimit } from "./cgroup";
  * returns the lower of the cgroup limit and the host CPU count.
  */
 export function getCPUCount(): number {
-  const hostCpus = typeof os.availableParallelism === "function" ? os.availableParallelism() : os.cpus().length;
+  const hostCpus = os.availableParallelism();
 
   const cgroupLimit = getCgroupCpuLimit();
   if (cgroupLimit !== null && cgroupLimit < hostCpus) {

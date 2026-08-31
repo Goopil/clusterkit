@@ -126,13 +126,6 @@ export class WorkerManager {
   }
 
   /**
-   * Check if a worker is marked for recycling.
-   */
-  isMarkedForRecycling(workerId: number): boolean {
-    return this.recyclingWorkerIds.has(workerId);
-  }
-
-  /**
    * Number of workers currently marked for recycling (still alive, but with a
    * replacement forked or scheduled).
    */
