@@ -90,6 +90,21 @@ describe("logger", () => {
       expect(info).toHaveBeenCalledWith("[clusterkit:test] hello", { scope: "x" });
     });
 
+    it("should pass through undefined data when none is provided", () => {
+      const info = vi.fn();
+      const logger = {
+        debug: vi.fn(),
+        info,
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+
+      const prefixed = withLoggerPrefix(logger, "clusterkit:test");
+      prefixed?.info("hello");
+
+      expect(info).toHaveBeenCalledWith("[clusterkit:test] hello", undefined);
+    });
+
     it("should return null when logger is null", () => {
       expect(withLoggerPrefix(null, "clusterkit:test")).toBeNull();
     });

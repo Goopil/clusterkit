@@ -12,7 +12,6 @@ It does **not** start an HTTP server by itself.
 | Orchestration metrics | Tracks active workers, restarts, crashes, and circuit-breaker trips from orchestrator events |
 | Worker metrics aggregation | Uses `prom-client` `AggregatorRegistry` to collect worker default metrics |
 | Cached merged responses | Optional `metricsCacheTtlMs` cache for scrape bursts |
-| On-demand fresh scrape | `getMetrics({ bypassCache: true })` bypasses cache per request (server-side use only — see [bypassCache warning](#bypasscache-never-map-it-to-user-facing-input)) |
 | Primary/worker-aware behavior | Event listeners only on primary, default process metrics only on workers |
 
 ## Installation
@@ -70,7 +69,6 @@ server.listen(9090, "127.0.0.1");
 ```ts
 prometheus.registry;
 await prometheus.getMetrics();
-await prometheus.getMetrics({ bypassCache: true });
 ```
 
 ## Metrics exposed
@@ -98,14 +96,6 @@ aggregate from.
 - In Kubernetes, prefer a private `Service` plus network-level controls (`NetworkPolicy`, service mesh policy,
   ingress/pod policies) around the metrics endpoint.
 
-### `bypassCache`: never map it to user-facing input
-
-`getMetrics({ bypassCache: true })` forces a fresh scrape and deliberately skips the in-flight request dedup.
-Every bypass call triggers a cluster IPC fan-out: one `getMetricsReq` message to each connected worker.
-Do not wire `bypassCache` to anything user-facing (query parameter, header, webhook, …) — an untrusted client
-could then trigger unbounded IPC fan-out at will, amplifying a single HTTP request into `workers` IPC messages
-per scrape. Keep it behind server-side logic (admin tooling, explicit operational triggers) instead.
-
 ### Trust boundary: workers are trusted
 
 Workers are forked from the same entrypoint as the primary and are therefore considered **trusted**. This
@@ -128,13 +118,6 @@ There is no in-plugin mitigation for either issue; the fix belongs upstream. Che
 [siimon/prom-client](https://github.com/siimon/prom-client) (`lib/cluster.js`) and track a patched release —
 the peer range here (`>=14 <16`) can be raised once one lands. If your threat model includes untrusted code
 executing inside worker processes, prefer an external metrics sidecar over in-process cluster aggregation.
-
-## Benchmarking cache impact
-
-```bash
-corepack pnpm --filter @goopil/clusterkit-prometheus build
-corepack pnpm --filter @goopil/clusterkit-prometheus bench:metrics-cache
-```
 
 ## Related docs
 

@@ -195,7 +195,6 @@ describe("Orchestrator", () => {
       const caps = await Orchestrator.getCapabilities();
       expect(caps).toHaveProperty("platform");
       expect(caps).toHaveProperty("reusePort");
-      expect(caps).toHaveProperty("clusterRecommended");
     });
   });
 

@@ -10,7 +10,7 @@ For monorepo context and examples catalog, see the [root README](../../README.md
 | Capability | Details |
 |------------|---------|
 | Worker orchestration | Spawns and supervises workers with `cluster` |
-| Platform capability detection | `Orchestrator.getCapabilities()` reports `platform`, `reusePort`, `clusterRecommended` |
+| Platform capability detection | `Orchestrator.getCapabilities()` reports `platform`, `reusePort` |
 | Crash protection | Exponential restart backoff + circuit breaker (`restart.*`) |
 | Graceful shutdown | ACK-based worker shutdown, configurable timeouts/signals (`shutdown.*`) |
 | Lifecycle controls | Worker recycling (`workers.maxAgeMs`), env patching and worker-count override APIs |

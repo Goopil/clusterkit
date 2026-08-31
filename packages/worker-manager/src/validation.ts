@@ -44,22 +44,15 @@ function assertPlainObject(val: unknown, field: string): void {
 const FORBIDDEN_ENV_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 /**
- * Returns the first prototype-pollution key present as an own enumerable
- * property, if any. `Object.keys` only enumerates own enumerable properties,
- * so a `__proto__` set through the object-literal syntax (prototype
- * assignment, not a real property) is invisible here — which is the safe case.
- */
-export function findForbiddenEnvKey(env: Record<string, string | undefined> | undefined): string | undefined {
-  if (!env) return undefined;
-  return Object.keys(env).find((key) => FORBIDDEN_ENV_KEYS.has(key));
-}
-
-/**
  * Reject env objects carrying prototype-pollution keys (`__proto__`,
- * `constructor`, `prototype`).
+ * `constructor`, `prototype`) with a `WorkerManagerValidationError`.
+ *
+ * `Object.keys` only enumerates own enumerable properties, so a `__proto__`
+ * set through the object-literal syntax (prototype assignment, not a real
+ * property) is invisible here — which is the safe case.
  */
 export function assertSafeEnvObject(env: Record<string, string | undefined> | undefined, source: string): void {
-  const bad = findForbiddenEnvKey(env);
+  const bad = env && Object.keys(env).find((key) => FORBIDDEN_ENV_KEYS.has(key));
   if (bad) {
     throw new WorkerManagerValidationError(source, `contains forbidden key '${bad}'`);
   }

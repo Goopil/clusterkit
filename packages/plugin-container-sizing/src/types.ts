@@ -17,7 +17,7 @@ export interface ContainerSizingOptions {
   /** @default 64 */
   maxWorkers?: number;
   /** @default 'balanced' */
-  strategy?: "balanced" | "memory-first" | "cpu-first";
+  strategy?: "balanced" | "cpu-first";
   /**
    * Override the orchestrator's worker count when set to 'auto'.
    * Has no effect when workers is set to an explicit number in OrchestratorConfig.

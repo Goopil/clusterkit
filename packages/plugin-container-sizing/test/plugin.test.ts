@@ -132,13 +132,6 @@ describe("createContainerSizingPlugin", () => {
       expect(orchestrator.overrideWorkerCount).not.toHaveBeenCalled();
       expect(orchestrator.patchWorkerEnv).not.toHaveBeenCalled();
     });
-
-    it("still validates sizing options when fallback=false and no container limits are detected", async () => {
-      const plugin = createContainerSizingPlugin({ fallback: false, maxWorkers: 257 });
-      const { orchestrator, config } = makeOrchestrator();
-
-      await expect(plugin.install(orchestrator as never, nullLogger, config)).rejects.toThrow(/maxWorkers/);
-    });
   });
 
   it("preserves existing NODE_OPTIONS set in workerEnv config", async () => {

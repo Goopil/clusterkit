@@ -54,13 +54,6 @@ export class WorkerManager {
     this.onWorkerOnlineCallback = onOnline;
     this.onWorkerExitCallback = onExit;
 
-    if (this.clusterExitListener) {
-      this.clusterRef.off("exit", this.clusterExitListener);
-    }
-    if (this.clusterOnlineListener) {
-      this.clusterRef.off("online", this.clusterOnlineListener);
-    }
-
     this.clusterExitListener = (worker, code, signal) => this.handleWorkerExit(worker, code, signal);
     this.clusterOnlineListener = (worker) => this.handleWorkerOnline(worker);
 
@@ -94,12 +87,10 @@ export class WorkerManager {
   /**
    * Fork multiple workers at once.
    */
-  forkWorkers(count: number): Worker[] {
-    const workers: Worker[] = [];
+  forkWorkers(count: number): void {
     for (let i = 0; i < count; i++) {
-      workers.push(this.forkWorker());
+      this.forkWorker();
     }
-    return workers;
   }
 
   /**
@@ -123,13 +114,6 @@ export class WorkerManager {
    */
   markForRecycling(workerId: number): void {
     this.recyclingWorkerIds.add(workerId);
-  }
-
-  /**
-   * Check if a worker is marked for recycling.
-   */
-  isMarkedForRecycling(workerId: number): boolean {
-    return this.recyclingWorkerIds.has(workerId);
   }
 
   /**

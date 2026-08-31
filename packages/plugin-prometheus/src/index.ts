@@ -1,9 +1,9 @@
 import cluster from "node:cluster";
 import { type Logger, type Orchestrator, type ResolvedConfig, withLoggerPrefix } from "@goopil/clusterkit";
 import { AggregatorRegistry, Counter, collectDefaultMetrics, Gauge, Registry } from "prom-client";
-import type { PrometheusMetricsRequestOptions, PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
+import type { PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
 
-export type { PrometheusMetricsRequestOptions, PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
+export type { PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
 
 type PrimaryEvent =
   | "worker:online"
@@ -81,15 +81,14 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     primaryOrchestrator = undefined;
   };
 
-  async function mergedMetrics(options: PrometheusMetricsRequestOptions = {}): Promise<string> {
-    const { bypassCache = false } = options;
+  async function mergedMetrics(): Promise<string> {
     const now = Date.now();
 
-    if (!bypassCache && normalizedMetricsCacheTtlMs > 0 && mergedMetricsCache && mergedMetricsCache.expiresAt > now) {
+    if (normalizedMetricsCacheTtlMs > 0 && mergedMetricsCache && mergedMetricsCache.expiresAt > now) {
       return mergedMetricsCache.value;
     }
 
-    if (!bypassCache && inflightMetrics) {
+    if (inflightMetrics) {
       return inflightMetrics;
     }
 
@@ -120,13 +119,6 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
 
       return value;
     };
-
-    if (bypassCache) {
-      // Bypass deliberately skips the in-flight dedup: a bypass caller wants a
-      // fresh collection regardless of what is already running, even if that
-      // means a concurrent IPC fan-out alongside a non-bypass scrape.
-      return collect();
-    }
 
     inflightMetrics = collect().finally(() => {
       inflightMetrics = undefined;
@@ -225,8 +217,8 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
       clearMergedMetricsCache();
     },
 
-    async getMetrics(options: PrometheusMetricsRequestOptions = {}): Promise<string> {
-      return mergedMetrics(options);
+    async getMetrics(): Promise<string> {
+      return mergedMetrics();
     },
   };
 }

@@ -13,7 +13,6 @@ export class ShutdownCoordinator {
 
   // State
   private isShuttingDown = false;
-  private readonly pendingShutdownWorkers = new Set<Worker>();
 
   // IPC message types
   private readonly shutdownType: string;
@@ -100,23 +99,23 @@ export class ShutdownCoordinator {
    * Send shutdown message to workers and wait for ACKs.
    */
   private async sendShutdownAndWaitAcks(workers: Worker[]): Promise<void> {
-    const ackPromises = workers.map((worker) => this.waitForWorkerAck(worker));
-    await Promise.all(ackPromises);
+    const results = await Promise.all(workers.map((worker) => this.waitForWorkerAck(worker)));
+    const notAcked = results.filter((acked) => !acked).length;
 
-    if (this.pendingShutdownWorkers.size > 0) {
-      this.log?.warn("Some workers did not ACK shutdown", {
-        pending: Array.from(this.pendingShutdownWorkers).map((w) => w.id),
-      });
+    if (notAcked > 0) {
+      this.log?.warn("Some workers did not ACK shutdown", { count: notAcked });
     }
   }
 
   /**
    * Wait for a single worker to ACK shutdown.
+   * Resolves `true` when the worker ACKed or was already gone; `false` when
+   * the ACK never arrived (timeout, error, early exit, or failed send).
    */
-  private waitForWorkerAck(worker: Worker): Promise<void> {
-    return new Promise<void>((resolve) => {
+  private waitForWorkerAck(worker: Worker): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
       if (worker.isDead() || !worker.isConnected()) {
-        resolve();
+        resolve(true);
         return;
       }
 
@@ -152,14 +151,12 @@ export class ShutdownCoordinator {
           error: err,
         });
         cleanup();
-        this.pendingShutdownWorkers.delete(worker);
-        resolve();
+        resolve(false);
       };
 
       const sendShutdown = (): void => {
         try {
           worker.send({ type: this.shutdownType });
-          this.pendingShutdownWorkers.add(worker);
         } catch (err) {
           this.log?.debug("Failed to send shutdown to worker", {
             workerId: worker.id,
@@ -167,25 +164,23 @@ export class ShutdownCoordinator {
           });
           cleanup();
           disconnectWorker();
-          resolve();
+          resolve(false);
         }
       };
 
       const ackHandler = (msg: unknown): void => {
         if (this.isShutdownAck(msg)) {
           cleanup();
-          this.pendingShutdownWorkers.delete(worker);
           disconnectWorker();
           this.log?.info("Worker ACK received", { workerId: worker.id });
-          resolve();
+          resolve(true);
         }
       };
 
       const terminalHandler = (): void => {
         cleanup();
-        this.pendingShutdownWorkers.delete(worker);
         this.log?.info("Worker terminated before shutdown ACK", { workerId: worker.id });
-        resolve();
+        resolve(false);
       };
 
       worker.on("message", ackHandler);
@@ -196,10 +191,9 @@ export class ShutdownCoordinator {
       // Individual timeout per worker
       ackTimeoutId = setTimeout(() => {
         cleanup();
-        this.pendingShutdownWorkers.delete(worker);
         disconnectWorker();
         this.log?.warn("Worker ACK timeout", { workerId: worker.id });
-        resolve();
+        resolve(false);
       }, this.cfg.shutdown.ackTimeoutMs);
 
       // Send shutdown message

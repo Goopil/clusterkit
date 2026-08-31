@@ -36,8 +36,6 @@ export function createContainerSizingPlugin(options: ContainerSizingOptions = {}
 
       const log = withLoggerPrefix(logger, "clusterkit:sizing");
 
-      validateSizingOptions(sizingOptions);
-
       const limits = await readCgroupLimits();
       const hasContainerLimits = limits.cpuLimit !== null || limits.memoryLimitBytes !== null;
 

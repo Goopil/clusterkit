@@ -14,15 +14,6 @@ export function _resetDetectionCache(): void {
   detectionPromise = undefined;
 }
 
-/**
- * Reads the cached SO_REUSEPORT detection result synchronously.
- * Returns `undefined` if detection has not yet been performed
- * (i.e. `detectReusePortSupport()` was never awaited).
- */
-export function getReusePortCached(): boolean | undefined {
-  return cachedReusePortSupport;
-}
-
 // ============================================================================
 // Detection
 // ============================================================================
@@ -163,7 +154,6 @@ export async function detectReusePortSupport(): Promise<boolean> {
 export interface PlatformCapabilities {
   platform: NodeJS.Platform;
   reusePort: boolean;
-  clusterRecommended: boolean;
 }
 
 export async function getPlatformCapabilities(): Promise<PlatformCapabilities> {
@@ -171,6 +161,5 @@ export async function getPlatformCapabilities(): Promise<PlatformCapabilities> {
   return {
     platform: process.platform,
     reusePort,
-    clusterRecommended: reusePort,
   };
 }

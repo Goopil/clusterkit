@@ -9,7 +9,7 @@ import { runScenario } from "./lib/autocannon-runner.mjs";
 import { listAvailable, parseCliArgs, resolveConfig } from "./lib/cli.mjs";
 import { checkPidDistribution } from "./lib/pid-distributor.mjs";
 import { ProcSampler } from "./lib/proc-sampler.mjs";
-import { buildJsonReport, buildMarkdownReport, writeJsonReport, writeMarkdownReport } from "./lib/reporter.mjs";
+import { buildMarkdownReport, writeJsonReport, writeMarkdownReport } from "./lib/reporter.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(__dirname, "results");
@@ -116,7 +116,7 @@ async function main() {
     },
   };
 
-  const report = buildJsonReport(metadata, results);
+  const report = { metadata, results };
   writeJsonReport(report, RESULTS_DIR);
 
   const markdown = buildMarkdownReport(report);
@@ -129,13 +129,73 @@ async function main() {
 }
 
 async function runScenarioForTarget(target, workload, config) {
-  const targetScript = join(__dirname, "targets", `${target}.mjs`);
   const url = `http://127.0.0.1:${config.port}`;
   const connections = config.connsPerWorker * 3;
 
   const bootStartTs = Date.now();
+  const { child, kill } = await bootTarget(target, workload, config.port);
+  const bootTimeMs = Date.now() - bootStartTs;
+
+  const sampler = new ProcSampler(child.pid, 1000);
+  sampler.start();
+
+  const healthCheckInterval = setInterval(async () => {
+    const ok = await checkPort(config.port, 1000);
+    if (!ok) {
+      console.error("  WARNING: target unresponsive during measurement");
+    }
+  }, 1000);
+
+  try {
+    const scenarioResult = await runScenario({
+      url,
+      connections,
+      warmupSec: config.warmupSec,
+      measureSec: config.measureSec,
+      repetitions: config.repetitions,
+      method: workload === "upload-echo" ? "POST" : "GET",
+      body: workload === "upload-echo" ? UPLOAD_BODY : undefined,
+      headers: workload === "upload-echo" ? { "Content-Type": "application/json" } : undefined,
+    });
+
+    const pidDist = await checkPidDistribution(url);
+
+    clearInterval(healthCheckInterval);
+    sampler.stop();
+
+    const shutdownStartTs = Date.now();
+    await kill();
+    const shutdownTimeMs = Date.now() - shutdownStartTs;
+
+    const stats = sampler.getStats();
+    const expectedPids = EXPECTED_PIDS[target] || 3;
+
+    return {
+      ...scenarioResult,
+      bootTimeMs,
+      shutdownTimeMs,
+      rss: { avgKb: stats.avgRssKb, peakKb: stats.peakRssKb },
+      heap: null,
+      cpu: { avgPercent: stats.avgCpuPercent, timeMs: stats.cpuTimeMs },
+      pids: {
+        active: pidDist.active,
+        expected: expectedPids,
+        distribution: pidDist.distribution,
+      },
+    };
+  } finally {
+    clearInterval(healthCheckInterval);
+    sampler.stop();
+    if (child.exitCode === null && child.killed === false) {
+      child.kill("SIGKILL");
+    }
+  }
+}
+
+async function bootTarget(target, workload, port) {
+  const targetScript = join(__dirname, "targets", `${target}.mjs`);
   const child = fork(targetScript, [], {
-    env: { ...process.env, PORT: String(config.port), BENCH_WORKLOAD: workload },
+    env: { ...process.env, PORT: String(port), BENCH_WORKLOAD: workload },
     stdio: "pipe",
   });
 
@@ -144,69 +204,19 @@ async function runScenarioForTarget(target, workload, config) {
   });
 
   try {
-    await waitForPort(config.port, 10000);
-    const bootReadyTs = Date.now();
-    const bootTimeMs = bootReadyTs - bootStartTs;
-
-    const sampler = new ProcSampler(child.pid, 1000);
-    sampler.start();
-
-    const healthCheckInterval = setInterval(async () => {
-      const ok = await checkPort(config.port, 1000);
-      if (!ok) {
-        console.error("  WARNING: target unresponsive during measurement");
-      }
-    }, 1000);
-
-    try {
-      const scenarioResult = await runScenario({
-        url,
-        connections,
-        warmupSec: config.warmupSec,
-        measureSec: config.measureSec,
-        repetitions: config.repetitions,
-        method: workload === "upload-echo" ? "POST" : "GET",
-        body: workload === "upload-echo" ? UPLOAD_BODY : undefined,
-        headers: workload === "upload-echo" ? { "Content-Type": "application/json" } : undefined,
-      });
-
-      const pidDist = await checkPidDistribution(url);
-
-      clearInterval(healthCheckInterval);
-      sampler.stop();
-
-      const shutdownStartTs = Date.now();
-      child.kill("SIGTERM");
-      const shutdownTimeoutMs = target.startsWith("pm2") ? 15000 : 5000;
-      await waitForChildExit(child, shutdownTimeoutMs);
-      const shutdownEndTs = Date.now();
-      const shutdownTimeMs = shutdownEndTs - shutdownStartTs;
-
-      const stats = sampler.getStats();
-      const expectedPids = EXPECTED_PIDS[target] || 3;
-
-      return {
-        ...scenarioResult,
-        bootTimeMs,
-        shutdownTimeMs,
-        rss: { avgKb: stats.avgRssKb, peakKb: stats.peakRssKb },
-        heap: null,
-        cpu: { avgPercent: stats.avgCpuPercent, timeMs: stats.cpuTimeMs },
-        pids: {
-          active: pidDist.active,
-          expected: expectedPids,
-          distribution: pidDist.distribution,
-        },
-      };
-    } finally {
-      clearInterval(healthCheckInterval);
-      sampler.stop();
-    }
-  } finally {
-    if (child.exitCode === null && child.killed === false) {
-      child.kill("SIGKILL");
-    }
+    await waitForPort(port, 10000);
+  } catch (err) {
+    child.kill("SIGKILL");
+    throw err;
   }
+
+  return {
+    child,
+    kill: async () => {
+      child.kill("SIGTERM");
+      await waitForChildExit(child, target.startsWith("pm2") ? 15000 : 5000);
+    },
+  };
 }
 
 async function runSmokeTest(targets, workloads, port) {
@@ -214,17 +224,10 @@ async function runSmokeTest(targets, workloads, port) {
   for (const target of targets) {
     for (const workload of workloads) {
       try {
-        const targetScript = join(__dirname, "targets", `${target}.mjs`);
         console.log(`Booting ${target} / ${workload}...`);
-        const child = fork(targetScript, [], {
-          env: { ...process.env, PORT: String(port), BENCH_WORKLOAD: workload },
-          stdio: "pipe",
-        });
-        await waitForPort(port, 10000);
+        const { kill } = await bootTarget(target, workload, port);
         console.log(`  OK — listening on :${port}`);
-        child.kill("SIGTERM");
-        const shutdownTimeoutMs = target.startsWith("pm2") ? 15000 : 5000;
-        await waitForChildExit(child, shutdownTimeoutMs);
+        await kill();
         await sleep(500);
       } catch (err) {
         console.error(`  FAIL: ${err.message}`);

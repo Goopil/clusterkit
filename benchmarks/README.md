@@ -75,7 +75,7 @@ git add BENCHMARKS.md benchmarks/results/latest.json
 
 ## How to add a new target
 
-1. Copy `targets/_template.mjs` to `targets/<your-target>.mjs`
+1. Create `targets/<your-target>.mjs` (any existing target, e.g. `clusterkit-3.mjs`, works as a starting point)
 2. The target is a standalone Node.js script. It reads `PORT` and `BENCH_WORKLOAD` from env:
 
 ```js

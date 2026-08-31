@@ -17,13 +17,11 @@ describe("SignalHandler", () => {
     process.emit("SIGUSR1");
 
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(signalHandler.isActive()).toBe(true);
 
     signalHandler.unregister();
     process.emit("SIGUSR1");
 
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(signalHandler.isActive()).toBe(false);
   });
 
   it("rejects duplicate registration", () => {
@@ -105,14 +103,11 @@ describe("SignalHandler", () => {
 
   // ── Empty registration ─────────────────────────────────────────────────────
 
-  it("accepts empty registration and marks as active", () => {
+  it("accepts empty registration", () => {
     const signalHandler = new SignalHandler();
 
-    signalHandler.register({});
-
-    expect(signalHandler.isActive()).toBe(true);
+    expect(() => signalHandler.register({})).not.toThrow();
 
     signalHandler.unregister();
-    expect(signalHandler.isActive()).toBe(false);
   });
 });

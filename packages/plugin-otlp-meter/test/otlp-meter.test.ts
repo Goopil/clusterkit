@@ -319,7 +319,7 @@ describe("plugin lifecycle", () => {
     const orch = mockOrchestrator();
     await plugin.install(orch, logger, singleWorkerConfig());
 
-    expect(logger.debug).toHaveBeenCalledWith("[clusterkit:otlp-meter] Plugin installed on primary process");
+    expect(logger.debug).toHaveBeenCalledWith("[clusterkit:otlp-meter] Plugin installed on primary process", undefined);
     await plugin.shutdown();
   });
 

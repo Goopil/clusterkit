@@ -2,7 +2,7 @@ import cluster, { type Worker } from "node:cluster";
 import { EventEmitter } from "node:events";
 import { CrashTracker } from "./crash-tracker";
 import { withLoggerPrefix } from "./logger";
-import { getPlatformCapabilities, getReusePortCached, type PlatformCapabilities } from "./platform";
+import { detectReusePortSupport, getPlatformCapabilities, type PlatformCapabilities } from "./platform";
 import { ShutdownCoordinator } from "./shutdown-coordinator";
 import { SignalHandler } from "./signal-handler";
 import { getCPUCount } from "./sizing";
@@ -16,7 +16,7 @@ import {
   type ResolvedConfig,
   type WorkerMetrics,
 } from "./types";
-import { assertSafeEnvObject, findForbiddenEnvKey, validateConfig } from "./validation";
+import { assertSafeEnvObject, validateConfig } from "./validation";
 import { WorkerManager } from "./worker-manager";
 
 /** Upper bound applied to WEB_CONCURRENCY to guard against fork bombs from inherited env vars. */
@@ -131,12 +131,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // ============================================================================
 
   static async supportsReusePort(): Promise<boolean> {
-    const cached = getReusePortCached();
-    if (cached !== undefined) {
-      return cached;
-    }
-    // If not cached yet, return the synchronous check result
-    return getPlatformCapabilities().then((caps) => caps.reusePort);
+    return detectReusePortSupport();
   }
 
   static async getCapabilities(): Promise<PlatformCapabilities> {
@@ -239,9 +234,12 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     if (this.hasForked) {
       throw new Error("patchWorkerEnv: cannot be called after workers have been forked");
     }
-    // Shared forbidden-key detection; the legacy plain-Error surface is kept
-    // for this long-standing public API (not WorkerManagerValidationError).
-    const forbidden = findForbiddenEnvKey(env);
+    // Forbidden-key detection kept local: this long-standing public API keeps
+    // its plain-Error surface (not WorkerManagerValidationError). Keys mirror
+    // FORBIDDEN_ENV_KEYS in validation.ts.
+    const forbidden = Object.keys(env).find(
+      (key) => key === "__proto__" || key === "constructor" || key === "prototype",
+    );
     if (forbidden) {
       throw new Error(`patchWorkerEnv: key '${forbidden}' is not allowed (prototype pollution risk)`);
     }
