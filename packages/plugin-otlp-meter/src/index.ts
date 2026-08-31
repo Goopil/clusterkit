@@ -6,6 +6,7 @@ import { metrics } from "@opentelemetry/api";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { MeterProvider, PeriodicExportingMetricReader, type PushMetricExporter } from "@opentelemetry/sdk-metrics";
 import { ATTR_SERVICE_INSTANCE_ID, ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+import pkgJson from "../package.json" with { type: "json" };
 import type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
 
 export type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
@@ -18,19 +19,11 @@ const DEFAULT_GRPC_ENDPOINT = "localhost:4317";
 const ATTR_HOST_NAME = "host.name";
 const ATTR_PROCESS_PID = "process.pid";
 
-const PLUGIN_VERSION = "0.1.0";
+const PLUGIN_VERSION: string = pkgJson.version;
 
 function isMissingModuleError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  const msg = err.message;
-  return (
-    msg.includes("Cannot find package") ||
-    msg.includes("MODULE_NOT_FOUND") ||
-    msg.includes("is not a constructor") ||
-    msg.includes("export is defined on the") ||
-    msg.includes("is not defined on the") ||
-    "code" in err
-  );
+  const code = (err as NodeJS.ErrnoException | undefined)?.code;
+  return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
 }
 
 export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): OtlpMeterPlugin {
@@ -44,8 +37,10 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
     endpoint,
   } = options;
 
-  if (!Number.isFinite(exportIntervalMs) || exportIntervalMs <= 0) {
-    throw new TypeError("otlp-meter plugin: exportIntervalMs must be a finite number > 0");
+  if (!Number.isFinite(exportIntervalMs) || exportIntervalMs < 1_000) {
+    throw new TypeError(
+      "otlp-meter plugin: exportIntervalMs must be a finite number >= 1000 (minimum 1s to avoid flooding the collector)",
+    );
   }
 
   const resolvedEndpoint = endpoint ?? (protocol === "grpc" ? DEFAULT_GRPC_ENDPOINT : DEFAULT_HTTP_ENDPOINT);

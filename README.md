@@ -140,6 +140,13 @@ const orchestrator = new Orchestrator({
 Backoff resets are stability-based: the delay returns to the initial value only after a crash-free period of
 `restart.stabilityWindowMs`.
 
+> **Security defaults** — `workers.execArgv` rejects code-loading/debug flags (`--require`/`-r`, `--eval`/`-e`,
+> `--print`/`-p`, `--inspect`/`--inspect-brk`/`--inspect-port`, `--import`, `--loader`/`--experimental-loader`),
+> because a JSON/YAML config could otherwise carry remote code into workers. `workers.env` rejects
+> `__proto__`/`constructor`/`prototype` keys in every env path (config, `patchWorkerEnv()`, restart env overlay), and
+> a `NODE_OPTIONS` entry in `workers.env` triggers a `ClusterKitSecurityWarning` advisory since it can bypass the
+> `execArgv` blocklist. See the [core README](./packages/worker-manager/README.md) for details.
+
 ### API
 
 ```ts
@@ -166,7 +173,7 @@ orchestrator.workerCount;               // resolved worker count (number)
 
 // Plugin helpers — available to plugins during install(), throw once workers are forked
 orchestrator.patchWorkerEnv(env);       // merge additional env vars into workerEnv (chainable)
-orchestrator.overrideWorkerCount(n);    // change worker count when configured as 'auto' (chainable)
+orchestrator.overrideWorkerCount(n);    // change worker count when configured as 'auto' (chainable, max 256)
 ```
 
 ### Events
@@ -561,7 +568,7 @@ orchestrator.use(myPlugin).run(/* ... */);
 // install(orchestrator, logger, config) receives the ResolvedConfig —
 // read config.workers.count / config.workers.env for the current settings.
 orchestrator.patchWorkerEnv(env)        // merge env vars into workerEnv
-orchestrator.overrideWorkerCount(n)     // override an 'auto' worker count
+orchestrator.overrideWorkerCount(n)     // override an 'auto' worker count (max 256)
 ```
 
 Plugins install **before** the initial fork, so both helpers apply to the whole

@@ -22,7 +22,7 @@ export interface OtlpMeterPluginOptions {
   /** Static resource attributes added to the OpenTelemetry Resource. @default {} */
   attributes?: Record<string, string | number | boolean>;
 
-  /** Export interval in milliseconds (how often metrics push to the collector). @default 60000 */
+  /** Export interval in milliseconds (how often metrics push to the collector). Minimum 1000. @default 60000 */
   exportIntervalMs?: number;
 
   /** Service name for the OpenTelemetry Resource. @default 'clusterkit' */

@@ -602,4 +602,130 @@ describe("file-watcher plugin", () => {
 
     rmSync(tempDir, { recursive: true, force: true });
   });
+
+  describe("storm hardening options", () => {
+    function stubWatcher(): Array<EventEmitter & { close: () => Promise<void> }> {
+      const watchers: Array<EventEmitter & { close: () => Promise<void> }> = [];
+      vi.spyOn(chokidar, "watch").mockImplementation(() => {
+        const emitter = new EventEmitter() as EventEmitter & { close: () => Promise<void> };
+        emitter.close = () => Promise.resolve();
+        watchers.push(emitter);
+        return emitter as any;
+      });
+      return watchers;
+    }
+
+    it("fires restart once when debounceMaxWaitMs elapses during a continuous change storm", async () => {
+      vi.useFakeTimers();
+      try {
+        const watchers = stubWatcher();
+        const plugin = createFileWatcherPlugin({
+          watch: ["./src"],
+          debounceMs: 300,
+          debounceMaxWaitMs: 1000,
+        });
+        const orch = mockOrchestrator();
+        await plugin.install(orch, null, mockConfig(2));
+        expect(orch.restartWorkers).not.toHaveBeenCalled();
+
+        // Continuous storm: an event every 50ms keeps resetting the debounce timer
+        for (let i = 0; i < 19; i++) {
+          watchers[0].emit("change", "/app/src/file.ts");
+          await vi.advanceTimersByTimeAsync(50);
+          expect(orch.restartWorkers).not.toHaveBeenCalled();
+        }
+
+        // Max-wait elapses (first event + 1000ms) despite the ongoing storm
+        await vi.advanceTimersByTimeAsync(50);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+        // No further restarts once the storm stops
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("keeps trailing-edge-only debounce when debounceMaxWaitMs is not set", async () => {
+      vi.useFakeTimers();
+      try {
+        const watchers = stubWatcher();
+        const plugin = createFileWatcherPlugin({
+          watch: ["./src"],
+          debounceMs: 300,
+        });
+        const orch = mockOrchestrator();
+        await plugin.install(orch, null, mockConfig(2));
+
+        // Storm: events every 50ms keep resetting the debounce timer, nothing fires
+        for (let i = 0; i < 10; i++) {
+          watchers[0].emit("change", "/app/src/file.ts");
+          await vi.advanceTimersByTimeAsync(50);
+        }
+        expect(orch.restartWorkers).not.toHaveBeenCalled();
+
+        // Quiet gap → single trailing-edge restart
+        await vi.advanceTimersByTimeAsync(300);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("skips restart trigger within minRestartIntervalMs of the last restart", async () => {
+      vi.useFakeTimers();
+      try {
+        const watchers = stubWatcher();
+        const plugin = createFileWatcherPlugin({
+          watch: ["./src"],
+          debounceMs: 50,
+          minRestartIntervalMs: 1000,
+        });
+        const orch = mockOrchestrator();
+        await plugin.install(orch, null, mockConfig(2));
+
+        // First trigger restarts
+        watchers[0].emit("change", "/app/src/a.ts");
+        await vi.advanceTimersByTimeAsync(50);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+        // Second trigger inside the interval is skipped
+        watchers[0].emit("change", "/app/src/b.ts");
+        await vi.advanceTimersByTimeAsync(50);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+        // Once the interval has elapsed, triggers restart again
+        await vi.advanceTimersByTimeAsync(1000);
+        watchers[0].emit("change", "/app/src/c.ts");
+        await vi.advanceTimersByTimeAsync(50);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("allows back-to-back restarts when minRestartIntervalMs is not set", async () => {
+      vi.useFakeTimers();
+      try {
+        const watchers = stubWatcher();
+        const plugin = createFileWatcherPlugin({
+          watch: ["./src"],
+          debounceMs: 50,
+        });
+        const orch = mockOrchestrator();
+        await plugin.install(orch, null, mockConfig(2));
+
+        watchers[0].emit("change", "/app/src/a.ts");
+        await vi.advanceTimersByTimeAsync(50);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+        watchers[0].emit("change", "/app/src/b.ts");
+        await vi.advanceTimersByTimeAsync(50);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });

@@ -33,6 +33,13 @@ kill -HUP <pid>
 
 In single-worker mode (`workers: { count: 1 }`), there is no cluster to roll. The plugin delivers `SIGTERM` to self, triggering the normal graceful shutdown for external restart (e.g. by a process manager).
 
+## Choosing a signal
+
+The plugin warns at install time when the configured signal is likely to misbehave:
+
+- **`SIGTERM` / `SIGINT`** are reserved for the orchestrator's graceful shutdown. Both handlers would fire on the same signal and race. Use a different signal (e.g. `SIGUSR2`).
+- **`SIGHUP`** (the default) is also the terminal hangup signal. In a TTY (dev terminal / SSH session), closing the terminal triggers a fleet restart. Prefer `SIGUSR2` in dev/TTY environments; `SIGHUP` remains fine when managed by a process manager (systemd, Docker, etc.) that detaches the process from a terminal.
+
 ## Options
 
 | Option | Type | Default | Description |

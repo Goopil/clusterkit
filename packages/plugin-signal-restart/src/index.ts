@@ -40,6 +40,18 @@ export function createSignalRestartPlugin(options?: SignalRestartOptions): Signa
 
       const log = withLoggerPrefix(logger, "clusterkit:signal-restart");
 
+      if (signal === "SIGTERM" || signal === "SIGINT") {
+        log?.warn(
+          `Signal ${signal} is reserved for the orchestrator's graceful shutdown: the shutdown handler and this restart handler will race. Choose a different restart signal (e.g. SIGUSR2).`,
+          { signal },
+        );
+      } else if (signal === "SIGHUP" && process.stdout.isTTY) {
+        log?.warn(
+          "SIGHUP is also the terminal hangup signal: closing the terminal/SSH session will trigger a fleet restart. Consider SIGUSR2 instead.",
+          { signal },
+        );
+      }
+
       const handleSignal = async () => {
         const reason = defaultReason;
 

@@ -65,9 +65,21 @@ orchestrator.run(async () => {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `count` | `number \| 'auto'` | `'auto'` | Number of workers |
-| `env` | `NodeJS.ProcessEnv` | `undefined` | Extra env vars merged into worker env |
-| `execArgv` | `string[]` | `undefined` | Node.js args passed to workers |
+| `env` | `NodeJS.ProcessEnv` | `undefined` | Extra env vars merged into worker env (security guards apply, see below) |
+| `execArgv` | `string[]` | `undefined` | Node.js args passed to workers (dangerous flags blocked, see below) |
 | `maxAgeMs` | `number` | `0` | Worker recycling interval (`0` disables) |
+
+#### Security guards
+
+- **`execArgv` blocklist** — flags that load or execute arbitrary code or attach a debugger are rejected with a
+  `WorkerManagerValidationError`: `--require`/`-r`, `--eval`/`-e`, `--print`/`-p`,
+  `--inspect`/`--inspect-brk`/`--inspect-port`, `--import`, and `--loader`/`--experimental-loader`. Code-loading and
+  debug flags are blocked because a JSON/YAML config could otherwise carry remote code into every worker.
+- **`env` prototype-pollution guard** — the keys `__proto__`, `constructor`, and `prototype` are rejected in every env
+  path: the config, `patchWorkerEnv()`, and the `restartWorkers()` env overlay.
+- **`NODE_OPTIONS` advisory** — a `NODE_OPTIONS` key in `workers.env` is accepted but emits a
+  `ClusterKitSecurityWarning` at validation, because `NODE_OPTIONS` can carry `--require` and bypass the `execArgv`
+  blocklist. Avoid it.
 
 ### `restart`
 
@@ -106,7 +118,7 @@ await orchestrator.run(start);
 orchestrator.use(plugin);
 orchestrator.registerOnShutdown(cb);
 
-orchestrator.overrideWorkerCount(4);
+orchestrator.overrideWorkerCount(4); // capped at 256
 orchestrator.patchWorkerEnv({ NODE_OPTIONS: "--max-old-space-size=256" });
 
 const metrics = orchestrator.getMetrics();

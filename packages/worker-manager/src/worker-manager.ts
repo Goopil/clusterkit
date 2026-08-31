@@ -1,6 +1,7 @@
 import type cluster from "node:cluster";
 import type { Worker } from "node:cluster";
 import type { Logger, ResolvedConfig, WorkerMetrics } from "./types";
+import { assertSafeEnvObject } from "./validation";
 
 /**
  * Manages worker lifecycle: forking, tracking, recycling, and crash handling.
@@ -76,6 +77,12 @@ export class WorkerManager {
       });
       this.appliedExecArgv = true;
     }
+
+    // Guard both env sources before merging: the base env is re-checked as
+    // defense in depth (cfg.workers.env is mutable after validateConfig), and
+    // the overlay bypasses validateConfig entirely (e.g. restartWorkers env).
+    assertSafeEnvObject(this.cfg.workers.env, "workers.env");
+    assertSafeEnvObject(envOverlay, "env overlay");
 
     const env = envOverlay !== undefined ? { ...this.cfg.workers.env, ...envOverlay } : this.cfg.workers.env;
     const worker = this.clusterRef.fork(env);

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { validateConfig, WorkerManagerValidationError } from "../src/validation";
+import { describe, expect, it, vi } from "vitest";
+import { assertSafeEnvObject, validateConfig, WorkerManagerValidationError } from "../src/validation";
 
 describe("validation", () => {
   describe("WorkerManagerValidationError", () => {
@@ -95,6 +95,17 @@ describe("validation", () => {
       );
     });
 
+    it.each([
+      "--import=data:text/javascript,console.log('rce')",
+      "--import=./payload.js",
+      "--import",
+      "--import=x",
+      "--experimental-loader=./loader.mjs",
+      "--loader=./loader.mjs",
+    ])("rejects dangerous execArgv flag %s", (arg) => {
+      expect(() => validateConfig({ workers: { execArgv: [arg] } })).toThrow(WorkerManagerValidationError);
+    });
+
     it("should reject dangerous execArgv flags with space separator", () => {
       expect(() => validateConfig({ workers: { execArgv: ["--require ./evil.js"] } })).toThrow(
         WorkerManagerValidationError,
@@ -114,6 +125,66 @@ describe("validation", () => {
       expect(() => validateConfig({ workers: { execArgv: ["--max-semi-space-size=64"] } })).not.toThrow();
       expect(() => validateConfig({ workers: { execArgv: ["--no-warnings"] } })).not.toThrow();
       expect(() => validateConfig({ workers: { execArgv: ["--expose-gc"] } })).not.toThrow();
+    });
+  });
+
+  describe("assertSafeEnvObject", () => {
+    // JSON.parse defines `__proto__` as a real own enumerable property, which
+    // the guard's Object.keys() scan must see. The `__proto__:` literal syntax
+    // only sets the prototype instead, so Object.keys() would never list it.
+    const polluted = JSON.parse('{"__proto__": "x"}') as Record<string, string>;
+
+    it("rejects __proto__ as an own enumerable key", () => {
+      expect(() => assertSafeEnvObject(polluted, "workers.env")).toThrow(WorkerManagerValidationError);
+      expect(() => assertSafeEnvObject(polluted, "workers.env")).toThrow(
+        "Invalid option 'workers.env': contains forbidden key '__proto__'",
+      );
+    });
+
+    it("rejects constructor key", () => {
+      expect(() => assertSafeEnvObject({ constructor: "x" }, "workers.env")).toThrow(WorkerManagerValidationError);
+    });
+
+    it("rejects prototype key", () => {
+      expect(() => assertSafeEnvObject({ prototype: "x" }, "workers.env")).toThrow(WorkerManagerValidationError);
+    });
+
+    it("accepts clean objects and undefined", () => {
+      expect(() => assertSafeEnvObject({ NODE_ENV: "test" }, "workers.env")).not.toThrow();
+      expect(() => assertSafeEnvObject(undefined, "workers.env")).not.toThrow();
+    });
+  });
+
+  describe("validateConfig — workers.env security", () => {
+    it("should reject prototype-pollution keys in workers.env", () => {
+      expect(() => validateConfig({ workers: { env: JSON.parse('{"__proto__": "x"}') } })).toThrow(
+        WorkerManagerValidationError,
+      );
+      expect(() => validateConfig({ workers: { env: { constructor: "x" } } })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ workers: { env: { prototype: "x" } } })).toThrow(WorkerManagerValidationError);
+    });
+
+    it("should warn without throwing when workers.env contains NODE_OPTIONS", () => {
+      const emitWarning = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+      try {
+        expect(() => validateConfig({ workers: { env: { NODE_OPTIONS: "--require=./payload.js" } } })).not.toThrow();
+        expect(emitWarning).toHaveBeenCalledWith(
+          "workers.env contains NODE_OPTIONS — it can bypass execArgv restrictions (--require is allowed in NODE_OPTIONS). Avoid it.",
+          "ClusterKitSecurityWarning",
+        );
+      } finally {
+        emitWarning.mockRestore();
+      }
+    });
+
+    it("should not warn when workers.env has no NODE_OPTIONS", () => {
+      const emitWarning = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+      try {
+        validateConfig({ workers: { env: { NODE_ENV: "test" } } });
+        expect(emitWarning).not.toHaveBeenCalled();
+      } finally {
+        emitWarning.mockRestore();
+      }
     });
   });
 
