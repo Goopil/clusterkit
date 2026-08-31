@@ -118,6 +118,7 @@ describe("ShutdownCoordinator", () => {
 
     expect(worker.send).toHaveBeenCalledWith({ type: "app:shutdown" });
     expect(warnSpy).toHaveBeenCalledWith("Worker ACK timeout", expect.objectContaining({ workerId: 1 }));
+    expect(warnSpy).toHaveBeenCalledWith("Some workers did not ACK shutdown", { count: 1 });
     expect(worker.isConnected()).toBe(false);
   });
 
