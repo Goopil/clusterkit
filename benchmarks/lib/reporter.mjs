@@ -1,13 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-export function buildJsonReport(metadata, results) {
-  return {
-    metadata,
-    results,
-  };
-}
-
 export function writeJsonReport(report, outputDir) {
   const path = join(outputDir, "latest.json");
   writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`);
