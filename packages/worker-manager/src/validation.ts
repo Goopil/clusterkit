@@ -41,6 +41,30 @@ function assertPlainObject(val: unknown, field: string): void {
   }
 }
 
+const FORBIDDEN_ENV_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
+ * Returns the first prototype-pollution key present as an own enumerable
+ * property, if any. `Object.keys` only enumerates own enumerable properties,
+ * so a `__proto__` set through the object-literal syntax (prototype
+ * assignment, not a real property) is invisible here — which is the safe case.
+ */
+export function findForbiddenEnvKey(env: Record<string, string | undefined> | undefined): string | undefined {
+  if (!env) return undefined;
+  return Object.keys(env).find((key) => FORBIDDEN_ENV_KEYS.has(key));
+}
+
+/**
+ * Reject env objects carrying prototype-pollution keys (`__proto__`,
+ * `constructor`, `prototype`).
+ */
+export function assertSafeEnvObject(env: Record<string, string | undefined> | undefined, source: string): void {
+  const bad = findForbiddenEnvKey(env);
+  if (bad) {
+    throw new WorkerManagerValidationError(source, `contains forbidden key '${bad}'`);
+  }
+}
+
 // ============================================================================
 // Sub-validators
 // ============================================================================
@@ -66,6 +90,13 @@ function validateWorkersOptions(workers: WorkersConfig): void {
   }
   if (workers.env !== undefined && (typeof workers.env !== "object" || Array.isArray(workers.env))) {
     throw new WorkerManagerValidationError("workers.env", "must be a plain object");
+  }
+  assertSafeEnvObject(workers.env, "workers.env");
+  if (workers.env && "NODE_OPTIONS" in workers.env) {
+    process.emitWarning(
+      "workers.env contains NODE_OPTIONS — it can bypass execArgv restrictions (--require is allowed in NODE_OPTIONS). Avoid it.",
+      "ClusterKitSecurityWarning",
+    );
   }
   if (workers.execArgv !== undefined) {
     if (!Array.isArray(workers.execArgv)) {

@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Orchestrator } from "../src/orchestrator";
+import { WorkerManagerValidationError } from "../src/validation";
 
 // ============================================================================
 // Mock cluster helpers
@@ -1043,6 +1044,25 @@ describe("Orchestrator", () => {
         (call: unknown[]) => call[0] && (call[0] as NodeJS.ProcessEnv).HOT_RESTART_KEY === "value",
       );
       expect(hasOverlay).toBe(true);
+    });
+
+    it("rejects a restart env overlay containing prototype-pollution keys", async () => {
+      const orchestrator = await setupPrimary(2);
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+
+      // JSON.parse (not an object literal): it defines `__proto__` as a real
+      // own enumerable property, which the env guard's Object.keys() scan must
+      // see. The `__proto__:` literal syntax only sets the prototype instead,
+      // so Object.keys() would never list it.
+      const badEnv = JSON.parse('{"__proto__": "x"}') as NodeJS.ProcessEnv;
+
+      await expect(orchestrator.restartWorkers({ env: badEnv, staggerMs: 0, reason: "proto-guard" })).rejects.toThrow(
+        WorkerManagerValidationError,
+      );
+
+      // The polluted overlay never reached a fork.
+      expect(forkSpy).not.toHaveBeenCalled();
+      expect(Object.keys(mockCluster.workers)).toHaveLength(2);
     });
 
     it("respects filter to restart only matching workers", async () => {

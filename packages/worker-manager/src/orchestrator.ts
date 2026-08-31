@@ -16,7 +16,7 @@ import {
   type ResolvedConfig,
   type WorkerMetrics,
 } from "./types";
-import { validateConfig } from "./validation";
+import { findForbiddenEnvKey, validateConfig } from "./validation";
 import { WorkerManager } from "./worker-manager";
 
 /** Upper bound applied to WEB_CONCURRENCY to guard against fork bombs from inherited env vars. */
@@ -239,11 +239,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     if (this.hasForked) {
       throw new Error("patchWorkerEnv: cannot be called after workers have been forked");
     }
-    const dangerous = new Set(["__proto__", "constructor", "prototype"]);
-    for (const key of Object.keys(env)) {
-      if (dangerous.has(key)) {
-        throw new Error(`patchWorkerEnv: key '${key}' is not allowed (prototype pollution risk)`);
-      }
+    // Shared forbidden-key detection; the legacy plain-Error surface is kept
+    // for this long-standing public API (not WorkerManagerValidationError).
+    const forbidden = findForbiddenEnvKey(env);
+    if (forbidden) {
+      throw new Error(`patchWorkerEnv: key '${forbidden}' is not allowed (prototype pollution risk)`);
     }
     if (!this.cfg.workers.env) {
       this.cfg.workers.env = {};
