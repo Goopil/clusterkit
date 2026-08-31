@@ -470,6 +470,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     if (n < 1 || !Number.isInteger(n)) {
       throw new Error("overrideWorkerCount: must be a positive integer");
     }
+    if (n > MAX_AUTO_WORKERS) {
+      throw new Error(`overrideWorkerCount: exceeds the maximum of ${MAX_AUTO_WORKERS} workers`);
+    }
     if (this.cfg.workers.count !== "auto") {
       throw new Error("overrideWorkerCount: can only override when workers is 'auto'");
     }

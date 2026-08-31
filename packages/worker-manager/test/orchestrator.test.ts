@@ -275,6 +275,19 @@ describe("Orchestrator", () => {
       const orch = new Orchestrator(cfg({ workers: 2 }));
       expect(() => orch.overrideWorkerCount(3)).toThrow();
     });
+
+    it("should reject values above the maximum", () => {
+      const orch = new Orchestrator(cfg({ workers: "auto" }));
+      expect(() => orch.overrideWorkerCount(257)).toThrow(/maximum/);
+    });
+
+    it("should accept a value at the maximum and apply it", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: "auto" }));
+      orch.overrideWorkerCount(256);
+      await orch.run(() => {});
+      expect(Object.keys(mockCluster.workers)).toHaveLength(256);
+    });
   });
 
   // --------------------------------------------------------------------------
