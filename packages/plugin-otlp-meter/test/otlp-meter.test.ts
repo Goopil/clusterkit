@@ -533,8 +533,8 @@ describe("meter version constant", () => {
       await plugin.install(orch, null, singleWorkerConfig());
 
       const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+      expect(pkg.version).toMatch(/^\d+\.\d+\.\d+$/);
       expect(getMeterCalls).toContainEqual(["@goopil/clusterkit", pkg.version]);
-      expect(pkg.version).toBe("1.0.2");
     } finally {
       MeterProvider.prototype.getMeter = origGetMeter;
       await plugin.shutdown();
