@@ -97,7 +97,7 @@ export function calculateSizing(limits: CgroupLimits, options: SizingOptions = {
 
   // availableParallelism respects cpuset/affinity (K8s static CPU policy),
   // unlike os.cpus().length which reports all host cores.
-  const osCpus = typeof os.availableParallelism === "function" ? os.availableParallelism() : os.cpus().length;
+  const osCpus = os.availableParallelism();
   const osTotalMemoryBytes = os.totalmem();
 
   const effectiveCpu = limits.cpuLimit ?? osCpus;
