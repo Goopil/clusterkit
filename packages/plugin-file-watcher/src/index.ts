@@ -14,11 +14,11 @@ import { parseEnvFile } from "./parse-env";
 export { parseEnvFile } from "./parse-env";
 
 export interface FileWatcherOptions {
-  /** Globs/paths to watch for file changes. */
+  /** Literal paths (files or directories) to watch for changes — chokidar v4 has no glob support. */
   watch?: string[] | string;
   /** Options passed through to chokidar. */
   watchOptions?: ChokidarOptions;
-  /** Globs to ignore. */
+  /** Patterns to ignore (passed to chokidar's `ignored`, which still supports globs). */
   ignore?: string[] | string;
 
   /** Path(s) to .env files to parse on change. */
@@ -33,6 +33,17 @@ export interface FileWatcherOptions {
 
   /** Debounce time for coalescing rapid changes. @default 300 */
   debounceMs?: number;
+  /**
+   * Max time to wait since the first unflushed change before firing the restart anyway,
+   * even if changes keep resetting the debounce timer (a continuous storm would otherwise
+   * starve the restart). 0 disables it. @default 0
+   */
+  debounceMaxWaitMs?: number;
+  /**
+   * Minimum delay between actual restarts: a debounced trigger firing within this window
+   * after the last `restartWorkers` call is skipped. 0 disables it. @default 0
+   */
+  minRestartIntervalMs?: number;
   /** Delay between draining worker N and starting worker N+1. @default 1000 */
   staggerMs?: number;
   /** Reason string for restart events. @default "file-change" or "env-change" */
@@ -62,6 +73,8 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
   const pollEnv = options?.pollEnv ?? false;
   const pollEnvIntervalMs = options?.pollEnvIntervalMs ?? 5_000;
   const debounceMs = options?.debounceMs ?? 300;
+  const debounceMaxWaitMs = options?.debounceMaxWaitMs ?? 0;
+  const minRestartIntervalMs = options?.minRestartIntervalMs ?? 0;
   const staggerMs = options?.staggerMs ?? 1_000;
   const startDelayMs = options?.startDelayMs ?? 0;
   const dryRun = options?.dryRun ?? false;
@@ -70,6 +83,10 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
   let watchers: FSWatcher[] = [];
   let envPollInterval: NodeJS.Timeout | undefined;
   let debounceTimer: NodeJS.Timeout | undefined;
+  let maxWaitTimer: NodeJS.Timeout | undefined;
+  let pendingReason: string | undefined;
+  let pendingEnv: NodeJS.ProcessEnv | undefined;
+  let lastRestartAt = 0;
   let envSnapshot: Map<string, string> | undefined;
   let watching = false;
 
@@ -89,28 +106,53 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
         return;
       }
 
-      const triggerRestart = (reason: string, env?: NodeJS.ProcessEnv): void => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(async () => {
+      const flushRestart = async (): Promise<void> => {
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
           debounceTimer = undefined;
-          if (dryRun) {
-            log?.info("Dry run — would trigger hot restart", { reason });
-            return;
-          }
-          log?.info("Triggering hot restart", { reason });
-          try {
-            await orchestrator.restartWorkers({ env, staggerMs, reason });
-          } catch (err) {
-            log?.error("Hot restart failed", {
-              reason,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }, debounceMs).unref();
+        }
+        if (maxWaitTimer) {
+          clearTimeout(maxWaitTimer);
+          maxWaitTimer = undefined;
+        }
+        const reason = pendingReason ?? "file-change";
+        const env = pendingEnv;
+        pendingReason = undefined;
+        pendingEnv = undefined;
+        if (dryRun) {
+          log?.info("Dry run — would trigger hot restart", { reason });
+          return;
+        }
+        if (minRestartIntervalMs > 0 && Date.now() - lastRestartAt < minRestartIntervalMs) {
+          log?.debug("Skipping hot restart, within min restart interval", { reason, minRestartIntervalMs });
+          return;
+        }
+        log?.info("Triggering hot restart", { reason });
+        lastRestartAt = Date.now();
+        try {
+          await orchestrator.restartWorkers({ env, staggerMs, reason });
+        } catch (err) {
+          log?.error("Hot restart failed", {
+            reason,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      };
+
+      const triggerRestart = (reason: string, env?: NodeJS.ProcessEnv): void => {
+        pendingReason = reason;
+        pendingEnv = env;
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => void flushRestart(), debounceMs).unref();
+        // Anti-starvation: arm the max-wait timer once, on the first unflushed change,
+        // so a continuous storm still fires a restart after debounceMaxWaitMs.
+        if (debounceMaxWaitMs > 0 && !maxWaitTimer) {
+          maxWaitTimer = setTimeout(() => void flushRestart(), debounceMaxWaitMs).unref();
+        }
       };
 
       const startWatchers = (): void => {
-        // File watchers — chokidar for glob support and cross-platform reliability
+        // File watchers — chokidar for cross-platform reliability (v4: literal paths only)
         if (watchPaths.length > 0) {
           const chokidarOpts: ChokidarOptions = {
             ignoreInitial: true,
@@ -231,6 +273,10 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
           clearTimeout(debounceTimer);
           debounceTimer = undefined;
         }
+        if (maxWaitTimer) {
+          clearTimeout(maxWaitTimer);
+          maxWaitTimer = undefined;
+        }
         watching = false;
       });
     },
@@ -245,6 +291,10 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
       if (debounceTimer) {
         clearTimeout(debounceTimer);
         debounceTimer = undefined;
+      }
+      if (maxWaitTimer) {
+        clearTimeout(maxWaitTimer);
+        maxWaitTimer = undefined;
       }
       watching = false;
     },
