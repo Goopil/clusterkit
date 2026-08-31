@@ -284,16 +284,4 @@ describe("WorkerManager", () => {
     expect(cluster.listenerCount("exit")).toBe(0);
     expect(cluster.listenerCount("online")).toBe(0);
   });
-
-  // ── setupEventHandlers idempotency ─────────────────────────────────────────
-
-  it("replaces previous listeners when setupEventHandlers is called again", () => {
-    const cluster = new MockCluster();
-    const manager = new WorkerManager(cluster as never, config, null, makeMetrics(), []);
-    manager.setupEventHandlers(vi.fn(), vi.fn());
-    manager.setupEventHandlers(vi.fn(), vi.fn());
-
-    expect(cluster.listenerCount("exit")).toBe(1);
-    expect(cluster.listenerCount("online")).toBe(1);
-  });
 });

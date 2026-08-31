@@ -40,36 +40,12 @@ export class CrashTracker {
   /** Removes entries outside the sliding window. */
   prune(): void {
     const cutoff = Date.now() - this.windowMs;
-
-    // Remove entries outside the window using binary search for O(log n)
-    if (this.timestamps.length > 0 && this.timestamps[0] <= cutoff) {
-      const idx = this.findFirstAfter(cutoff);
-      if (idx > 0) {
-        this.timestamps = this.timestamps.slice(idx);
-      }
-    }
+    this.timestamps = this.timestamps.filter((t) => t > cutoff);
 
     // Hard limit: keep only last maxSize entries
     if (this.timestamps.length > this.maxSize) {
       this.timestamps = this.timestamps.slice(-this.maxSize);
     }
-  }
-
-  /** Binary search for first timestamp > cutoff */
-  private findFirstAfter(cutoff: number): number {
-    let left = 0;
-    let right = this.timestamps.length;
-
-    while (left < right) {
-      const mid = (left + right) >>> 1;
-      if (this.timestamps[mid] <= cutoff) {
-        left = mid + 1;
-      } else {
-        right = mid;
-      }
-    }
-
-    return left;
   }
 
   /** Resets the counter (e.g. after a successful manual restart). */

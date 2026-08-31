@@ -15,11 +15,6 @@ export function withLoggerPrefix(logger: Logger | null, prefix: string): Logger 
 
   const wrap = (method: (msg: string, data?: Record<string, unknown>) => void) => {
     return (msg: string, data?: Record<string, unknown>): void => {
-      if (data === undefined) {
-        method(prefixMessage(normalizedPrefix, msg));
-        return;
-      }
-
       method(prefixMessage(normalizedPrefix, msg), data);
     };
   };
