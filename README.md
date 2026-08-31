@@ -348,18 +348,6 @@ prometheus.getMetrics()   // Promise<string> — Prometheus text format (merged)
 prometheus.getMetrics({ bypassCache: true }) // force fresh aggregation for this call
 ```
 
-### Benchmarking merged metrics cache
-
-Run the plugin benchmark harness to compare cache/no-cache behavior across worker/scrape matrices:
-
-```bash
-corepack pnpm --filter @goopil/clusterkit-prometheus build
-corepack pnpm --filter @goopil/clusterkit-prometheus bench:metrics-cache
-```
-
-The benchmark prints tabular results with `workers`, `scrapes_per_burst`, `cache_ttl_ms`, `p95_latency_ms`,
-`avg_latency_ms`, and `cpu_ms_per_1000_scrapes`.
-
 ---
 
 ## `@goopil/clusterkit-sizing`

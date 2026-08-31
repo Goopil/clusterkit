@@ -129,13 +129,6 @@ There is no in-plugin mitigation for either issue; the fix belongs upstream. Che
 the peer range here (`>=14 <16`) can be raised once one lands. If your threat model includes untrusted code
 executing inside worker processes, prefer an external metrics sidecar over in-process cluster aggregation.
 
-## Benchmarking cache impact
-
-```bash
-corepack pnpm --filter @goopil/clusterkit-prometheus build
-corepack pnpm --filter @goopil/clusterkit-prometheus bench:metrics-cache
-```
-
 ## Related docs
 
 - [Root README](../../README.md)
