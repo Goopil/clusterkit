@@ -1078,6 +1078,36 @@ describe("Orchestrator", () => {
       expect(Object.keys(mockCluster.workers)).toHaveLength(2);
     });
 
+    it("fails fast on a polluted env overlay before marking workers for recycling", async () => {
+      const orchestrator = await setupPrimary(2);
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+
+      const restartStartEvents: Array<{ reason: string }> = [];
+      orchestrator.on("restart:start", (d) => restartStartEvents.push(d));
+
+      const badEnv = JSON.parse('{"__proto__": "x"}') as NodeJS.ProcessEnv;
+
+      await expect(orchestrator.restartWorkers({ env: badEnv, staggerMs: 0, reason: "fail-fast" })).rejects.toThrow(
+        WorkerManagerValidationError,
+      );
+
+      // The aborted roll must leave no trace: no fork, no recycling mark (a
+      // stale mark would silently exempt the old worker from age-based
+      // recycling), and no restart:start without a matching restart:complete.
+      expect(forkSpy).not.toHaveBeenCalled();
+      const internals = orchestrator as unknown as { workerManager: { getRecyclingCount(): number } };
+      expect(internals.workerManager.getRecyclingCount()).toBe(0);
+      expect(restartStartEvents).toHaveLength(0);
+
+      // The guard fired before restartInProgress was set — a valid restart still works.
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+      await expect(
+        orchestrator.restartWorkers({ env: {}, staggerMs: 0, reason: "after-abort" }),
+      ).resolves.toBeUndefined();
+    });
+
     it("respects filter to restart only matching workers", async () => {
       const orchestrator = await setupPrimary(3);
 

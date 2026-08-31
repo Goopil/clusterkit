@@ -16,7 +16,7 @@ import {
   type ResolvedConfig,
   type WorkerMetrics,
 } from "./types";
-import { findForbiddenEnvKey, validateConfig } from "./validation";
+import { assertSafeEnvObject, findForbiddenEnvKey, validateConfig } from "./validation";
 import { WorkerManager } from "./worker-manager";
 
 /** Upper bound applied to WEB_CONCURRENCY to guard against fork bombs from inherited env vars. */
@@ -338,6 +338,10 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    *
    * Idempotent: no-op if a restart is already in progress or shutdown has
    * started. Returns early in single-worker mode (no cluster to roll).
+   *
+   * Throws before any state change if the env overlay contains
+   * prototype-pollution keys — no worker is marked for recycling and no
+   * `restart:start` is emitted for an aborted roll.
    */
   async restartWorkers(opts?: {
     env?: NodeJS.ProcessEnv;
@@ -345,6 +349,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     staggerMs?: number;
     reason?: string;
   }): Promise<void> {
+    // Fail fast on a polluted env overlay before any state change: an aborted
+    // roll must not leave old workers marked for recycling (which would exempt
+    // them from age-based recycling) or emit a dangling restart:start.
+    assertSafeEnvObject(opts?.env, "env overlay");
+
     const reason = opts?.reason ?? "manual";
 
     if (this.shutdownCoordinator.isShutdownInProgress()) {
