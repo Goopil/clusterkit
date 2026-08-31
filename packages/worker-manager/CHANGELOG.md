@@ -1,5 +1,19 @@
 # @goopil/clusterkit
 
+## 1.2.0
+
+### Minor Changes
+
+- [#70](https://github.com/Goopil/clusterkit/pull/70) [`ccca20b`](https://github.com/Goopil/clusterkit/commit/ccca20be1e456e6968bd6bdde709023cf7aefdbc) Thanks [@Goopil](https://github.com/Goopil)! - Block `--import` and `--loader`/`--experimental-loader` in `workers.execArgv` (RCE bypass of the existing dangerous-flag blocklist).
+
+- [#70](https://github.com/Goopil/clusterkit/pull/70) [`ccca20b`](https://github.com/Goopil/clusterkit/commit/ccca20be1e456e6968bd6bdde709023cf7aefdbc) Thanks [@Goopil](https://github.com/Goopil)! - Fix hot-restart deadlock: bound the wait for the old worker's exit during restartWorkers() and drain it if the replacement dies before coming online.
+
+### Patch Changes
+
+- [#70](https://github.com/Goopil/clusterkit/pull/70) [`ccca20b`](https://github.com/Goopil/clusterkit/commit/ccca20be1e456e6968bd6bdde709023cf7aefdbc) Thanks [@Goopil](https://github.com/Goopil)! - Cap `overrideWorkerCount()` at 256 workers (MAX_AUTO_WORKERS), consistent with the WEB_CONCURRENCY auto-sizing clamp.
+
+- [#70](https://github.com/Goopil/clusterkit/pull/70) [`ccca20b`](https://github.com/Goopil/clusterkit/commit/ccca20be1e456e6968bd6bdde709023cf7aefdbc) Thanks [@Goopil](https://github.com/Goopil)! - Harden worker env handling: reject prototype-pollution keys in every env path (validation, patchWorkerEnv, restart overlay) and warn when workers.env contains NODE_OPTIONS.
+
 ## 1.1.1
 
 ### Patch Changes

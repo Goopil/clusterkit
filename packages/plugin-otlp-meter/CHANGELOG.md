@@ -1,5 +1,13 @@
 # @goopil/clusterkit-otlp-meter
 
+## 1.1.0
+
+### Minor Changes
+
+- [#70](https://github.com/Goopil/clusterkit/pull/70) [`ccca20b`](https://github.com/Goopil/clusterkit/commit/ccca20be1e456e6968bd6bdde709023cf7aefdbc) Thanks [@Goopil](https://github.com/Goopil)! - Precise missing-module error detection, floor of 1000ms on exportIntervalMs, sync embedded version constant with the package version.
+
+- [#73](https://github.com/Goopil/clusterkit/pull/73) [`4c8061d`](https://github.com/Goopil/clusterkit/commit/4c8061d4167607ad26cda2f310a0eea03d994180) Thanks [@Goopil](https://github.com/Goopil)! - Relax the `@goopil/clusterkit` peer dependency from an exact version pin to a caret range (`^1.2.0`). Plugins now remain installable with newer core minor releases without requiring a matching plugin upgrade.
+
 ## 1.0.2
 
 ### Patch Changes
