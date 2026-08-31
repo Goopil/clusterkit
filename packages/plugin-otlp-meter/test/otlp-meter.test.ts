@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { readFileSync } from "node:fs";
 import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import type { MeterProvider as MeterProviderType } from "@opentelemetry/sdk-metrics";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -168,6 +169,33 @@ describe("options validation", () => {
       /invalid endpoint URL/,
     );
   });
+
+  it("rejects exportIntervalMs below the 1000ms floor", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    expect(() => createOtlpMeterPlugin({ exportIntervalMs: 500, instrumentation: false })).toThrow(
+      /exportIntervalMs must be a finite number >= 1000/,
+    );
+  });
+
+  it("accepts exportIntervalMs at the 1000ms floor", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ exportIntervalMs: 1000, instrumentation: false });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    expect(plugin.meterProvider).toBeDefined();
+    await plugin.shutdown();
+  });
+
+  it("accepts exportIntervalMs above the floor (1500)", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ exportIntervalMs: 1500, instrumentation: false });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    expect(plugin.meterProvider).toBeDefined();
+    await plugin.shutdown();
+  });
 });
 
 // Event → counter mapping ===================================================
@@ -176,7 +204,7 @@ describe("metrics — event to counter mapping", () => {
   it("worker:crash increments worker.crashes counter", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const { spies, restore } = await spyOnCounters();
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -191,7 +219,7 @@ describe("metrics — event to counter mapping", () => {
   it("worker:restart increments worker.restarts counter", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const { spies, restore } = await spyOnCounters();
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -206,7 +234,7 @@ describe("metrics — event to counter mapping", () => {
   it("circuit-breaker:tripped increments circuit_breaker.trips counter", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const { spies, restore } = await spyOnCounters();
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -221,7 +249,7 @@ describe("metrics — event to counter mapping", () => {
   it("counters accumulate across multiple events", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const { spies, restore } = await spyOnCounters();
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -237,7 +265,7 @@ describe("metrics — event to counter mapping", () => {
   it("does not duplicate event listeners after uninstall and reinstall", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const { spies, restore } = await spyOnCounters();
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
 
     await plugin.install(orch, null, singleWorkerConfig());
@@ -258,7 +286,7 @@ describe("metrics — event to counter mapping", () => {
 describe("shutdown safety", () => {
   it("does not throw when shutdown() is called twice", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -273,7 +301,7 @@ describe("shutdown safety", () => {
     (orch as unknown as { registerOnShutdown: (cb: typeof shutdownCb) => void }).registerOnShutdown = (cb) => {
       shutdownCb = cb;
     };
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     await plugin.install(orch, null, singleWorkerConfig());
 
     await shutdownCb?.();
@@ -287,7 +315,7 @@ describe("plugin lifecycle", () => {
   it("prefixes install logs with the plugin component tag", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const logger = mockLogger();
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
     await plugin.install(orch, logger, singleWorkerConfig());
 
@@ -297,7 +325,7 @@ describe("plugin lifecycle", () => {
 
   it("clears listeners on uninstall", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -315,7 +343,7 @@ describe("plugin lifecycle", () => {
 describe("single-worker mode", () => {
   it("creates meter provider when workerCount is 1", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator(0, 1);
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -325,7 +353,7 @@ describe("single-worker mode", () => {
 
   it("creates meter provider when workers is 'auto' and resolves to 1", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator(0, 1);
     await plugin.install(orch, null, autoWorkerConfig());
 
@@ -339,7 +367,7 @@ describe("single-worker mode", () => {
 describe("instrumentation", () => {
   it("starts host metrics in single-worker mode when instrumentation is true", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 1000 });
     const orch = mockOrchestrator(1, 1);
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -349,7 +377,7 @@ describe("instrumentation", () => {
 
   it("does not start host metrics when instrumentation is false", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator(1, 1);
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -364,7 +392,7 @@ describe("custom prefix", () => {
   it("applies custom prefix to metric names", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const { spies, restore } = await spyOnCounters();
-    const plugin = createOtlpMeterPlugin({ instrumentation: false, prefix: "myapp.", exportIntervalMs: 100 });
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, prefix: "myapp.", exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
 
@@ -378,18 +406,138 @@ describe("custom prefix", () => {
 
 // Dynamic import errors ======================================================
 
+// Simulates what `await import()` of a genuinely missing/broken package surfaces:
+// the thrown error carries the module-runner code (e.g. ERR_MODULE_NOT_FOUND).
+function codedError(code: string): Error {
+  return Object.assign(new Error(`simulated ${code} failure`), { code });
+}
+
+// A mocked exporter module whose named export getter throws — the throw happens
+// inside createExporter()'s try block, so the classifier observes `err` exactly
+// as a real dynamic-import failure would deliver it.
+function exporterModuleThatThrows(err: unknown): () => unknown {
+  return () => ({
+    get OTLPMetricExporter(): never {
+      throw err;
+    },
+  });
+}
+
 describe("dynamic import errors", () => {
   it("throws clear error when grpc exporter package is missing", async () => {
-    vi.doMock("@opentelemetry/exporter-metrics-otlp-grpc", () => ({}));
-
-    const mod = await import("../src/index");
-    const plugin = mod.createOtlpMeterPlugin({ protocol: "grpc", instrumentation: false, exportIntervalMs: 100 });
-    const orch = mockOrchestrator();
-
-    await expect(plugin.install(orch, null, singleWorkerConfig())).rejects.toThrow(
-      /requires @opentelemetry\/exporter-metrics-otlp-grpc/,
+    vi.doMock(
+      "@opentelemetry/exporter-metrics-otlp-grpc",
+      exporterModuleThatThrows(codedError("ERR_MODULE_NOT_FOUND")),
     );
+    try {
+      const mod = await import("../src/index");
+      const plugin = mod.createOtlpMeterPlugin({ protocol: "grpc", instrumentation: false, exportIntervalMs: 1000 });
+      const orch = mockOrchestrator();
 
-    vi.doUnmock("@opentelemetry/exporter-metrics-otlp-grpc");
+      await expect(plugin.install(orch, null, singleWorkerConfig())).rejects.toThrow(
+        /requires @opentelemetry\/exporter-metrics-otlp-grpc/,
+      );
+    } finally {
+      vi.doUnmock("@opentelemetry/exporter-metrics-otlp-grpc");
+    }
+  });
+});
+
+// Missing-module error classification ========================================
+// isMissingModuleError drives the "install the module" UX: module-runner codes
+// must map to the friendly error, while unrelated filesystem/network failures
+// (ENOENT/EACCES/ENOTFOUND) and non-Error values must propagate untouched.
+
+describe("missing-module error classification", () => {
+  async function rejectsAsMissingModule(err: unknown): Promise<void> {
+    vi.doMock("@opentelemetry/exporter-metrics-otlp-grpc", exporterModuleThatThrows(err));
+    try {
+      const { createOtlpMeterPlugin } = await import("../src/index");
+      const plugin = createOtlpMeterPlugin({ protocol: "grpc", instrumentation: false, exportIntervalMs: 1000 });
+      await expect(plugin.install(mockOrchestrator(), null, singleWorkerConfig())).rejects.toThrow(
+        /requires @opentelemetry\/exporter-metrics-otlp-grpc/,
+      );
+    } finally {
+      vi.doUnmock("@opentelemetry/exporter-metrics-otlp-grpc");
+    }
+  }
+
+  async function rejectsWithOriginalError(err: unknown, match: Record<string, unknown>): Promise<void> {
+    vi.doMock("@opentelemetry/exporter-metrics-otlp-grpc", exporterModuleThatThrows(err));
+    try {
+      const { createOtlpMeterPlugin } = await import("../src/index");
+      const plugin = createOtlpMeterPlugin({ protocol: "grpc", instrumentation: false, exportIntervalMs: 1000 });
+      await expect(plugin.install(mockOrchestrator(), null, singleWorkerConfig())).rejects.toMatchObject(match);
+    } finally {
+      vi.doUnmock("@opentelemetry/exporter-metrics-otlp-grpc");
+    }
+  }
+
+  it("treats MODULE_NOT_FOUND-coded failures as a missing module", async () => {
+    await rejectsAsMissingModule(codedError("MODULE_NOT_FOUND"));
+  });
+
+  it("does not treat ENOENT-coded failures as a missing module", async () => {
+    await rejectsWithOriginalError(codedError("ENOENT"), { code: "ENOENT" });
+  });
+
+  it("does not treat EACCES-coded failures as a missing module", async () => {
+    await rejectsWithOriginalError(codedError("EACCES"), { code: "EACCES" });
+  });
+
+  it("does not treat ENOTFOUND-coded failures as a missing module", async () => {
+    await rejectsWithOriginalError(codedError("ENOTFOUND"), { code: "ENOTFOUND" });
+  });
+
+  it("propagates thrown undefined untouched", async () => {
+    vi.doMock("@opentelemetry/exporter-metrics-otlp-grpc", exporterModuleThatThrows(undefined));
+    try {
+      const { createOtlpMeterPlugin } = await import("../src/index");
+      const plugin = createOtlpMeterPlugin({ protocol: "grpc", instrumentation: false, exportIntervalMs: 1000 });
+      await expect(plugin.install(mockOrchestrator(), null, singleWorkerConfig())).rejects.toBeUndefined();
+    } finally {
+      vi.doUnmock("@opentelemetry/exporter-metrics-otlp-grpc");
+    }
+  });
+
+  it("propagates thrown plain objects untouched", async () => {
+    const thrown: Record<string, never> = {};
+    vi.doMock("@opentelemetry/exporter-metrics-otlp-grpc", exporterModuleThatThrows(thrown));
+    try {
+      const { createOtlpMeterPlugin } = await import("../src/index");
+      const plugin = createOtlpMeterPlugin({ protocol: "grpc", instrumentation: false, exportIntervalMs: 1000 });
+      await expect(plugin.install(mockOrchestrator(), null, singleWorkerConfig())).rejects.toBe(thrown);
+    } finally {
+      vi.doUnmock("@opentelemetry/exporter-metrics-otlp-grpc");
+    }
+  });
+});
+
+// Meter version constant =====================================================
+
+describe("meter version constant", () => {
+  it("registers the meter with the version declared in package.json", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const sdkMod = await import("@opentelemetry/sdk-metrics");
+    const MeterProvider = sdkMod.MeterProvider as typeof MeterProviderType;
+    const origGetMeter = MeterProvider.prototype.getMeter;
+    const getMeterCalls: Array<[string, string | undefined]> = [];
+    MeterProvider.prototype.getMeter = function (this: MeterProvider, ...args: Parameters<typeof origGetMeter>) {
+      getMeterCalls.push([args[0], args[1]]);
+      return origGetMeter.apply(this, args);
+    } as typeof origGetMeter;
+
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    try {
+      await plugin.install(orch, null, singleWorkerConfig());
+
+      const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+      expect(getMeterCalls).toContainEqual(["@goopil/clusterkit", pkg.version]);
+      expect(pkg.version).toBe("1.0.2");
+    } finally {
+      MeterProvider.prototype.getMeter = origGetMeter;
+      await plugin.shutdown();
+    }
   });
 });

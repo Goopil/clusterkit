@@ -79,7 +79,7 @@ describe("OTLP meter plugin integration with real orchestrator", () => {
       endpoint: collectorUrl,
       protocol: "http",
       instrumentation: false,
-      exportIntervalMs: 500,
+      exportIntervalMs: 1000,
     });
 
     orchestrator.use(plugin);

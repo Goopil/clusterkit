@@ -65,7 +65,7 @@ orchestrator.use(otlp).run(async () => {
 | `instrumentation` | `boolean` | `true` | Collect Node.js host/process metrics |
 | `prefix` | `string` | `'clusterkit.'` | Metric name prefix |
 | `attributes` | `Record<string, string \| number \| boolean>` | `{}` | Static resource attributes |
-| `exportIntervalMs` | `number` | `60000` | Export interval in milliseconds |
+| `exportIntervalMs` | `number` | `60000` | Export interval in milliseconds (minimum `1000`) |
 | `serviceName` | `string` | `'clusterkit'` | Service name for the OpenTelemetry Resource |
 
 ## API (`OtlpMeterPlugin`)

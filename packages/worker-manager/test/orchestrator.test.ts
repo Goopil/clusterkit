@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Orchestrator } from "../src/orchestrator";
+import { WorkerManagerValidationError } from "../src/validation";
 
 // ============================================================================
 // Mock cluster helpers
@@ -273,6 +274,19 @@ describe("Orchestrator", () => {
     it("should reject overriding an explicit worker count", () => {
       const orch = new Orchestrator(cfg({ workers: 2 }));
       expect(() => orch.overrideWorkerCount(3)).toThrow();
+    });
+
+    it("should reject values above the maximum", () => {
+      const orch = new Orchestrator(cfg({ workers: "auto" }));
+      expect(() => orch.overrideWorkerCount(257)).toThrow(/maximum/);
+    });
+
+    it("should accept a value at the maximum and apply it", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: "auto" }));
+      orch.overrideWorkerCount(256);
+      await orch.run(() => {});
+      expect(Object.keys(mockCluster.workers)).toHaveLength(256);
     });
   });
 
@@ -795,6 +809,90 @@ describe("Orchestrator", () => {
         }
       }
     });
+
+    // Audit F3 invariant: once shutdown has begun, the crash-restart path must
+    // never fork a replacement. restartWorkerWithBackoff re-checks
+    // isShutdownInProgress() after its backoff wait and must abort there.
+    // shutdownPrimary() captures its kill list at initiation time, so any
+    // worker forked after that point would survive shutdown as an orphan —
+    // the "no worker left running" assertion below guards that side too.
+    it("should not fork a replacement when shutdown starts during crash backoff", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 1_000 },
+        shutdown: {
+          timeoutMs: 1_000,
+          ackTimeoutMs: 500,
+          sigtermDelayMs: 300,
+          sigintDelayMs: 200,
+        },
+      });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const restartEvents: unknown[] = [];
+      orch.on("worker:restart", (d) => restartEvents.push(d));
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+
+      // Crash one worker: the restart loop enters its backoff wait
+      const crashed = Object.values(mockCluster.workers)[0];
+      mockCluster.emit("exit", crashed, 1, null);
+      expect(orch.getMetrics().activeWorkers).toBe(1);
+      expect((orch as unknown as { restartLoopRunning: boolean }).restartLoopRunning).toBe(true);
+
+      // Shutdown begins while the backoff is still pending
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      expect(orch.getHealth().ready).toBe(false);
+
+      // The backoff elapses — the pending restart must be dropped, not forked
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(forkSpy).not.toHaveBeenCalled();
+      expect(restartEvents).toHaveLength(0);
+      expect(orch.getMetrics().workerRestarts).toBe(0);
+
+      // Drain the shutdown fully: no orphan worker may survive
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+      expect(forkSpy).not.toHaveBeenCalled();
+      expect(Object.keys(mockCluster.workers)).toHaveLength(2);
+      for (const w of Object.values(mockCluster.workers)) {
+        expect(w.isDead()).toBe(true);
+      }
+    });
+
+    it("should terminate a replacement forked before shutdown together with the initial fleet", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 1_000 },
+        shutdown: {
+          timeoutMs: 1_000,
+          ackTimeoutMs: 500,
+          sigtermDelayMs: 300,
+          sigintDelayMs: 200,
+        },
+      });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Crash + full restart completes BEFORE shutdown begins
+      mockCluster.emit("exit", Object.values(mockCluster.workers)[0], 1, null);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(orch.getMetrics().workerRestarts).toBe(1);
+
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+
+      // The replacement (not part of the initial fleet) is in the kill list too
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3);
+      for (const w of Object.values(mockCluster.workers)) {
+        expect(w.isDead()).toBe(true);
+      }
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -961,6 +1059,55 @@ describe("Orchestrator", () => {
       expect(hasOverlay).toBe(true);
     });
 
+    it("rejects a restart env overlay containing prototype-pollution keys", async () => {
+      const orchestrator = await setupPrimary(2);
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+
+      // JSON.parse (not an object literal): it defines `__proto__` as a real
+      // own enumerable property, which the env guard's Object.keys() scan must
+      // see. The `__proto__:` literal syntax only sets the prototype instead,
+      // so Object.keys() would never list it.
+      const badEnv = JSON.parse('{"__proto__": "x"}') as NodeJS.ProcessEnv;
+
+      await expect(orchestrator.restartWorkers({ env: badEnv, staggerMs: 0, reason: "proto-guard" })).rejects.toThrow(
+        WorkerManagerValidationError,
+      );
+
+      // The polluted overlay never reached a fork.
+      expect(forkSpy).not.toHaveBeenCalled();
+      expect(Object.keys(mockCluster.workers)).toHaveLength(2);
+    });
+
+    it("fails fast on a polluted env overlay before marking workers for recycling", async () => {
+      const orchestrator = await setupPrimary(2);
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+
+      const restartStartEvents: Array<{ reason: string }> = [];
+      orchestrator.on("restart:start", (d) => restartStartEvents.push(d));
+
+      const badEnv = JSON.parse('{"__proto__": "x"}') as NodeJS.ProcessEnv;
+
+      await expect(orchestrator.restartWorkers({ env: badEnv, staggerMs: 0, reason: "fail-fast" })).rejects.toThrow(
+        WorkerManagerValidationError,
+      );
+
+      // The aborted roll must leave no trace: no fork, no recycling mark (a
+      // stale mark would silently exempt the old worker from age-based
+      // recycling), and no restart:start without a matching restart:complete.
+      expect(forkSpy).not.toHaveBeenCalled();
+      const internals = orchestrator as unknown as { workerManager: { getRecyclingCount(): number } };
+      expect(internals.workerManager.getRecyclingCount()).toBe(0);
+      expect(restartStartEvents).toHaveLength(0);
+
+      // The guard fired before restartInProgress was set — a valid restart still works.
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+      await expect(
+        orchestrator.restartWorkers({ env: {}, staggerMs: 0, reason: "after-abort" }),
+      ).resolves.toBeUndefined();
+    });
+
     it("respects filter to restart only matching workers", async () => {
       const orchestrator = await setupPrimary(3);
 
@@ -982,6 +1129,130 @@ describe("Orchestrator", () => {
 
       expect(completeEvents).toHaveLength(1);
       expect(completeEvents[0].restartedWorkerIds).toEqual([targetId]);
+    });
+
+    // Fast shutdown budget keeps the bounded exit waits short under fake
+    // timers: exitWaitMs = 1000 + 100 + 100 + 5000 = 6200ms.
+    const FAST_SHUTDOWN = {
+      shutdown: {
+        timeoutMs: 1_000,
+        ackTimeoutMs: 500,
+        sigtermDelayMs: 100,
+        sigintDelayMs: 100,
+      },
+    };
+
+    /**
+     * Advance fake timers concurrently with `promise` and report whether it
+     * settled before the virtual clock budget ran out. Keeps timer-driven
+     * assertions self-bounding: a broken (never-settling) implementation
+     * fails the test instead of hanging the suite.
+     */
+    async function settleWithinBudget(
+      promise: Promise<unknown>,
+      budgetMs: number,
+    ): Promise<"resolved" | "rejected" | "deadline"> {
+      const clockDone = vi.advanceTimersByTimeAsync(budgetMs).then(() => "deadline" as const);
+      const outcome = await Promise.race([
+        promise.then(
+          () => "resolved" as const,
+          () => "rejected" as const,
+        ),
+        clockDone,
+      ]);
+      // Let the background clock advance finish before the next clock interaction.
+      await clockDone;
+      return outcome;
+    }
+
+    /** Make every subsequent fork return a worker that never emits "online". */
+    function mockForkNeverOnline(): ReturnType<typeof vi.spyOn> {
+      let doomedId = 1000;
+      return vi.spyOn(mockCluster, "fork").mockImplementation((_env?: NodeJS.ProcessEnv) => {
+        const worker = new MockWorker(doomedId++);
+        mockCluster.workers[worker.id] = worker;
+        return worker;
+      });
+    }
+
+    it("completes restart and resets restartInProgress when replacement never comes online", async () => {
+      vi.useFakeTimers();
+      const orchestrator = await setupPrimary(2, FAST_SHUTDOWN);
+
+      const restartStartEvents: Array<{ reason: string; workerIds: number[] }> = [];
+      const restartCompleteEvents: Array<{ restartedWorkerIds: number[]; reason: string }> = [];
+      orchestrator.on("restart:start", (d) => restartStartEvents.push(d));
+      orchestrator.on("restart:complete", (d) => restartCompleteEvents.push(d));
+
+      // Replacements never reach "online" (OOM at boot): the drain escalation
+      // in handleWorkerRecycle never arms, so only the bounded exit wait in
+      // restartWorkers() can unblock the roll.
+      const forkSpy = mockForkNeverOnline();
+
+      const restartPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "stuck" });
+      expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
+
+      expect(restartCompleteEvents).toHaveLength(1);
+      expect(restartCompleteEvents[0].restartedWorkerIds).toEqual([1, 2]);
+
+      // restartInProgress must be released — a second call is not ignored.
+      forkSpy.mockRestore();
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+      const second = orchestrator.restartWorkers({ staggerMs: 0, reason: "after-stuck" });
+      expect(await settleWithinBudget(second, 30_000)).toBe("resolved");
+      expect(restartStartEvents).toHaveLength(2);
+      expect(restartCompleteEvents).toHaveLength(2);
+    });
+
+    it("forces SIGKILL when old worker never exits during restart", async () => {
+      vi.useFakeTimers();
+      const orchestrator = await setupPrimary(2, FAST_SHUTDOWN);
+
+      const oldWorker = mockCluster.workers[1]!;
+      // The old worker ignores the drain: no auto-exit. SIGKILL from the
+      // bounded wait is the only way out — after it the worker emits "exit"
+      // and the wait settles via the grace-period listener.
+      oldWorker.process.kill.mockImplementation(() => {
+        setImmediate(() => oldWorker.simulateGracefulExit());
+      });
+
+      mockForkNeverOnline();
+
+      const restartPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "test" });
+      expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
+
+      expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGKILL");
+      // Kill comes from the restart bounded wait, not the recycle escalation
+      // (which never arms because the replacement never came online).
+      expect(oldWorker.process.kill).not.toHaveBeenCalledWith("SIGTERM");
+      expect(orchestrator.getMetrics().forcedKills).toBe(2);
+    });
+
+    it("drains the old worker when the replacement dies before coming online", async () => {
+      vi.useFakeTimers();
+      const orchestrator = await setupPrimary(2, FAST_SHUTDOWN);
+
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+
+      // Replacement crashes before ever emitting "online".
+      let doomedId = 1000;
+      vi.spyOn(mockCluster, "fork").mockImplementation((_env?: NodeJS.ProcessEnv) => {
+        const worker = new MockWorker(doomedId++);
+        mockCluster.workers[worker.id] = worker;
+        setImmediate(() => worker.simulateCrash(1, null));
+        return worker;
+      });
+
+      const restartPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "test" });
+      expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
+
+      // Old workers were drained despite the never-online replacements.
+      expect(mockCluster.workers[1]?.isDead()).toBe(true);
+      expect(mockCluster.workers[2]?.isDead()).toBe(true);
     });
   });
 

@@ -108,7 +108,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     const plugin = createOtlpMeterPlugin({
       endpoint: collectorUrl,
       instrumentation: false,
-      exportIntervalMs: 500,
+      exportIntervalMs: 1000,
     });
 
     const orch = new Orchestrator({
@@ -142,7 +142,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     const plugin = createOtlpMeterPlugin({
       endpoint: collectorUrl,
       instrumentation: false,
-      exportIntervalMs: 500,
+      exportIntervalMs: 1000,
     });
 
     const orch = new Orchestrator({
@@ -191,7 +191,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     const plugin = createOtlpMeterPlugin({
       endpoint: collectorUrl,
       instrumentation: false,
-      exportIntervalMs: 500,
+      exportIntervalMs: 1000,
     });
 
     const orch = new Orchestrator({
@@ -234,7 +234,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     const plugin = createOtlpMeterPlugin({
       endpoint: collectorUrl,
       instrumentation: false,
-      exportIntervalMs: 500,
+      exportIntervalMs: 1000,
     });
 
     const orch = new Orchestrator({
@@ -269,7 +269,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     const plugin = createOtlpMeterPlugin({
       endpoint: collectorUrl,
       instrumentation: false,
-      exportIntervalMs: 500,
+      exportIntervalMs: 1000,
       prefix: "e2e.",
     });
 

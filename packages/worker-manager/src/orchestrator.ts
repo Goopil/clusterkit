@@ -1,5 +1,5 @@
 import cluster, { type Worker } from "node:cluster";
-import { EventEmitter, once } from "node:events";
+import { EventEmitter } from "node:events";
 import { CrashTracker } from "./crash-tracker";
 import { withLoggerPrefix } from "./logger";
 import { getPlatformCapabilities, getReusePortCached, type PlatformCapabilities } from "./platform";
@@ -16,7 +16,7 @@ import {
   type ResolvedConfig,
   type WorkerMetrics,
 } from "./types";
-import { validateConfig } from "./validation";
+import { assertSafeEnvObject, findForbiddenEnvKey, validateConfig } from "./validation";
 import { WorkerManager } from "./worker-manager";
 
 /** Upper bound applied to WEB_CONCURRENCY to guard against fork bombs from inherited env vars. */
@@ -239,11 +239,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     if (this.hasForked) {
       throw new Error("patchWorkerEnv: cannot be called after workers have been forked");
     }
-    const dangerous = new Set(["__proto__", "constructor", "prototype"]);
-    for (const key of Object.keys(env)) {
-      if (dangerous.has(key)) {
-        throw new Error(`patchWorkerEnv: key '${key}' is not allowed (prototype pollution risk)`);
-      }
+    // Shared forbidden-key detection; the legacy plain-Error surface is kept
+    // for this long-standing public API (not WorkerManagerValidationError).
+    const forbidden = findForbiddenEnvKey(env);
+    if (forbidden) {
+      throw new Error(`patchWorkerEnv: key '${forbidden}' is not allowed (prototype pollution risk)`);
     }
     if (!this.cfg.workers.env) {
       this.cfg.workers.env = {};
@@ -330,8 +330,18 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    * Forks a replacement for each worker, then drains the old one via the
    * same `handleWorkerRecycle` path used by age-based recycling.
    *
+   * The wait for each old worker's exit is bounded by the total shutdown
+   * budget plus a margin, force-killing a worker that outlives it — a
+   * replacement that never reaches `online` would otherwise leave the old
+   * worker undrained and deadlock the roll (and the `restartInProgress`
+   * guard) forever.
+   *
    * Idempotent: no-op if a restart is already in progress or shutdown has
    * started. Returns early in single-worker mode (no cluster to roll).
+   *
+   * Throws before any state change if the env overlay contains
+   * prototype-pollution keys — no worker is marked for recycling and no
+   * `restart:start` is emitted for an aborted roll.
    */
   async restartWorkers(opts?: {
     env?: NodeJS.ProcessEnv;
@@ -339,6 +349,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     staggerMs?: number;
     reason?: string;
   }): Promise<void> {
+    // Fail fast on a polluted env overlay before any state change: an aborted
+    // roll must not leave old workers marked for recycling (which would exempt
+    // them from age-based recycling) or emit a dangling restart:start.
+    assertSafeEnvObject(opts?.env, "env overlay");
+
     const reason = opts?.reason ?? "manual";
 
     if (this.shutdownCoordinator.isShutdownInProgress()) {
@@ -381,7 +396,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
         this.handleWorkerRecycle(oldWorker, newWorker);
 
-        await once(oldWorker, "exit");
+        await this.awaitBoundedWorkerExit(oldWorker);
 
         restartedWorkerIds.push(oldWorker.id);
 
@@ -398,12 +413,74 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   }
 
   /**
+   * Wait for a recycled worker to exit during a hot restart, with a bounded
+   * wait: if the worker outlives the total shutdown budget (graceful timeout
+   * + signal delays) plus a margin, force-kill it so the rolling restart
+   * cannot deadlock on an "exit" event that never arrives (e.g. replacement
+   * never came online and the drain escalation in `handleWorkerRecycle`
+   * never armed).
+   *
+   * Implemented with an explicit setTimeout race instead of
+   * `once(worker, "exit", { signal: AbortSignal.timeout(ms) })` because
+   * AbortSignal.timeout is backed by native timers that never fire under
+   * vitest fake timers.
+   */
+  private async awaitBoundedWorkerExit(worker: Worker): Promise<void> {
+    const exitWaitMs =
+      this.cfg.shutdown.timeoutMs + this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs + 5_000;
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      let graceTimer: NodeJS.Timeout | undefined;
+
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(waitTimer);
+        if (graceTimer) clearTimeout(graceTimer);
+        worker.removeListener("exit", onExit);
+        worker.removeListener("exit", onGracePeriodExit);
+        resolve();
+      };
+
+      const onExit = () => settle();
+      const onGracePeriodExit = () => settle();
+
+      const waitTimer = setTimeout(() => {
+        this.log?.warn("Old worker did not exit in time during restart, forcing kill", {
+          workerId: worker.id,
+          pid: worker.process.pid ?? 0,
+        });
+        try {
+          if (!worker.isDead()) {
+            worker.process.kill("SIGKILL");
+            this.metrics.forcedKills++;
+          }
+        } catch {
+          /* already dead */
+        }
+        // Best-effort: give the force-killed worker a short grace period to
+        // emit "exit" before moving on to the next worker in the roll.
+        graceTimer = setTimeout(settle, 2_000);
+        graceTimer.unref();
+        worker.once("exit", onGracePeriodExit);
+      }, exitWaitMs);
+      waitTimer.unref();
+
+      worker.once("exit", onExit);
+    });
+  }
+
+  /**
    * Override the worker count (only works when configured as 'auto').
    * Must be called before workers are forked (e.g. from a plugin install hook).
    */
   overrideWorkerCount(n: number): this {
     if (n < 1 || !Number.isInteger(n)) {
       throw new Error("overrideWorkerCount: must be a positive integer");
+    }
+    if (n > MAX_AUTO_WORKERS) {
+      throw new Error(`overrideWorkerCount: exceeds the maximum of ${MAX_AUTO_WORKERS} workers`);
     }
     if (this.cfg.workers.count !== "auto") {
       throw new Error("overrideWorkerCount: can only override when workers is 'auto'");
@@ -698,52 +775,70 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       ageMs,
     });
 
+    // If the replacement dies before coming online (OOM at boot, invalid
+    // flag...), the online handler below never runs and the old worker would
+    // linger undrained — drain it instead so the recycle still completes.
+    let replacementOnline = false;
+    newWorker.once("exit", () => {
+      if (replacementOnline || this.shutdownCoordinator.isShutdownInProgress()) return;
+      this.log?.warn("Replacement died before online, draining old worker", { workerId: oldWorker.id });
+      this.drainRecycledWorker(oldWorker);
+    });
+
     // Disconnect old worker after new one is online
     newWorker.once("online", () => {
+      replacementOnline = true;
       if (this.shutdownCoordinator.isShutdownInProgress()) return;
-
-      try {
-        oldWorker.send({ type: this.shutdownType });
-        if (!oldWorker.isDead()) oldWorker.disconnect();
-      } catch {
-        /* worker already dead */
-      }
-
-      if (oldWorker.isDead()) return;
-
-      // Escalate: after 5s send SIGTERM, after 2s more send SIGKILL.
-      // Calling disconnect() again is a no-op on an already-disconnected
-      // worker, so we must escalate to signals to prevent a stuck worker
-      // from leaking.
-      //
-      // The sigkillTimer's exit listener is registered inside the
-      // forceKillTimer callback — so if the worker exits after SIGTERM
-      // (before the 2s SIGKILL window), the timer is cleared. Both
-      // listeners use once(), so no listener accumulation across recycles.
-      const forceKillTimer = setTimeout(() => {
-        if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
-          try {
-            oldWorker.process.kill("SIGTERM");
-          } catch {
-            /* already dead */
-          }
-          const sigkillTimer = setTimeout(() => {
-            if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
-              try {
-                oldWorker.process.kill("SIGKILL");
-                this.metrics.forcedKills++;
-              } catch {
-                /* already dead */
-              }
-            }
-          }, 2_000);
-          sigkillTimer.unref();
-          oldWorker.once("exit", () => clearTimeout(sigkillTimer));
-        }
-      }, 5_000);
-      forceKillTimer.unref();
-      oldWorker.once("exit", () => clearTimeout(forceKillTimer));
+      this.drainRecycledWorker(oldWorker);
     });
+  }
+
+  /**
+   * Drain a recycled worker: request shutdown, disconnect, then escalate to
+   * SIGTERM and SIGKILL if the worker does not exit on its own.
+   */
+  private drainRecycledWorker(oldWorker: Worker): void {
+    try {
+      oldWorker.send({ type: this.shutdownType });
+      if (!oldWorker.isDead()) oldWorker.disconnect();
+    } catch {
+      /* worker already dead */
+    }
+
+    if (oldWorker.isDead()) return;
+
+    // Escalate: after 5s send SIGTERM, after 2s more send SIGKILL.
+    // Calling disconnect() again is a no-op on an already-disconnected
+    // worker, so we must escalate to signals to prevent a stuck worker
+    // from leaking.
+    //
+    // The sigkillTimer's exit listener is registered inside the
+    // forceKillTimer callback — so if the worker exits after SIGTERM
+    // (before the 2s SIGKILL window), the timer is cleared. Both
+    // listeners use once(), so no listener accumulation across recycles.
+    const forceKillTimer = setTimeout(() => {
+      if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
+        try {
+          oldWorker.process.kill("SIGTERM");
+        } catch {
+          /* already dead */
+        }
+        const sigkillTimer = setTimeout(() => {
+          if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
+            try {
+              oldWorker.process.kill("SIGKILL");
+              this.metrics.forcedKills++;
+            } catch {
+              /* already dead */
+            }
+          }
+        }, 2_000);
+        sigkillTimer.unref();
+        oldWorker.once("exit", () => clearTimeout(sigkillTimer));
+      }
+    }, 5_000);
+    forceKillTimer.unref();
+    oldWorker.once("exit", () => clearTimeout(forceKillTimer));
   }
 
   // ============================================================================
