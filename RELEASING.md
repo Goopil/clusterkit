@@ -26,6 +26,15 @@ no npm token stored in the repo).
 
 That's it — no manual npm command is ever needed after the bootstrap below.
 
+## Versioning policy
+
+- Plugin packages declare their core dependency as `peerDependencies: { "@goopil/clusterkit": "workspace:^" }`.
+  At publish time pnpm rewrites it to a caret range (e.g. `^1.2.0`), so plugin releases stay installable with newer
+  core minor versions.
+- `.changeset/config.json` sets `onlyUpdatePeerDependentsWhenOutOfRange: true`: a core **minor** release does not force
+  a major bump of the plugins (the changesets default would force one on every core minor). Plugins are bumped to major
+  only when a core release actually leaves their declared peer range — i.e. a core major.
+
 ## One-time bootstrap (first publish)
 
 Trusted publishing is configured per package on npmjs.com, so the very first
