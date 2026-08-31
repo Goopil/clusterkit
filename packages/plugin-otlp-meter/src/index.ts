@@ -6,6 +6,7 @@ import { metrics } from "@opentelemetry/api";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { MeterProvider, PeriodicExportingMetricReader, type PushMetricExporter } from "@opentelemetry/sdk-metrics";
 import { ATTR_SERVICE_INSTANCE_ID, ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+import pkgJson from "../package.json" with { type: "json" };
 import type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
 
 export type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
@@ -18,7 +19,7 @@ const DEFAULT_GRPC_ENDPOINT = "localhost:4317";
 const ATTR_HOST_NAME = "host.name";
 const ATTR_PROCESS_PID = "process.pid";
 
-const PLUGIN_VERSION = "1.0.2";
+const PLUGIN_VERSION: string = pkgJson.version;
 
 function isMissingModuleError(err: unknown): boolean {
   const code = (err as NodeJS.ErrnoException | undefined)?.code;
