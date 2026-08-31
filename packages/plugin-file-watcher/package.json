@@ -57,7 +57,7 @@
     "clean": "rm -rf dist coverage"
   },
   "peerDependencies": {
-    "@goopil/clusterkit": "workspace:*",
+    "@goopil/clusterkit": "workspace:^",
     "chokidar": "^4"
   },
   "devDependencies": {
