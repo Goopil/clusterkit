@@ -172,4 +172,83 @@ describe("signal-restart plugin", () => {
     Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
     expect(process.off).not.toHaveBeenCalled();
   });
+
+  describe("install warnings", () => {
+    function mockLogger() {
+      return {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+    }
+
+    function withTTY<T>(fn: () => T): T {
+      const original = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
+      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+      try {
+        return fn();
+      } finally {
+        if (original) Object.defineProperty(process.stdout, "isTTY", original);
+        else delete (process.stdout as { isTTY?: boolean }).isTTY;
+      }
+    }
+
+    it("warns when signal is SIGTERM (reserved for orchestrator shutdown)", async () => {
+      const plugin = createSignalRestartPlugin({ signal: "SIGTERM" });
+      const logger = mockLogger();
+
+      await plugin.install(mockOrchestrator(), logger, mockConfig());
+
+      expect(logger.warn).toHaveBeenCalledTimes(1);
+      const [msg] = logger.warn.mock.calls[0] as [string];
+      expect(msg).toContain("SIGTERM");
+      expect(msg).toContain("SIGUSR2");
+    });
+
+    it("warns when signal is SIGINT (reserved for orchestrator shutdown)", async () => {
+      const plugin = createSignalRestartPlugin({ signal: "SIGINT" });
+      const logger = mockLogger();
+
+      await plugin.install(mockOrchestrator(), logger, mockConfig());
+
+      expect(logger.warn).toHaveBeenCalledTimes(1);
+      const [msg] = logger.warn.mock.calls[0] as [string];
+      expect(msg).toContain("SIGINT");
+    });
+
+    it("warns when default SIGHUP is used on a TTY (terminal hangup)", async () => {
+      const plugin = createSignalRestartPlugin();
+      const logger = mockLogger();
+
+      withTTY(async () => {
+        await plugin.install(mockOrchestrator(), logger, mockConfig());
+      });
+
+      expect(logger.warn).toHaveBeenCalledTimes(1);
+      const [msg] = logger.warn.mock.calls[0] as [string];
+      expect(msg).toContain("SIGHUP");
+      expect(msg).toContain("SIGUSR2");
+      expect(handlers.some((h) => h.signal === "SIGHUP")).toBe(true);
+    });
+
+    it("does not warn on default SIGHUP when stdout is not a TTY", async () => {
+      const plugin = createSignalRestartPlugin();
+      const logger = mockLogger();
+
+      await plugin.install(mockOrchestrator(), logger, mockConfig());
+
+      expect(logger.warn).not.toHaveBeenCalled();
+      expect(handlers.some((h) => h.signal === "SIGHUP")).toBe(true);
+    });
+
+    it("does not warn for non-reserved custom signal", async () => {
+      const plugin = createSignalRestartPlugin({ signal: "SIGUSR2" });
+      const logger = mockLogger();
+
+      await plugin.install(mockOrchestrator(), logger, mockConfig());
+
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+  });
 });
