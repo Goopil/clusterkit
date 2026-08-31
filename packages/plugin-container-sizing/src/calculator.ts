@@ -1,7 +1,7 @@
 import os from "node:os";
 import type { CgroupLimits } from "@goopil/clusterkit";
 
-export type SizingStrategy = "balanced" | "memory-first" | "cpu-first";
+export type SizingStrategy = "balanced" | "cpu-first";
 
 export interface SizingOptions {
   /**
@@ -22,7 +22,6 @@ export interface SizingOptions {
   /**
    * - `balanced`     — workers = floor(cpu), reduced when each would get less
    *                    than 128 MB of V8 heap (default)
-   * - `memory-first` — same reduction as `balanced`; kept as an explicit alias
    * - `cpu-first`    — always workers = floor(cpu); the heap is clamped to the
    *                    128 MB viability floor, which may over-commit memory
    */

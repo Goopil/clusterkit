@@ -357,26 +357,6 @@ describe("getMetrics()", () => {
     vi.useRealTimers();
   });
 
-  it("supports per-call cache bypass in getMetrics()", async () => {
-    let clusterMetricsCalls = 0;
-    const clusterMetricsSpy = vi
-      .spyOn(AggregatorRegistry.prototype, "clusterMetrics")
-      .mockImplementation(async () => `plugin_cache_probe ${++clusterMetricsCalls}`);
-
-    const plugin = makePlugin({ metricsCacheTtlMs: 10_000 });
-    const orch = mockOrchestrator();
-    await plugin.install(orch, null);
-
-    const cached = await plugin.getMetrics();
-    const bypassed = await plugin.getMetrics({ bypassCache: true });
-
-    expect(cached).toContain("plugin_cache_probe 1");
-    expect(bypassed).toContain("plugin_cache_probe 2");
-    expect(clusterMetricsSpy).toHaveBeenCalledTimes(2);
-
-    clusterMetricsSpy.mockRestore();
-  });
-
   it("degrades to orchestration metrics when worker aggregation fails", async () => {
     // A worker dying mid-scrape makes clusterMetrics() reject after
     // prom-client's 5s internal timeout — the scrape must not fail with it

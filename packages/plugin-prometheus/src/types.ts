@@ -24,20 +24,12 @@ export interface PrometheusPluginOptions {
   labels?: Record<string, string | number>;
 }
 
-export interface PrometheusMetricsRequestOptions {
-  /**
-   * Bypass merged metrics cache for this call and force a fresh aggregation.
-   * @default false
-   */
-  bypassCache?: boolean;
-}
-
 export interface PrometheusPlugin extends OrchestratorPlugin {
   /**
    * Returns the current metrics as a Prometheus text string.
    * Merges orchestration metrics (primary) and per-worker default metrics (all workers).
    */
-  getMetrics(options?: PrometheusMetricsRequestOptions): Promise<string>;
+  getMetrics(): Promise<string>;
   /** The prom-client Registry used for orchestration metrics (primary only). */
   readonly registry: Registry;
 }

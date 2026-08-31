@@ -12,7 +12,6 @@ It does **not** start an HTTP server by itself.
 | Orchestration metrics | Tracks active workers, restarts, crashes, and circuit-breaker trips from orchestrator events |
 | Worker metrics aggregation | Uses `prom-client` `AggregatorRegistry` to collect worker default metrics |
 | Cached merged responses | Optional `metricsCacheTtlMs` cache for scrape bursts |
-| On-demand fresh scrape | `getMetrics({ bypassCache: true })` bypasses cache per request (server-side use only — see [bypassCache warning](#bypasscache-never-map-it-to-user-facing-input)) |
 | Primary/worker-aware behavior | Event listeners only on primary, default process metrics only on workers |
 
 ## Installation
@@ -70,7 +69,6 @@ server.listen(9090, "127.0.0.1");
 ```ts
 prometheus.registry;
 await prometheus.getMetrics();
-await prometheus.getMetrics({ bypassCache: true });
 ```
 
 ## Metrics exposed
@@ -97,14 +95,6 @@ aggregate from.
 - Treat metrics as operationally sensitive because they can expose process, topology, runtime, and workload details.
 - In Kubernetes, prefer a private `Service` plus network-level controls (`NetworkPolicy`, service mesh policy,
   ingress/pod policies) around the metrics endpoint.
-
-### `bypassCache`: never map it to user-facing input
-
-`getMetrics({ bypassCache: true })` forces a fresh scrape and deliberately skips the in-flight request dedup.
-Every bypass call triggers a cluster IPC fan-out: one `getMetricsReq` message to each connected worker.
-Do not wire `bypassCache` to anything user-facing (query parameter, header, webhook, …) — an untrusted client
-could then trigger unbounded IPC fan-out at will, amplifying a single HTTP request into `workers` IPC messages
-per scrape. Keep it behind server-side logic (admin tooling, explicit operational triggers) instead.
 
 ### Trust boundary: workers are trusted
 

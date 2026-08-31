@@ -329,7 +329,7 @@ The plugin uses a two-registry model to separate concerns:
 Use `prometheus.getMetrics()` from your own HTTP stack to expose `/metrics` (or any custom route).
 
 When `metricsCacheTtlMs > 0`, merged responses are cached in-memory for the configured TTL to reduce repeated
-aggregation cost during scrape bursts. You can bypass cache per call with `prometheus.getMetrics({ bypassCache: true })`.
+aggregation cost during scrape bursts.
 
 ### Exposure and security
 
@@ -345,7 +345,6 @@ aggregation cost during scrape bursts. You can bypass cache per call with `prome
 ```ts
 prometheus.registry       // prom-client Registry instance (orchestration metrics, primary)
 prometheus.getMetrics()   // Promise<string> — Prometheus text format (merged)
-prometheus.getMetrics({ bypassCache: true }) // force fresh aggregation for this call
 ```
 
 ---
@@ -407,7 +406,7 @@ console.log(sizing.sizing);
 | `overrideWorkerCount`  | `boolean`                                     | `true`       | Set worker count from cgroup CPU limit. Skipped if `workers` was set to an explicit number.                                                       |
 | `injectNodeOptions`    | `boolean`                                     | `true`       | Inject `--max-old-space-size` into each worker's `NODE_OPTIONS`.                                                                                  |
 | `fallback`             | `boolean`                                     | `true`       | Fall back to OS CPU/memory when no cgroup limits are detected (e.g. on macOS or bare metal). Set to `false` to skip sizing entirely in that case. |
-| `strategy`             | `'balanced' \| 'memory-first' \| 'cpu-first'` | `'balanced'` | Worker count strategy (see below).                                                                                                                |
+| `strategy`             | `'balanced' \| 'cpu-first'`                   | `'balanced'` | Worker count strategy (see below).                                                                                                                |
 | `memoryOverheadFactor` | `number`                                      | `0.80`       | Fraction of total memory allocated to workers (remaining reserved for OS/buffers).                                                                |
 | `heapRatio`            | `number`                                      | `0.75`       | Fraction of per-worker memory allocated to the V8 old-generation heap.                                                                            |
 | `minWorkers`           | `number`                                      | `1`          | Minimum number of workers regardless of CPU limit. Must stay within `1..256`.                                                                    |
@@ -419,7 +418,6 @@ console.log(sizing.sizing);
 | Strategy       | Behaviour                                                                                    |
 |----------------|----------------------------------------------------------------------------------------------|
 | `balanced`     | Workers = `floor(cpuLimit)`, stepped down until each worker has at least 128 MB of heap (default) |
-| `memory-first` | Same reduction as `balanced` — kept as an explicit alias                                     |
 | `cpu-first`    | Full CPU count regardless of memory; heap clamped to the 128 MB viability floor (`constrained: true`) |
 
 ### How it works
