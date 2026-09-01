@@ -826,14 +826,18 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
     if (oldWorker.isDead()) return;
 
-    // Escalate: after 5s send SIGTERM, after 2s more send SIGKILL.
+    // Escalate on the same budget as a coordinated shutdown: the worker keeps
+    // its full graceful window (shutdown.timeoutMs) before SIGTERM, then the
+    // same SIGTERM→SIGINT→SIGKILL escalation window (sigtermDelayMs +
+    // sigintDelayMs) before SIGKILL — matching what
+    // ShutdownCoordinator.killWorkerGradually would spend on it.
     // Calling disconnect() again is a no-op on an already-disconnected
     // worker, so we must escalate to signals to prevent a stuck worker
     // from leaking.
     //
     // The sigkillTimer's exit listener is registered inside the
     // forceKillTimer callback — so if the worker exits after SIGTERM
-    // (before the 2s SIGKILL window), the timer is cleared. Both
+    // (before the SIGKILL window), the timer is cleared. Both
     // listeners use once(), so no listener accumulation across recycles.
     const forceKillTimer = setTimeout(() => {
       if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
@@ -851,11 +855,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
               /* already dead */
             }
           }
-        }, 2_000);
+        }, this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs);
         sigkillTimer.unref();
         oldWorker.once("exit", () => clearTimeout(sigkillTimer));
       }
-    }, 5_000);
+    }, this.cfg.shutdown.timeoutMs);
     forceKillTimer.unref();
     oldWorker.once("exit", () => clearTimeout(forceKillTimer));
   }

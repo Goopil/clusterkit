@@ -1002,14 +1002,23 @@ describe("Orchestrator", () => {
 
   // --------------------------------------------------------------------------
   describe("worker recycle SIGKILL escalation", () => {
-    it("force-kills a recycled worker that does not exit within the timeout", async () => {
+    it("escalates drain kills relative to the configured shutdown budget", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-04-12T00:00:00.000Z"));
 
       mockCluster.isPrimary = true;
+      // Non-default budget to prove the escalation derives from the config
+      // (SIGTERM at shutdown.timeoutMs, SIGKILL after sigtermDelayMs +
+      // sigintDelayMs more) instead of hardcoded delays.
       const orch = new Orchestrator(
         cfg({
           workers: { count: 2, maxAgeMs: 150_000 },
+          shutdown: {
+            timeoutMs: 1_000,
+            ackTimeoutMs: 500,
+            sigtermDelayMs: 300,
+            sigintDelayMs: 200,
+          },
         }),
       );
 
@@ -1037,11 +1046,17 @@ describe("Orchestrator", () => {
       // Keep isDead() returning false so the kill escalation triggers
       vi.spyOn(oldWorker, "isDead").mockReturnValue(false);
 
-      // Advance past 5s (SIGTERM timeout) + 2s (SIGKILL timeout)
-      await vi.advanceTimersByTimeAsync(5_001);
-      await vi.advanceTimersByTimeAsync(2_001);
-
+      // Drain escalation mirrors the coordinated shutdown budget:
+      // SIGTERM at shutdown.timeoutMs (1s here — the old code hardcoded 5s)...
+      await vi.advanceTimersByTimeAsync(999);
+      expect(oldWorker.process.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2);
       expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGTERM");
+
+      // ...and SIGKILL after sigtermDelayMs + sigintDelayMs more.
+      await vi.advanceTimersByTimeAsync(499);
+      expect(oldWorker.process.kill).not.toHaveBeenCalledWith("SIGKILL");
+      await vi.advanceTimersByTimeAsync(2);
       expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGKILL");
       expect(orch.getMetrics().forcedKills).toBe(1);
     });
