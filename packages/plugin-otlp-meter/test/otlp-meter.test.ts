@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
 import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import type { MeterProvider as MeterProviderType } from "@opentelemetry/sdk-metrics";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockHostMetricsStart = vi.fn();
 
@@ -573,5 +573,50 @@ describe("meter version constant", () => {
       MeterProvider.prototype.getMeter = origGetMeter;
       await plugin.shutdown();
     }
+  });
+});
+
+// Global meter provider preservation =========================================
+// The app may configure its own OTel SDK before `run()` — the plugin must not
+// clobber it.
+
+describe("global meter provider preservation", () => {
+  let logger: LoggerSpy;
+
+  beforeEach(async () => {
+    const { metrics } = await import("@opentelemetry/api");
+    metrics.disable(); // clear any global provider left over from other tests
+    logger = mockLogger();
+  });
+
+  afterEach(async () => {
+    const { metrics } = await import("@opentelemetry/api");
+    metrics.disable();
+  });
+
+  it("does not replace an already-registered global meter provider and warns", async () => {
+    const { metrics } = await import("@opentelemetry/api");
+    const { MeterProvider } = await import("@opentelemetry/sdk-metrics");
+    const appProvider = new MeterProvider(); // the app's own OTel setup
+    expect(metrics.setGlobalMeterProvider(appProvider)).toBe(true);
+
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    await plugin.install(mockOrchestrator(), logger, singleWorkerConfig());
+
+    expect(metrics.getMeterProvider()).toBe(appProvider);
+    expect(logger.warn).toHaveBeenCalled();
+    await plugin.shutdown();
+  });
+
+  it("registers its own provider globally when no global provider exists", async () => {
+    const { metrics } = await import("@opentelemetry/api");
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    await plugin.install(mockOrchestrator(), logger, singleWorkerConfig());
+
+    expect(metrics.getMeterProvider()).toBe(plugin.meterProvider);
+    expect(logger.warn).not.toHaveBeenCalled();
+    await plugin.shutdown();
   });
 });
