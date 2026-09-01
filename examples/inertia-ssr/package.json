@@ -14,10 +14,10 @@
     "@goopil/clusterkit": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
     "@inertiajs/vue3": "^3.6.1",
-    "@vue/server-renderer": "^3.5.41",
+    "@vue/server-renderer": "^3.5.42",
     "express": "^5.2.1",
     "prom-client": "^15",
-    "vue": "^3.5.41"
+    "vue": "^3.5.42"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
