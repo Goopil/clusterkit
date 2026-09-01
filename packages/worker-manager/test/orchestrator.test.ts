@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Orchestrator } from "../src/orchestrator";
+import { getCPUCount } from "../src/sizing";
 import { WorkerManagerValidationError } from "../src/validation";
 
 // ============================================================================
@@ -223,6 +224,52 @@ describe("Orchestrator", () => {
   });
 
   // --------------------------------------------------------------------------
+  // AUDIT-033 item 1: the gracefulShutdowns counter was never asserted —
+  // deleting both increment sites passed CI. Each site gets its own test.
+  describe("gracefulShutdowns metric", () => {
+    it("increments when a worker exits gracefully during shutdown", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, sigtermDelayMs: 300, sigintDelayMs: 200 },
+        }),
+      );
+      await orch.run(() => {});
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      expect(orch.getMetrics().gracefulShutdowns).toBe(0);
+
+      // Graceful exit (exitedAfterDisconnect) while shutdown is in progress
+      const [w1] = Object.values(mockCluster.workers);
+      w1.exitedAfterDisconnect = true;
+      mockCluster.emit("exit", w1, 0, null);
+      expect(orch.getMetrics().gracefulShutdowns).toBe(1);
+
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+      expect(orch.getMetrics().gracefulShutdowns).toBe(1);
+    });
+
+    it("increments when a worker exits gracefully outside shutdown", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: 2, restart: { backoffMs: 0 } }));
+      await orch.run(() => {});
+
+      const w = Object.values(mockCluster.workers)[0];
+      w.exitedAfterDisconnect = true;
+      mockCluster.emit("exit", w, 0, null);
+
+      expect(orch.getMetrics().gracefulShutdowns).toBe(1);
+      expect(orch.getMetrics().workerRestarts).toBe(0); // graceful exit must not restart
+    });
+  });
+
+  // --------------------------------------------------------------------------
   describe("getHealth", () => {
     it("should return { ready, live }", () => {
       const health = new Orchestrator(cfg()).getHealth();
@@ -237,6 +284,35 @@ describe("Orchestrator", () => {
       const orch = new Orchestrator(cfg());
       orch.setNotReady();
       expect(orch.getHealth().ready).toBe(false);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // AUDIT-033 item 8: the shutdown guard in setReady() had zero coverage —
+  // removing it would flip readiness back to true during a shutdown.
+  describe("setReady", () => {
+    it("is a no-op while a shutdown is in progress", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, sigtermDelayMs: 300, sigintDelayMs: 200 },
+        }),
+      );
+      await orch.run(() => {});
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      expect(orch.getHealth().ready).toBe(false);
+
+      orch.setReady();
+      expect(orch.getHealth().ready).toBe(false); // must stay false during shutdown
+
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
     });
   });
 
@@ -296,6 +372,49 @@ describe("Orchestrator", () => {
 
       expect(order).toEqual(["callback", "uninstall"]);
       expect(onShutdown).toHaveBeenCalledWith("SIGTERM");
+    });
+
+    // AUDIT-033 item 9: removing the per-callback try/catch passed CI — a
+    // throwing callback aborted runShutdownCallbacks, skipping every later
+    // callback, the plugin uninstall, and the shutdown:complete emission.
+    it("a throwing shutdown callback must not break the drain chain", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, sigtermDelayMs: 300, sigintDelayMs: 200 },
+        }),
+      );
+      const order: string[] = [];
+      orch.use({
+        name: "p",
+        install: vi.fn().mockResolvedValue(undefined),
+        uninstall: async () => {
+          order.push("uninstall");
+        },
+      });
+      await orch.run(() => {});
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+
+      orch.registerOnShutdown(() => {
+        order.push("cb-1");
+        throw new Error("callback boom");
+      });
+      orch.registerOnShutdown(async () => {
+        order.push("cb-2");
+      });
+      const completeEvents: unknown[] = [];
+      orch.on("shutdown:complete", (d) => completeEvents.push(d));
+
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await expect(shutdownPromise).resolves.toBeUndefined();
+
+      expect(order).toEqual(["cb-1", "cb-2", "uninstall"]);
+      expect(completeEvents).toHaveLength(1);
     });
   });
 
@@ -702,6 +821,33 @@ describe("Orchestrator", () => {
       expect(orch.getMetrics().activeWorkers).toBe(3);
     });
 
+    // AUDIT-033 item 5: swapping shift() → pop() (FIFO → LIFO) passed CI —
+    // restart order was never asserted by workerId. All three workers crash
+    // synchronously so no replacement restores capacity between queue entries;
+    // the roll must then process them in crash order.
+    it("processes the restart queue in FIFO order (first crash restarted first)", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(3, { restart: { backoffMs: 0 } });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const restartSpy = vi.spyOn(
+        orch as unknown as {
+          restartWorkerWithBackoff: (workerId: number, code: number | null, signal: string | null) => Promise<void>;
+        },
+        "restartWorkerWithBackoff",
+      );
+
+      const [w1, w2, w3] = Object.values(mockCluster.workers);
+      mockCluster.emit("exit", w1, 1, null);
+      mockCluster.emit("exit", w2, 1, null);
+      mockCluster.emit("exit", w3, 1, null);
+
+      await vi.advanceTimersByTimeAsync(0); // flush replacements' "online" setImmediates
+
+      expect(orch.getMetrics().workerRestarts).toBe(3);
+      expect(restartSpy.mock.calls.map((call) => call[0])).toEqual([w1.id, w2.id, w3.id]);
+    });
+
     it("should not double-increment restart backoff after a crash", async () => {
       vi.useFakeTimers();
       const orch = await setupPrimary(2, {
@@ -1061,6 +1207,97 @@ describe("Orchestrator", () => {
       await vi.advanceTimersByTimeAsync(2);
       expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGKILL");
       expect(orch.getMetrics().forcedKills).toBe(1);
+    });
+
+    // AUDIT-033 item 2: the isShutdownInProgress() guards inside the drain
+    // escalation timers had zero coverage — removing them sends SIGTERM/SIGKILL
+    // to a recycled worker DURING shutdown (recycle × shutdown race). The
+    // shutdown coordinator owns the kill sequence from that point on.
+    //
+    // setImmediate stays REAL (only timers/intervals/Date are faked) so the
+    // mock cluster delivers the replacement's "online" deterministically and
+    // the drain escalation arms BEFORE the test starts the shutdown. Workers
+    // are forked at t=0 with maxAgeMs=10s: the recycle fires at t=60s, arming
+    // the drain escalation (SIGTERM due drain+timeoutMs=61s) — after the test
+    // has resumed and started the shutdown.
+    //
+    // Config-derived escalation windows vs the coordinator's own kill sequence
+    // (starts after ACK + timeoutMs, i.e. shutdown+10.5s):
+    //   drain SIGTERM  = shutdown+10.000s  (asserted at +10.002s, before coordinator SIGTERM)
+    //   drain SIGKILL  = shutdown+16.000s  (asserted at +16.003s, before coordinator SIGKILL at +16.5s)
+    function setupRecycleDrainUnderShutdown() {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+      vi.setSystemTime(new Date("2026-04-12T00:00:00.000Z"));
+
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: { count: 2, maxAgeMs: 10_000 },
+          shutdown: { timeoutMs: 10_000, ackTimeoutMs: 500, sigtermDelayMs: 3_000, sigintDelayMs: 3_000 },
+        }),
+      );
+
+      return { orch, ready: orch.run(() => {}) };
+    }
+
+    it("does not SIGTERM a stuck recycled worker once shutdown has started", async () => {
+      const { orch, ready } = setupRecycleDrainUnderShutdown();
+      await ready;
+      await new Promise<void>((r) => setImmediate(r)); // deliver initial workers' "online"
+
+      const [oldWorker, otherWorker] = Object.values(mockCluster.workers);
+      // Keep the recycled worker stuck so its drain escalation timer is armed
+      oldWorker.autoExitOnDisconnect = false;
+
+      // Trigger age-based recycling: replacement forks, comes online, drain arms
+      await vi.advanceTimersByTimeAsync(60_001);
+      await new Promise<void>((r) => setImmediate(r)); // deliver replacement "online" → drain
+      expect(oldWorker.isConnected()).toBe(false); // drained (shutdown message + disconnect)
+      expect(oldWorker.isDead()).toBe(false); // worker stuck
+
+      // Shutdown starts BEFORE the SIGTERM escalation (drain+timeoutMs) fires
+      otherWorker.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+
+      await vi.advanceTimersByTimeAsync(10_001);
+      expect(oldWorker.process.kill).not.toHaveBeenCalledWith("SIGTERM");
+
+      await vi.advanceTimersByTimeAsync(6_001);
+      expect(oldWorker.process.kill).not.toHaveBeenCalledWith("SIGKILL");
+      expect(orch.getMetrics().forcedKills).toBe(0);
+
+      // Drain the shutdown: the coordinator's own escalation finishes the job
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
+    it("does not SIGKILL a recycled worker once shutdown has started after SIGTERM", async () => {
+      const { orch, ready } = setupRecycleDrainUnderShutdown();
+      await ready;
+      await new Promise<void>((r) => setImmediate(r));
+
+      const [oldWorker, otherWorker] = Object.values(mockCluster.workers);
+      oldWorker.autoExitOnDisconnect = false;
+
+      await vi.advanceTimersByTimeAsync(60_001);
+      await new Promise<void>((r) => setImmediate(r));
+      expect(oldWorker.isConnected()).toBe(false);
+
+      // The SIGTERM escalation (drain+timeoutMs) fires BEFORE shutdown: the
+      // drain escalation is fully armed, its SIGKILL timer now pending.
+      await vi.advanceTimersByTimeAsync(10_001);
+      expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGTERM");
+
+      // Shutdown starts in the SIGKILL window (sigtermDelayMs + sigintDelayMs)
+      otherWorker.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+
+      await vi.advanceTimersByTimeAsync(6_001);
+      expect(oldWorker.process.kill).not.toHaveBeenCalledWith("SIGKILL");
+      expect(orch.getMetrics().forcedKills).toBe(0);
+
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
     });
   });
 
@@ -1460,6 +1697,47 @@ describe("Orchestrator", () => {
         expect(() => oldWorker.process.emit("error", new Error("write EPIPE"))).not.toThrow();
       });
     });
+
+    // AUDIT-033 item 3: removing the mid-roll shutdown guard (`break`) passed
+    // CI — the roll kept forking replacements after shutdown started, which
+    // orphans them (the shutdown kill list is captured at initiation).
+    it("aborts the roll when shutdown starts mid-roll — no further forks, no orphans", async () => {
+      vi.useFakeTimers();
+      const orchestrator = await setupPrimary(3, FAST_SHUTDOWN);
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+      const restartStartEvents: Array<{ reason: string; workerIds: number[] }> = [];
+      orchestrator.on("restart:start", (d) => restartStartEvents.push(d));
+
+      // Iteration 1 completes (fork + drain + exit), then the roll parks in
+      // the 200ms stagger window.
+      const rollPromise = orchestrator.restartWorkers({ staggerMs: 200, reason: "mid-shutdown" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(forkSpy).toHaveBeenCalledTimes(1); // 1 replacement forked so far
+      expect(restartStartEvents).toHaveLength(1);
+
+      // Shutdown starts during the stagger window — every worker (including
+      // the mid-roll replacement) must die with the shutdown, not orphaned.
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
+      const shutdownPromise = orchestrator.shutdownPrimary("SIGTERM");
+
+      // Flush everything: the roll must stop forking after shutdown started.
+      await vi.advanceTimersByTimeAsync(200);
+      await vi.runAllTimersAsync();
+      await Promise.all([rollPromise, shutdownPromise]);
+      expect(forkSpy).toHaveBeenCalledTimes(1); // ← kills break removal
+
+      // Drain the shutdown fully: no orphan worker may survive
+      for (const w of Object.values(mockCluster.workers)) {
+        expect(w!.isDead()).toBe(true); // ← mid-roll forks would survive shutdown
+      }
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -1768,6 +2046,40 @@ describe("Orchestrator", () => {
         } else {
           process.env.WEB_CONCURRENCY = prevWebConcurrency;
         }
+      }
+    });
+
+    // AUDIT-033 item 10: any variation of the WEB_CONCURRENCY grammar passed
+    // CI. These cases pin the observable parse semantics: parseInt-style
+    // prefixing (NOT scientific notation), positivity requirement with CPU
+    // fallback, and whitespace tolerance.
+    describe("WEB_CONCURRENCY grammar", () => {
+      const cpuCount = getCPUCount();
+
+      const cases: Array<{ raw: string; expected: number | "cpu" }> = [
+        { raw: "1e3", expected: 1 }, // parseInt("1e3") === 1 — prefix parse, not scientific notation
+        { raw: "0", expected: "cpu" }, // zero is rejected → CPU-count fallback
+        { raw: "-3", expected: "cpu" }, // negative is rejected → CPU-count fallback
+        { raw: "NaN", expected: "cpu" }, // unparseable → CPU-count fallback
+        { raw: " 8 ", expected: 8 }, // surrounding whitespace tolerated
+      ];
+
+      for (const { raw, expected } of cases) {
+        it(`WEB_CONCURRENCY=${JSON.stringify(raw)} → ${expected === "cpu" ? "CPU count fallback" : expected}`, () => {
+          const prevWebConcurrency = process.env.WEB_CONCURRENCY;
+          process.env.WEB_CONCURRENCY = raw;
+
+          try {
+            const orch = new Orchestrator(cfg({ workers: "auto" }));
+            expect(orch.workerCount).toBe(expected === "cpu" ? cpuCount : expected);
+          } finally {
+            if (prevWebConcurrency === undefined) {
+              delete process.env.WEB_CONCURRENCY;
+            } else {
+              process.env.WEB_CONCURRENCY = prevWebConcurrency;
+            }
+          }
+        });
       }
     });
   });
