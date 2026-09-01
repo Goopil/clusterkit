@@ -27,7 +27,9 @@ async function start() {
   app.post("/:path", handler.default);
 
   const port = Number.parseInt(process.env.PORT || "3100", 10);
-  app.listen(port, "0.0.0.0");
+  app.listen(port, "0.0.0.0", () => {
+    if (typeof process.send === "function") process.send("ready");
+  });
 }
 
 start();
