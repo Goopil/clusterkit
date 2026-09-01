@@ -25,8 +25,8 @@ Priorisation: **impact × risque × urgence / effort**. Chaque tâche référenc
 
 ## Phase 2 — Performance (impact mesurable)
 
-- [ ] AUDIT-019 — upstream PR prom-client (`requests.delete` dans le path timeout) + documenter le symptôme côté plugin. *Effort: M (dépend upstream).*
-- [ ] AUDIT-026 — `METRICS_HOST` supporté dans les exemples (défaut loopback hors Docker) + fix de la phrase README:588. *Effort: S.*
+- [x] AUDIT-019 — upstream PR prom-client (`requests.delete` dans le path timeout) + documenter le symptôme côté plugin. *Effort: M (dépend upstream).*
+- [x] AUDIT-026 — `METRICS_HOST` supporté dans les exemples (défaut loopback hors Docker) + fix de la phrase README:588. *Effort: S.*
 - [ ] Ajouter le runbook minimal et 2-3 benchmarks recommandés (scrape storm, fork rate) dans `benchmarks/` — seulement si un besoin réel se manifeste. *Effort: M. Sinon: skip (voir Do-not-fix).*
 
 ## Phase 3 — Architecture (dette structurelle)
