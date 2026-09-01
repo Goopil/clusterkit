@@ -159,12 +159,12 @@ const caps = await Orchestrator.getCapabilities();
 
 // Entry point
 orchestrator.run(start);                 // runs primary or worker logic
-orchestrator.use(plugin);               // register a plugin (chainable)
+orchestrator.use(plugin);               // register a plugin (chainable, must be called before run())
 orchestrator.registerOnShutdown(cb);    // called in each worker before exit
 
 // Observability
 orchestrator.getMetrics();              // WorkerMetrics snapshot
-orchestrator.getHealth();               // { ready: boolean, live: boolean }
+orchestrator.getHealth();               // { ready: boolean, live: boolean } — live is always true by design
 orchestrator.setNotReady();             // mark ready=false (e.g. during rolling deploys)
 orchestrator.setReady();                // restore ready=true (no-op during shutdown)
 orchestrator.resetCircuitBreaker();     // re-arm after a crash-loop trip; refills missing workers
@@ -234,6 +234,8 @@ In each worker, the shutdown sequence is:
 
 If workers crash more than `crashThreshold` times within `crashWindowMs`, the orchestrator stops restarting them and
 emits `circuit-breaker:tripped`. This prevents infinite crash loops that would otherwise exhaust system resources.
+Each trip also emits a `process.emitWarning` (code `ClusterKitCrashLoop`) so setups without a configured logger are not
+fully silent.
 
 ### Health checks
 
@@ -241,8 +243,8 @@ emits `circuit-breaker:tripped`. This prevents infinite crash loops that would o
 const health = orchestrator.getHealth();
 // { ready: boolean, live: boolean }
 
-// live becomes false when primary is running but has zero active workers
-// ready becomes false during shutdown or when setNotReady() is called
+// live is always true by design — readiness is the signal, not liveness
+// ready becomes false during shutdown, after a circuit-breaker trip, or via setNotReady()
 ```
 
 Use these with your Kubernetes liveness / readiness probes.
@@ -548,7 +550,8 @@ const myPlugin: OrchestratorPlugin = {
 orchestrator.use(myPlugin).run(/* ... */);
 ```
 
-`use()` is chainable and plugins are installed in registration order.
+`use()` is chainable and plugins are installed in registration order. Plugins must be registered before `run()` —
+calling `use()` afterwards throws.
 
 **Plugin helpers available in `install()`:**
 

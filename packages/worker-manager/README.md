@@ -117,7 +117,7 @@ unless `crashThreshold` is reached inside `crashWindowMs`.
 const orchestrator = new Orchestrator(config);
 
 await orchestrator.run(start);
-orchestrator.use(plugin);
+orchestrator.use(plugin); // must be called before run() — throws afterwards
 orchestrator.registerOnShutdown(cb);
 
 orchestrator.overrideWorkerCount(4); // capped at 256

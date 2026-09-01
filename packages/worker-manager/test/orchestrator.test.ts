@@ -118,6 +118,8 @@ beforeEach(() => {
   // Prevent MaxListenersExceededWarning across all tests in this file
   process.setMaxListeners(100);
   vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+  // Breaker-trip tests would otherwise print real ClusterKitCrashLoop warnings
+  vi.spyOn(process, "emitWarning").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -276,6 +278,26 @@ describe("Orchestrator", () => {
       const health = new Orchestrator(cfg()).getHealth();
       expect(health).toHaveProperty("ready", true);
       expect(health).toHaveProperty("live", true);
+    });
+
+    // health.live is constant by design: a live primary with a tripped breaker
+    // is still alive — readiness carries the failure signal, not liveness.
+    it("keeps live=true even after the circuit breaker trips", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          restart: { crashThreshold: 2, crashWindowMs: 60_000 },
+        }),
+      );
+      await orch.run(() => {});
+
+      for (let i = 0; i < 2; i++) {
+        const all = Object.values(mockCluster.workers);
+        mockCluster.emit("exit", all[all.length - 1], 1, null);
+      }
+
+      expect(orch.getHealth()).toEqual({ ready: false, live: true });
     });
   });
 
@@ -1877,6 +1899,58 @@ describe("Orchestrator", () => {
       }
       expect(orch.getMetrics().crashLoopBackoffs).toBe(1);
     });
+
+    // The default logger is null — without a process warning, a minimal setup
+    // loses restart capacity with zero output. One warning per trip.
+    it("emits a process warning once per trip even without a logger", async () => {
+      vi.useFakeTimers();
+      const emitWarning = process.emitWarning as unknown as ReturnType<typeof vi.fn>;
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          restart: { crashThreshold: 2, crashWindowMs: 60_000 },
+        }),
+      );
+      await orch.run(() => {});
+
+      // Trip on the 2nd crash, then crash two more times while tripped
+      for (let i = 0; i < 4; i++) {
+        const all = Object.values(mockCluster.workers);
+        mockCluster.emit("exit", all[all.length - 1], 1, null);
+      }
+      // Let the pre-trip queued restart settle (bounded: runAllTimersAsync
+      // would loop forever on the 5-minute crashCleanupInterval)
+      await vi.advanceTimersByTimeAsync(2_000);
+
+      expect(emitWarning).toHaveBeenCalledTimes(1);
+      expect(emitWarning).toHaveBeenCalledWith(expect.stringContaining("Crash loop"), "ClusterKitCrashLoop");
+    });
+
+    it("warns again if the breaker trips a second time after a reset", async () => {
+      const emitWarning = process.emitWarning as unknown as ReturnType<typeof vi.fn>;
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          restart: { crashThreshold: 2, crashWindowMs: 60_000 },
+        }),
+      );
+      await orch.run(() => {});
+
+      for (let i = 0; i < 2; i++) {
+        const all = Object.values(mockCluster.workers);
+        mockCluster.emit("exit", all[all.length - 1], 1, null);
+      }
+      expect(emitWarning).toHaveBeenCalledTimes(1);
+
+      orch.resetCircuitBreaker();
+      for (let i = 0; i < 2; i++) {
+        const all = Object.values(mockCluster.workers);
+        mockCluster.emit("exit", all[all.length - 1], 1, null);
+      }
+      expect(emitWarning).toHaveBeenCalledTimes(2);
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -1885,6 +1959,28 @@ describe("Orchestrator", () => {
       const orch = new Orchestrator(cfg());
       const plugin = { name: "test", install: vi.fn() };
       expect(orch.use(plugin)).toBe(orch);
+    });
+
+    // A plugin registered after run() used to be silently ignored but still
+    // uninstalled at shutdown — now it throws instead.
+    it("use() throws after run() and pre-run plugins still install", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      const install = vi.fn().mockResolvedValue(undefined);
+      orch.use({ name: "early", install });
+      await orch.run(() => {});
+      expect(install).toHaveBeenCalledOnce();
+
+      expect(() => orch.use({ name: "late", install: vi.fn() })).toThrow(
+        "use: cannot be called after run() — plugins must be registered before the orchestrator starts",
+      );
+    });
+
+    it("use() throws after run() even in single-worker mode (no fork)", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: 1 }));
+      await orch.run(() => {});
+      expect(() => orch.use({ name: "late", install: vi.fn() })).toThrow(/after run\(\)/);
     });
 
     it("install() is called once during run()", async () => {
@@ -2097,6 +2193,48 @@ describe("Orchestrator", () => {
           }
         });
       }
+    });
+
+    // An invalid WEB_CONCURRENCY silently falling back to the CPU count is a
+    // grammar surprise — it must be visible through the logger facade.
+    describe("WEB_CONCURRENCY invalid-value warning", () => {
+      function withWebConcurrency(raw: string, fn: () => void) {
+        const prevWebConcurrency = process.env.WEB_CONCURRENCY;
+        process.env.WEB_CONCURRENCY = raw;
+        try {
+          fn();
+        } finally {
+          if (prevWebConcurrency === undefined) {
+            delete process.env.WEB_CONCURRENCY;
+          } else {
+            process.env.WEB_CONCURRENCY = prevWebConcurrency;
+          }
+        }
+      }
+
+      function loggerWithWarnSpy() {
+        const warn = vi.fn();
+        return { warn, logger: { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() } };
+      }
+
+      it.each(["0", "-3", "NaN"])("warns once for WEB_CONCURRENCY=%s before falling back to CPU count", (raw) => {
+        withWebConcurrency(raw, () => {
+          const { warn, logger } = loggerWithWarnSpy();
+          const orch = new Orchestrator(cfg({ workers: "auto", logger }));
+          expect(orch.workerCount).toBe(getCPUCount());
+          expect(warn).toHaveBeenCalledTimes(1);
+          expect(warn.mock.calls[0][0]).toContain("WEB_CONCURRENCY");
+        });
+      });
+
+      it("does not warn for valid values (parseInt grammar untouched)", () => {
+        withWebConcurrency("1e3", () => {
+          const { warn, logger } = loggerWithWarnSpy();
+          const orch = new Orchestrator(cfg({ workers: "auto", logger }));
+          expect(orch.workerCount).toBe(1); // parseInt("1e3") === 1 — valid, no warning
+          expect(warn).not.toHaveBeenCalled();
+        });
+      });
     });
   });
 
