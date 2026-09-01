@@ -1,5 +1,11 @@
 # @goopil/clusterkit-prometheus
 
+## 1.1.2
+
+### Patch Changes
+
+- [#114](https://github.com/Goopil/clusterkit/pull/114) [`e1991cb`](https://github.com/Goopil/clusterkit/commit/e1991cbce92dd47595afdb7c61f10bba50ce8c9e) Thanks [@Goopil](https://github.com/Goopil)! - Guard `collectDefaultMetrics` against reinstall duplicates (single-worker reinstall with the same registry no longer rejects) and make `getMetrics()` fail fast with an explicit error when called outside the primary process.
+
 ## 1.1.1
 
 ### Patch Changes

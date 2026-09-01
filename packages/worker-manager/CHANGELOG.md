@@ -1,5 +1,13 @@
 # @goopil/clusterkit
 
+## 1.2.3
+
+### Patch Changes
+
+- [#113](https://github.com/Goopil/clusterkit/pull/113) [`c105c35`](https://github.com/Goopil/clusterkit/commit/c105c3529bc2314e49abe094a699c61c41f07641) Thanks [@Goopil](https://github.com/Goopil)! - `installPlugins` now isolates plugin failures: the error names the failing plugin and plugins already installed are rolled back (uninstalled) before `run()` rejects.
+
+- [#116](https://github.com/Goopil/clusterkit/pull/116) [`69fff60`](https://github.com/Goopil/clusterkit/commit/69fff60ad5d7bb3ff0afae440fb55eda2e1a8d29) Thanks [@Goopil](https://github.com/Goopil)! - Derive recycle drain escalation delays (SIGTERM/SIGKILL) from the shutdown config instead of hardcoded 5s/2s, suppress the misleading `restart:complete` event when a rolling restart is aborted by shutdown, and prevent an async EPIPE from a dying worker's IPC channel from crashing the primary during drain.
+
 ## 1.2.2
 
 ### Patch Changes
