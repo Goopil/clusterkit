@@ -84,6 +84,9 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
   let envPollInterval: NodeJS.Timeout | undefined;
   let debounceTimer: NodeJS.Timeout | undefined;
   let maxWaitTimer: NodeJS.Timeout | undefined;
+  let trailingTimer: NodeJS.Timeout | undefined;
+  let startDelayTimer: NodeJS.Timeout | undefined;
+  let closed = false;
   let pendingReason: string | undefined;
   let pendingEnv: NodeJS.ProcessEnv | undefined;
   let lastRestartAt = 0;
@@ -115,18 +118,29 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
           clearTimeout(maxWaitTimer);
           maxWaitTimer = undefined;
         }
+        if (trailingTimer) {
+          clearTimeout(trailingTimer);
+          trailingTimer = undefined;
+        }
         const reason = pendingReason ?? "file-change";
         const env = pendingEnv;
-        pendingReason = undefined;
-        pendingEnv = undefined;
         if (dryRun) {
+          pendingReason = undefined;
+          pendingEnv = undefined;
           log?.info("Dry run — would trigger hot restart", { reason });
           return;
         }
         if (minRestartIntervalMs > 0 && Date.now() - lastRestartAt < minRestartIntervalMs) {
           log?.debug("Skipping hot restart, within min restart interval", { reason, minRestartIntervalMs });
+          // Trailing flush: retry after the remaining interval, keeping the pending payload.
+          if (!trailingTimer) {
+            const remaining = minRestartIntervalMs - (Date.now() - lastRestartAt);
+            trailingTimer = setTimeout(() => void flushRestart(), remaining).unref();
+          }
           return;
         }
+        pendingReason = undefined;
+        pendingEnv = undefined;
         log?.info("Triggering hot restart", { reason });
         lastRestartAt = Date.now();
         try {
@@ -141,7 +155,8 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
 
       const triggerRestart = (reason: string, env?: NodeJS.ProcessEnv): void => {
         pendingReason = reason;
-        pendingEnv = env;
+        // Merge instead of overwrite so a plain file change doesn't erase a pending .env payload.
+        pendingEnv = env === undefined ? pendingEnv : { ...pendingEnv, ...env };
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => void flushRestart(), debounceMs).unref();
         // Anti-starvation: arm the max-wait timer once, on the first unflushed change,
@@ -152,6 +167,7 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
       };
 
       const startWatchers = (): void => {
+        if (closed) return;
         // File watchers — chokidar for cross-platform reliability (v4: literal paths only)
         if (watchPaths.length > 0) {
           const chokidarOpts: ChokidarOptions = {
@@ -254,7 +270,7 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
 
       const start = (): void => {
         if (startDelayMs > 0) {
-          setTimeout(startWatchers, startDelayMs).unref();
+          startDelayTimer = setTimeout(startWatchers, startDelayMs).unref();
         } else {
           startWatchers();
         }
@@ -263,6 +279,11 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
       start();
 
       orchestrator.registerOnShutdown(async () => {
+        closed = true;
+        if (startDelayTimer) {
+          clearTimeout(startDelayTimer);
+          startDelayTimer = undefined;
+        }
         await Promise.all(watchers.map((w) => w.close()));
         watchers = [];
         if (envPollInterval) {
@@ -277,11 +298,20 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
           clearTimeout(maxWaitTimer);
           maxWaitTimer = undefined;
         }
+        if (trailingTimer) {
+          clearTimeout(trailingTimer);
+          trailingTimer = undefined;
+        }
         watching = false;
       });
     },
 
     async uninstall(): Promise<void> {
+      closed = true;
+      if (startDelayTimer) {
+        clearTimeout(startDelayTimer);
+        startDelayTimer = undefined;
+      }
       await Promise.all(watchers.map((w) => w.close()));
       watchers = [];
       if (envPollInterval) {
@@ -295,6 +325,10 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
       if (maxWaitTimer) {
         clearTimeout(maxWaitTimer);
         maxWaitTimer = undefined;
+      }
+      if (trailingTimer) {
+        clearTimeout(trailingTimer);
+        trailingTimer = undefined;
       }
       watching = false;
     },
