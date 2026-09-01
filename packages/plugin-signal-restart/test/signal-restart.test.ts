@@ -6,14 +6,14 @@ import { createSignalRestartPlugin } from "../src/index";
 
 vi.mock("node:cluster", () => ({ default: { isPrimary: true } }));
 
-function mockOrchestrator(): Orchestrator {
-  const emitter = new EventEmitter() as Orchestrator & {
+function mockOrchestrator(workerCount = 2): Orchestrator {
+  const emitter = new EventEmitter() as EventEmitter & {
+    workerCount: number;
     restartWorkers: ReturnType<typeof vi.fn>;
   };
-  (emitter as unknown as { restartWorkers: ReturnType<typeof vi.fn> }).restartWorkers = vi
-    .fn()
-    .mockResolvedValue(undefined);
-  return emitter;
+  emitter.workerCount = workerCount;
+  emitter.restartWorkers = vi.fn().mockResolvedValue(undefined);
+  return emitter as unknown as Orchestrator;
 }
 
 function mockConfig(count: number | "auto" = 2): ResolvedConfig {
@@ -93,7 +93,7 @@ describe("signal-restart plugin", () => {
 
   it("sends SIGTERM to self in single-worker mode", async () => {
     const plugin = createSignalRestartPlugin();
-    const orch = mockOrchestrator();
+    const orch = mockOrchestrator(1);
     const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
 
     await plugin.install(orch, null, mockConfig(1));
@@ -102,6 +102,22 @@ describe("signal-restart plugin", () => {
     await sighupHandler();
 
     expect(killSpy).toHaveBeenCalledWith(process.pid, "SIGTERM");
+    killSpy.mockRestore();
+  });
+
+  it("sends SIGTERM to self when workers is 'auto' but resolves to a single worker", async () => {
+    const plugin = createSignalRestartPlugin();
+    const orch = mockOrchestrator(1);
+    const restartWorkers = (orch as unknown as { restartWorkers: ReturnType<typeof vi.fn> }).restartWorkers;
+    const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
+
+    await plugin.install(orch, null, mockConfig("auto"));
+
+    const sighupHandler = handlers.find((h) => h.signal === "SIGHUP")!.handler;
+    await sighupHandler();
+
+    expect(killSpy).toHaveBeenCalledWith(process.pid, "SIGTERM");
+    expect(restartWorkers).not.toHaveBeenCalled();
     killSpy.mockRestore();
   });
 
