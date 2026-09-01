@@ -1,5 +1,11 @@
 # @goopil/clusterkit-file-watcher
 
+## 1.1.2
+
+### Patch Changes
+
+- [#115](https://github.com/Goopil/clusterkit/pull/115) [`88d1969`](https://github.com/Goopil/clusterkit/commit/88d19699d17512be2979f8e925943ac3517e6f9f) Thanks [@Goopil](https://github.com/Goopil)! - Cancel the pending `startDelayMs` timer on uninstall/shutdown, guard `startWatchers` against a post-cleanup start, and preserve (merge, not overwrite) the `.env` payload through debounce coalescing with a trailing flush after `minRestartIntervalMs` skips.
+
 ## 1.1.1
 
 ### Patch Changes

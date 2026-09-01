@@ -1,5 +1,11 @@
 # @goopil/clusterkit-otlp-meter
 
+## 1.1.2
+
+### Patch Changes
+
+- [#114](https://github.com/Goopil/clusterkit/pull/114) [`e1991cb`](https://github.com/Goopil/clusterkit/commit/e1991cbce92dd47595afdb7c61f10bba50ce8c9e) Thanks [@Goopil](https://github.com/Goopil)! - Reset the shutdown latch on reinstall so a plugin instance can be reinstalled: the previous provider is shut down first and the new one can flush.
+
 ## 1.1.1
 
 ### Patch Changes
