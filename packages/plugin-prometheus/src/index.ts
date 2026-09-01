@@ -223,6 +223,11 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     },
 
     async getMetrics(): Promise<string> {
+      if (!cluster.isPrimary) {
+        throw new Error(
+          "prometheus plugin: getMetrics() must be called in the primary process — orchestration metrics are only updated on the primary. Mount the /metrics endpoint on the primary; see README.md",
+        );
+      }
       return mergedMetrics();
     },
   };

@@ -71,6 +71,10 @@ prometheus.registry;
 await prometheus.getMetrics();
 ```
 
+`getMetrics()` must be called in the primary process — orchestration metrics are only
+updated there (event listeners bind on the primary only). Calling it from a worker
+throws with an explicit error instead of silently returning all-zero metrics.
+
 ## Metrics exposed
 
 With the default prefix (`clusterkit_`):

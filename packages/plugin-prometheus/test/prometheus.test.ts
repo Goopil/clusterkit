@@ -1,3 +1,4 @@
+import cluster from "node:cluster";
 import { EventEmitter } from "node:events";
 import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import { AggregatorRegistry, Registry } from "prom-client";
@@ -285,6 +286,20 @@ describe("plugin lifecycle", () => {
 // ============================================================================
 
 describe("getMetrics()", () => {
+  it("throws when called outside the primary process", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null);
+
+    const originalIsPrimary = cluster.isPrimary;
+    Object.defineProperty(cluster, "isPrimary", { value: false, configurable: true });
+    try {
+      await expect(plugin.getMetrics()).rejects.toThrow(/getMetrics\(\) must be called in the primary/);
+    } finally {
+      Object.defineProperty(cluster, "isPrimary", { value: originalIsPrimary, configurable: true });
+    }
+  });
+
   it("returns a string after install()", async () => {
     const plugin = makePlugin();
     const orch = mockOrchestrator();
