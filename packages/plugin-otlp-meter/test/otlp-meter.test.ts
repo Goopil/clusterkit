@@ -307,6 +307,27 @@ describe("shutdown safety", () => {
     await shutdownCb?.();
     await expect(plugin.shutdown()).resolves.not.toThrow();
   });
+
+  it("resets the shutdown latch on reinstall so the new provider can be shut down", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, singleWorkerConfig());
+    const first = plugin.meterProvider;
+    await plugin.shutdown();
+    expect(plugin.meterProvider).toBeUndefined();
+
+    // Reinstall the same instance after shutdown: the new provider must be usable
+    await plugin.install(orch, null, singleWorkerConfig());
+    const second = plugin.meterProvider;
+    expect(second).toBeDefined();
+    expect(second).not.toBe(first);
+
+    // The latch was reset: shutdown() must actually shut down the new provider
+    await plugin.shutdown();
+    expect(plugin.meterProvider).toBeUndefined();
+  });
 });
 
 // Plugin lifecycle logging ===================================================
