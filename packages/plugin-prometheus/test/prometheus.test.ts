@@ -434,6 +434,16 @@ describe("single-worker mode", () => {
     expect(out).toContain("process_cpu_user_seconds_total");
   });
 
+  it("does not re-register default metrics after uninstall and reinstall in single-worker mode", async () => {
+    const registry = new Registry();
+    const plugin = createPrometheusPlugin({ defaultMetrics: true, registry });
+    const orch = mockOrchestrator(0, 1);
+
+    await plugin.install(orch, null, singleWorkerConfig());
+    await plugin.uninstall?.(orch);
+    await expect(plugin.install(orch, null, singleWorkerConfig())).resolves.not.toThrow();
+  });
+
   it("sets active_workers to 1 when workers is 'auto' and resolves to 1", async () => {
     const plugin = makePlugin();
     const orch = mockOrchestrator(0, 1);
