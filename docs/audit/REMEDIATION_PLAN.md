@@ -8,8 +8,8 @@ Priorisation: **impact × risque × urgence / effort**. Chaque tâche référenc
 - [ ] Fix AUDIT-012 — flush OTLP aussi dans `uninstall()` (idempotent) — protège le path uninstall même avant la correction complète de 001. *Effort: XS.*
 - [ ] Fix AUDIT-004 — `.unref()` sur le timer de backoff (`orchestrator.ts:748`). *Effort: XS — une ligne.*
 - [x] Fix AUDIT-013 — `orchestrator.workerCount === 1` dans signal-restart (`:58`) et file-watcher (`:104`). *Effort: XS + tests.*
-- [ ] Fix AUDIT-023 — SHA-pinner `codecov-action`, `upload-artifact`, et les 3 `@v4` de cq.yml. *Effort: XS.*
-- [ ] Fix AUDIT-024 — `publint` en devDependencies racine, `pnpm exec publint` dans CI. *Effort: XS.*
+- [x] Fix AUDIT-023 — SHA-pinner `codecov-action`, `upload-artifact`, et les 3 `@v4` de cq.yml. *Effort: XS.*
+- [x] Fix AUDIT-024 — `publint` en devDependencies racine, `pnpm exec publint` dans CI. *Effort: XS.*
 
 ## Phase 1 — Stabilisation (réduction du risque, ≤ 1 semaine)
 
