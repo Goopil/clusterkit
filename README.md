@@ -141,8 +141,10 @@ Backoff resets are stability-based: the delay returns to the initial value only 
 `restart.stabilityWindowMs`.
 
 > **Security defaults** — `workers.execArgv` rejects code-loading/debug flags (`--require`/`-r`, `--eval`/`-e`,
-> `--print`/`-p`, `--inspect`/`--inspect-brk`/`--inspect-port`, `--import`, `--loader`/`--experimental-loader`),
-> because a JSON/YAML config could otherwise carry remote code into workers. `workers.env` rejects
+> `--print`/`-p`, `--inspect`/`--inspect-brk`/`--inspect-port`, `--import`, `--loader`/`--experimental-loader`) and
+> side-effect flags (`--tls-keylog`, `--cpu-prof*`, `--heap-prof*`, `--report-*`, `--diagnostic-dir`,
+> `--redirect-warnings`), because a JSON/YAML config could otherwise carry remote code into workers or make them write
+> diagnostics to disk. `workers.env` rejects
 > `__proto__`/`constructor`/`prototype` keys in every env path (config, `patchWorkerEnv()`, restart env overlay), and
 > a `NODE_OPTIONS` entry in `workers.env` triggers a `ClusterKitSecurityWarning` advisory since it can bypass the
 > `execArgv` blocklist. See the [core README](./packages/worker-manager/README.md) for details.
