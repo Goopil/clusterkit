@@ -1,5 +1,11 @@
 # @goopil/clusterkit-sizing
 
+## 1.1.1
+
+### Patch Changes
+
+- [#76](https://github.com/Goopil/clusterkit/pull/76) [`405a32c`](https://github.com/Goopil/clusterkit/commit/405a32c6bd38aa9b0e36d510aaef8fb0077df700) Thanks [@Goopil](https://github.com/Goopil)! - Over-engineering cleanup: remove dead methods and flags (`bypassCache`, `memory-first` strategy, `clusterRecommended`), simplify internals. The shutdown non-ACK warn (previously unreachable) now fires with a worker count.
+
 ## 1.1.0
 
 ### Minor Changes
