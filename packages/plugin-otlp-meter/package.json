@@ -1,6 +1,6 @@
 {
   "name": "@goopil/clusterkit-otlp-meter",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "OpenTelemetry OTLP metrics plugin for @goopil/clusterkit: exports orchestration counters/gauges and per-worker host metrics via OTLP/HTTP or OTLP/gRPC to a collector.",
   "keywords": [
     "opentelemetry",

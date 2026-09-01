@@ -1,5 +1,11 @@
 # @goopil/clusterkit-signal-restart
 
+## 1.1.1
+
+### Patch Changes
+
+- [#106](https://github.com/Goopil/clusterkit/pull/106) [`383a617`](https://github.com/Goopil/clusterkit/commit/383a617f15bbb64fd3a40f6e717dd2d9914fbce2) Thanks [@Goopil](https://github.com/Goopil)! - Fix single-worker detection: use the resolved `orchestrator.workerCount` instead of the raw config so `workers: 'auto'` on a 1-CPU host correctly takes the single-worker path.
+
 ## 1.1.0
 
 ### Minor Changes

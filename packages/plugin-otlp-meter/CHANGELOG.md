@@ -1,5 +1,11 @@
 # @goopil/clusterkit-otlp-meter
 
+## 1.1.1
+
+### Patch Changes
+
+- [#107](https://github.com/Goopil/clusterkit/pull/107) [`7e71a94`](https://github.com/Goopil/clusterkit/commit/7e71a946657e05adffd8f7a226acd7bbd2a71ec4) Thanks [@Goopil](https://github.com/Goopil)! - Flush the OTLP exporter when the plugin is uninstalled (idempotent via the existing shutdown latch).
+
 ## 1.1.0
 
 ### Minor Changes
