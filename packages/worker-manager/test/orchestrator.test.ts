@@ -901,6 +901,41 @@ describe("Orchestrator", () => {
       }
     });
 
+    // Audit AUDIT-004: the crash-restart backoff timer must not keep the
+    // event loop alive — if shutdown starts during a backoff window the
+    // primary would otherwise hang until the timer expires and `docker stop`
+    // escalates to SIGKILL.
+    it("should unref the crash-restart backoff timer", async () => {
+      const unrefSpy = vi.fn();
+      const nativeSetTimeout = globalThis.setTimeout;
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+        handler: (...args: unknown[]) => void,
+        delay?: number,
+        ...args: unknown[]
+      ) => {
+        const timer = nativeSetTimeout(handler, delay, ...args) as NodeJS.Timeout;
+        const originalUnref = timer.unref.bind(timer);
+        timer.unref = () => {
+          unrefSpy();
+          return originalUnref();
+        };
+        return timer;
+      }) as typeof setTimeout);
+
+      const _orch = await setupPrimary(2, { restart: { backoffMs: 5_000 } });
+
+      // Crash one worker: the restart loop schedules (and must unref) the
+      // 5s backoff timer synchronously within the spied window.
+      mockCluster.emit("exit", Object.values(mockCluster.workers)[0], 1, null);
+
+      const backoffCallIndex = setTimeoutSpy.mock.calls.findIndex(([, delay]) => delay === 5_000);
+      expect(backoffCallIndex).toBeGreaterThanOrEqual(0);
+      expect(unrefSpy).toHaveBeenCalledTimes(1);
+
+      // Do not let the pending backoff timer outlive the test.
+      clearTimeout(setTimeoutSpy.mock.results[backoffCallIndex].value as NodeJS.Timeout);
+    });
+
     it("should terminate a replacement forked before shutdown together with the initial fleet", async () => {
       vi.useFakeTimers();
       const orch = await setupPrimary(2, {

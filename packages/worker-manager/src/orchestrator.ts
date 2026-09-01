@@ -745,7 +745,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
     if (delayMs > 0) {
       this.log?.info("Waiting before restart", { delayMs, workerId: crashedWorkerId });
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      await new Promise((resolve) => setTimeout(resolve, delayMs).unref());
 
       // Double check shutdown hasn't started during wait
       if (this.shutdownCoordinator.isShutdownInProgress()) {
