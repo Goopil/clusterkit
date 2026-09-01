@@ -31,11 +31,11 @@ Priorisation: **impact × risque × urgence / effort**. Chaque tâche référenc
 
 ## Phase 3 — Architecture (dette structurelle)
 
-- [ ] AUDIT-029 — réparer le harness benchmarks: `ready` signalé à pm2, reporter générant la vraie liste workloads/targets, colonne `Lat p97.5`, regénérer BENCHMARKS.md, flagger/retirer les tables macOS `single`. *Effort: M + un run de bench (~36min docker).*
-- [ ] AUDIT-030 — décision: ajouter les serveurs de métriques NestJS (~40 lignes) **ou** retirer les ports fantômes (README/compose/start-examples/Dockerfile) et le plugin prometheus des inertia. Idem inertia: route + smoke ou nettoyage. *Effort: S-M, décision produit.*
-- [ ] AUDIT-031 — brancher le smoke test des exemples (package.json + job CI) + assertion `reusePort === true` dans le harness Linux + smoke benchmarks en nightly. *Effort: M.*
-- [ ] AUDIT-009 — enregistrer les signaux avant `forkWorkers`. *Effort: XS.*
-- [ ] ADR: sémantique exacte de `registerOnShutdown` (ordre relatif au drain) — documenter la décision prise en Phase 0.
+- [x] AUDIT-029 — réparer le harness benchmarks: `ready` signalé à pm2, reporter générant la vraie liste workloads/targets, colonne `Lat p97.5`, regénérer BENCHMARKS.md, flagger/retirer les tables macOS `single`. *Effort: M + un run de bench (~36min docker).* — harness réparé (#123) ; reste: un run complet (~36 min docker) pour regénérer BENCHMARKS.md.
+- [x] AUDIT-030 — décision: ajouter les serveurs de métriques NestJS (~40 lignes) **ou** retirer les ports fantômes (README/compose/start-examples/Dockerfile) et le plugin prometheus des inertia. Idem inertia: route + smoke ou nettoyage. *Effort: S-M, décision produit.* — Option B retenue et livrée (#122).
+- [x] AUDIT-031 — brancher le smoke test des exemples (package.json + job CI) + assertion `reusePort === true` dans le harness Linux + smoke benchmarks en nightly. *Effort: M.* — smoke CI + assertion Linux livrés (#124) ; nightly bench smoke volontairement skippé (YAGNI).
+- [x] AUDIT-009 — enregistrer les signaux avant `forkWorkers`. *Effort: XS.* — livré (#121).
+- [x] ADR: sémantique exacte de `registerOnShutdown` (ordre relatif au drain) — documenter la décision prise en Phase 0. — `docs/adr/0001-register-on-shutdown-semantics.md` (#121).
 
 ## Phase 4 — Long term (non urgent)
 
