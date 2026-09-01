@@ -527,6 +527,18 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // ============================================================================
 
   private async startPrimary(workerCount: number): Promise<void> {
+    // Signal handlers must be registered BEFORE the first fork: a SIGTERM
+    // arriving in the boot window must trigger a graceful shutdown (which
+    // no-ops safely on an empty fleet) instead of Node's default handler
+    // killing the primary and orphaning the workers (#93).
+    this.signalHandler.register({
+      SIGTERM: () => this.handleShutdownSignal("SIGTERM"),
+      SIGINT: () => this.handleShutdownSignal("SIGINT"),
+      SIGHUP: () => {
+        // No-op - prevents Node.js default behavior
+      },
+    });
+
     // Raise process.maxListeners only if needed
     const needed = workerCount + 10;
     if (needed > process.getMaxListeners()) {
@@ -536,15 +548,6 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // Initial fork
     this.hasForked = true;
     this.workerManager.forkWorkers(workerCount);
-
-    // Signal handlers
-    this.signalHandler.register({
-      SIGTERM: () => this.handleShutdownSignal("SIGTERM"),
-      SIGINT: () => this.handleShutdownSignal("SIGINT"),
-      SIGHUP: () => {
-        // No-op - prevents Node.js default behavior
-      },
-    });
 
     // Periodic crash tracker cleanup
     this.crashCleanupInterval = setInterval(() => {
