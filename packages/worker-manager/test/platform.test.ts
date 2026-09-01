@@ -36,6 +36,16 @@ describe("platform", () => {
       expect(result).toBe(false);
     });
 
+    // Runs for real inside the Linux docker test job (compose service `test`)
+    it("should always return true on Linux (kernel >= 3.9)", async (ctx) => {
+      if (process.platform !== "linux") {
+        ctx.skip();
+        return;
+      }
+      const result = await detectReusePortSupport();
+      expect(result).toBe(true);
+    });
+
     it("should not throw on any platform", async () => {
       await expect(detectReusePortSupport()).resolves.toBeDefined();
     });
