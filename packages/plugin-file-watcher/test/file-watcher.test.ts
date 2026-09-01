@@ -685,6 +685,89 @@ describe("file-watcher plugin", () => {
     });
   });
 
+  describe(".env payload preservation", () => {
+    function stubWatcher(): Array<EventEmitter & { close: () => Promise<void> }> {
+      const watchers: Array<EventEmitter & { close: () => Promise<void> }> = [];
+      vi.spyOn(chokidar, "watch").mockImplementation(() => {
+        const emitter = new EventEmitter() as EventEmitter & { close: () => Promise<void> };
+        emitter.close = () => Promise.resolve();
+        watchers.push(emitter);
+        return emitter as any;
+      });
+      return watchers;
+    }
+
+    it("keeps pending .env payload when a plain file change coalesces in the same debounce window", async () => {
+      vi.useFakeTimers();
+      const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+      let plugin: ReturnType<typeof createFileWatcherPlugin> | undefined;
+      try {
+        const envPath = join(tempDir, ".env");
+        writeFileSync(envPath, "A=1");
+        const watchers = stubWatcher();
+        plugin = createFileWatcherPlugin({
+          watch: ["./src"],
+          envFile: [envPath],
+          debounceMs: 300,
+        });
+        const orch = mockOrchestrator();
+        await plugin.install(orch, null, mockConfig(2));
+
+        // .env change arms the pending payload
+        watchers[1].emit("change", envPath);
+        // Plain file change in the same debounce window must not erase it
+        watchers[0].emit("change", "/app/src/file.ts");
+
+        await vi.advanceTimersByTimeAsync(300);
+
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+        expect(orch.restartWorkers.mock.calls[0][0].env).toEqual({ A: "1" });
+      } finally {
+        vi.useRealTimers();
+        await plugin?.uninstall?.();
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("flushes a restart skipped by minRestartIntervalMs with its payload after the remaining interval", async () => {
+      vi.useFakeTimers();
+      const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+      let plugin: ReturnType<typeof createFileWatcherPlugin> | undefined;
+      try {
+        const envPath = join(tempDir, ".env");
+        writeFileSync(envPath, "B=2");
+        const watchers = stubWatcher();
+        plugin = createFileWatcherPlugin({
+          watch: ["./src"],
+          envFile: [envPath],
+          debounceMs: 50,
+          minRestartIntervalMs: 1000,
+        });
+        const orch = mockOrchestrator();
+        await plugin.install(orch, null, mockConfig(2));
+
+        // First restart consumes the interval budget
+        watchers[0].emit("change", "/app/src/a.ts");
+        await vi.advanceTimersByTimeAsync(50);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+        // .env payload lands inside the interval — debounce flush is skipped
+        watchers[1].emit("change", envPath);
+        await vi.advanceTimersByTimeAsync(50);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+
+        // Trailing flush after the remaining interval carries the payload
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(orch.restartWorkers).toHaveBeenCalledTimes(2);
+        expect(orch.restartWorkers.mock.calls[1][0].env).toEqual({ B: "2" });
+      } finally {
+        vi.useRealTimers();
+        await plugin?.uninstall?.();
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe("storm hardening options", () => {
     function stubWatcher(): Array<EventEmitter & { close: () => Promise<void> }> {
       const watchers: Array<EventEmitter & { close: () => Promise<void> }> = [];
