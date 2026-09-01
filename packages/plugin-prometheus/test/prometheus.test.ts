@@ -1,3 +1,4 @@
+import cluster from "node:cluster";
 import { EventEmitter } from "node:events";
 import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import { AggregatorRegistry, Registry } from "prom-client";
@@ -285,6 +286,20 @@ describe("plugin lifecycle", () => {
 // ============================================================================
 
 describe("getMetrics()", () => {
+  it("throws when called outside the primary process", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null);
+
+    const originalIsPrimary = cluster.isPrimary;
+    Object.defineProperty(cluster, "isPrimary", { value: false, configurable: true });
+    try {
+      await expect(plugin.getMetrics()).rejects.toThrow(/getMetrics\(\) must be called in the primary/);
+    } finally {
+      Object.defineProperty(cluster, "isPrimary", { value: originalIsPrimary, configurable: true });
+    }
+  });
+
   it("returns a string after install()", async () => {
     const plugin = makePlugin();
     const orch = mockOrchestrator();
@@ -432,6 +447,16 @@ describe("single-worker mode", () => {
 
     const out = await plugin.getMetrics();
     expect(out).toContain("process_cpu_user_seconds_total");
+  });
+
+  it("does not re-register default metrics after uninstall and reinstall in single-worker mode", async () => {
+    const registry = new Registry();
+    const plugin = createPrometheusPlugin({ defaultMetrics: true, registry });
+    const orch = mockOrchestrator(0, 1);
+
+    await plugin.install(orch, null, singleWorkerConfig());
+    await plugin.uninstall?.(orch);
+    await expect(plugin.install(orch, null, singleWorkerConfig())).resolves.not.toThrow();
   });
 
   it("sets active_workers to 1 when workers is 'auto' and resolves to 1", async () => {

@@ -117,6 +117,12 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
       const log = withLoggerPrefix(logger, "clusterkit:otlp-meter");
       pluginLog = log;
 
+      // Reinstalling the same instance after a shutdown must not orphan the old
+      // provider or leave the latch stuck at `true` (the new provider's shutdown
+      // would otherwise be a permanent no-op).
+      if (meterProvider) await shutdownProvider();
+      isShutdown = false;
+
       const resource = resourceFromAttributes({
         [ATTR_SERVICE_NAME]: serviceName,
         [ATTR_SERVICE_INSTANCE_ID]: randomUUID(),

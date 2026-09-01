@@ -64,6 +64,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
   const primaryListeners: Array<{ event: PrimaryEvent; listener: () => void }> = [];
   let mergedMetricsCache: { value: string; expiresAt: number } | undefined;
   let inflightMetrics: Promise<string> | undefined;
+  let defaultMetricsInstalled = false;
 
   const clearMergedMetricsCache = (): void => {
     mergedMetricsCache = undefined;
@@ -193,7 +194,11 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
 
         // Single-worker mode: collect default process metrics here since
         // there are no worker processes to collect them via AggregatorRegistry.
-        if (defaultMetrics && singleWorker) {
+        // collectDefaultMetrics registers fixed metric names into the shared
+        // registry — reinstalling the plugin must not register them twice
+        // (prom-client throws on duplicate metric names).
+        if (defaultMetrics && singleWorker && !defaultMetricsInstalled) {
+          defaultMetricsInstalled = true;
           collectDefaultMetrics({ register: registry });
         }
       } else {
@@ -218,6 +223,11 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     },
 
     async getMetrics(): Promise<string> {
+      if (!cluster.isPrimary) {
+        throw new Error(
+          "prometheus plugin: getMetrics() must be called in the primary process — orchestration metrics are only updated on the primary. Mount the /metrics endpoint on the primary; see README.md",
+        );
+      }
       return mergedMetrics();
     },
   };
