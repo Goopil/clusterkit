@@ -70,22 +70,6 @@ describe("calculateSizing", () => {
     expect(result.workers).toBe(8);
   });
 
-  it("memory-first strategy reduces workers when heap would be too small", () => {
-    // 256MB total, 4 CPUs → 256*0.8/4 = 51MB per worker → 51*0.75 = 38MB heap < 128MB threshold
-    // should step down to 1 worker → 256*0.8/1 = 204MB → 153MB heap ≥ 128MB
-    const limits: CgroupLimits = { cpuLimit: 4, memoryLimitBytes: 256 * MB };
-    const result = calculateSizing(limits, { strategy: "memory-first" });
-    expect(result.workers).toBe(1);
-    expect(result.v8HeapMb).toBeGreaterThanOrEqual(128);
-  });
-
-  it("memory-first strategy does not go below minWorkers", () => {
-    // Very small memory, minWorkers=2 — should stay at 2 even if heap < 128MB
-    const limits: CgroupLimits = { cpuLimit: 4, memoryLimitBytes: 64 * MB };
-    const result = calculateSizing(limits, { strategy: "memory-first", minWorkers: 2 });
-    expect(result.workers).toBe(2);
-  });
-
   it("cpu-first strategy uses floor(cpu) workers", () => {
     const limits: CgroupLimits = { cpuLimit: 3.9, memoryLimitBytes: 2048 * MB };
     const result = calculateSizing(limits, { strategy: "cpu-first" });

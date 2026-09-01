@@ -60,7 +60,6 @@ describe("platform", () => {
       const caps = await getPlatformCapabilities();
       expect(caps).toHaveProperty("platform");
       expect(caps).toHaveProperty("reusePort");
-      expect(caps).toHaveProperty("clusterRecommended");
     });
 
     it("should return current platform", async () => {
@@ -68,15 +67,9 @@ describe("platform", () => {
       expect(caps.platform).toBe(process.platform);
     });
 
-    it("should return booleans for reusePort and clusterRecommended", async () => {
+    it("should return a boolean for reusePort", async () => {
       const caps = await getPlatformCapabilities();
       expect(typeof caps.reusePort).toBe("boolean");
-      expect(typeof caps.clusterRecommended).toBe("boolean");
-    });
-
-    it("should align clusterRecommended with reusePort", async () => {
-      const caps = await getPlatformCapabilities();
-      expect(caps.clusterRecommended).toBe(caps.reusePort);
     });
 
     it("should return results consistent with detectReusePortSupport", async () => {

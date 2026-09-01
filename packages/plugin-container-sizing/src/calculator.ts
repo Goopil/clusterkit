@@ -1,7 +1,7 @@
 import os from "node:os";
 import type { CgroupLimits } from "@goopil/clusterkit";
 
-export type SizingStrategy = "balanced" | "memory-first" | "cpu-first";
+export type SizingStrategy = "balanced" | "cpu-first";
 
 export interface SizingOptions {
   /**
@@ -22,7 +22,6 @@ export interface SizingOptions {
   /**
    * - `balanced`     — workers = floor(cpu), reduced when each would get less
    *                    than 128 MB of V8 heap (default)
-   * - `memory-first` — same reduction as `balanced`; kept as an explicit alias
    * - `cpu-first`    — always workers = floor(cpu); the heap is clamped to the
    *                    128 MB viability floor, which may over-commit memory
    */
@@ -97,7 +96,7 @@ export function calculateSizing(limits: CgroupLimits, options: SizingOptions = {
 
   // availableParallelism respects cpuset/affinity (K8s static CPU policy),
   // unlike os.cpus().length which reports all host cores.
-  const osCpus = typeof os.availableParallelism === "function" ? os.availableParallelism() : os.cpus().length;
+  const osCpus = os.availableParallelism();
   const osTotalMemoryBytes = os.totalmem();
 
   const effectiveCpu = limits.cpuLimit ?? osCpus;

@@ -36,11 +36,4 @@ export class SignalHandler {
     this.handlers.length = 0;
     this.isRegistered = false;
   }
-
-  /**
-   * Check if handlers are registered.
-   */
-  isActive(): boolean {
-    return this.isRegistered;
-  }
 }

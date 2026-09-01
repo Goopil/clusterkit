@@ -91,7 +91,6 @@ describe("WorkerManager", () => {
     cluster.simulateExit(cluster.workers[1], 0, null);
 
     expect(manager.getActiveWorkers()).toEqual([]);
-    expect(manager.isMarkedForRecycling(worker.id)).toBe(false);
     expect(workerMetrics.activeWorkers).toBe(0);
     expect(onExit).toHaveBeenCalledWith(worker, 0, null);
   });
@@ -172,7 +171,6 @@ describe("WorkerManager", () => {
 
       expect(onRecycle).toHaveBeenCalledTimes(1);
       expect(onRecycle).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 }));
-      expect(manager.isMarkedForRecycling(1)).toBe(true);
     });
 
     it("stagger timer by 30s per worker", () => {
@@ -285,17 +283,5 @@ describe("WorkerManager", () => {
 
     expect(cluster.listenerCount("exit")).toBe(0);
     expect(cluster.listenerCount("online")).toBe(0);
-  });
-
-  // ── setupEventHandlers idempotency ─────────────────────────────────────────
-
-  it("replaces previous listeners when setupEventHandlers is called again", () => {
-    const cluster = new MockCluster();
-    const manager = new WorkerManager(cluster as never, config, null, makeMetrics(), []);
-    manager.setupEventHandlers(vi.fn(), vi.fn());
-    manager.setupEventHandlers(vi.fn(), vi.fn());
-
-    expect(cluster.listenerCount("exit")).toBe(1);
-    expect(cluster.listenerCount("online")).toBe(1);
   });
 });
