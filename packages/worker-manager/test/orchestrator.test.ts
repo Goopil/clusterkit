@@ -9,7 +9,7 @@ import { WorkerManagerValidationError } from "../src/validation";
 
 class MockWorker extends EventEmitter {
   id: number;
-  process: { pid: number; kill: ReturnType<typeof vi.fn> };
+  process: EventEmitter & { pid: number; kill: ReturnType<typeof vi.fn> };
   exitedAfterDisconnect = false;
   autoExitOnDisconnect = false;
   private _isDead = false;
@@ -18,7 +18,9 @@ class MockWorker extends EventEmitter {
   constructor(id: number) {
     super();
     this.id = id;
-    this.process = { pid: 1000 + id, kill: vi.fn() };
+    // The real worker.process is a ChildProcess (an EventEmitter): the drain
+    // path attaches a no-op 'error' listener to it, so the mock mirrors that.
+    this.process = Object.assign(new EventEmitter(), { pid: 1000 + id, kill: vi.fn() });
   }
 
   isDead() {
@@ -1002,14 +1004,23 @@ describe("Orchestrator", () => {
 
   // --------------------------------------------------------------------------
   describe("worker recycle SIGKILL escalation", () => {
-    it("force-kills a recycled worker that does not exit within the timeout", async () => {
+    it("escalates drain kills relative to the configured shutdown budget", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-04-12T00:00:00.000Z"));
 
       mockCluster.isPrimary = true;
+      // Non-default budget to prove the escalation derives from the config
+      // (SIGTERM at shutdown.timeoutMs, SIGKILL after sigtermDelayMs +
+      // sigintDelayMs more) instead of hardcoded delays.
       const orch = new Orchestrator(
         cfg({
           workers: { count: 2, maxAgeMs: 150_000 },
+          shutdown: {
+            timeoutMs: 1_000,
+            ackTimeoutMs: 500,
+            sigtermDelayMs: 300,
+            sigintDelayMs: 200,
+          },
         }),
       );
 
@@ -1037,11 +1048,17 @@ describe("Orchestrator", () => {
       // Keep isDead() returning false so the kill escalation triggers
       vi.spyOn(oldWorker, "isDead").mockReturnValue(false);
 
-      // Advance past 5s (SIGTERM timeout) + 2s (SIGKILL timeout)
-      await vi.advanceTimersByTimeAsync(5_001);
-      await vi.advanceTimersByTimeAsync(2_001);
-
+      // Drain escalation mirrors the coordinated shutdown budget:
+      // SIGTERM at shutdown.timeoutMs (1s here — the old code hardcoded 5s)...
+      await vi.advanceTimersByTimeAsync(999);
+      expect(oldWorker.process.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2);
       expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGTERM");
+
+      // ...and SIGKILL after sigtermDelayMs + sigintDelayMs more.
+      await vi.advanceTimersByTimeAsync(499);
+      expect(oldWorker.process.kill).not.toHaveBeenCalledWith("SIGKILL");
+      await vi.advanceTimersByTimeAsync(2);
       expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGKILL");
       expect(orch.getMetrics().forcedKills).toBe(1);
     });
@@ -1304,6 +1321,51 @@ describe("Orchestrator", () => {
       expect(orchestrator.getMetrics().forcedKills).toBe(2);
     });
 
+    it("does not emit restart:complete when shutdown aborts the roll", async () => {
+      vi.useFakeTimers();
+      const orchestrator = await setupPrimary(2, FAST_SHUTDOWN);
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const startEvents: Array<{ reason: string; workerIds: number[] }> = [];
+      const completeEvents: Array<{ restartedWorkerIds: number[]; reason: string }> = [];
+      orchestrator.on("restart:start", (d) => startEvents.push(d));
+      orchestrator.on("restart:complete", (d) => completeEvents.push(d));
+
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+
+      // First old worker stays alive after disconnect: the roll blocks in the
+      // first awaitBoundedWorkerExit while its drain is still pending — the
+      // shutdown window the abort branch must handle.
+      mockCluster.workers[1]!.autoExitOnDisconnect = false;
+
+      const restartPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "abort-test" });
+
+      // Drain of worker 1 begins (replacement online → send + disconnect)
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Shutdown starts mid-roll, during the first drain
+      const shutdownPromise = orchestrator.shutdownPrimary("SIGTERM");
+      expect(orchestrator.getHealth().ready).toBe(false);
+
+      // Only worker 1's replacement was forked so far
+      expect(forkSpy).toHaveBeenCalledTimes(1);
+
+      // Bounded exit wait (6.2s) + grace period (2s) elapse, then the roll
+      // hits the abort branch.
+      expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
+
+      expect(startEvents).toHaveLength(1);
+      // A partial roll is not a complete roll: no restart:complete.
+      expect(completeEvents).toHaveLength(0);
+
+      // No fork after shutdown initiation — the abort must not orphan
+      // replacements outside initiateShutdown's kill list.
+      expect(forkSpy).toHaveBeenCalledTimes(1);
+
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
     it("drains the old worker when the replacement dies before coming online", async () => {
       vi.useFakeTimers();
       const orchestrator = await setupPrimary(2, FAST_SHUTDOWN);
@@ -1327,6 +1389,76 @@ describe("Orchestrator", () => {
       // Old workers were drained despite the never-online replacements.
       expect(mockCluster.workers[1]?.isDead()).toBe(true);
       expect(mockCluster.workers[2]?.isDead()).toBe(true);
+    });
+
+    // --------------------------------------------------------------------------
+    describe("recycled worker IPC EPIPE (drain race)", () => {
+      it("completes a roll whose old workers emit async EPIPE on drain", async () => {
+        vi.useFakeTimers();
+        const orchestrator = await setupPrimary(4, FAST_SHUTDOWN);
+        await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+        // Old workers fail their drain send asynchronously (dead IPC channel):
+        // Node surfaces the failure as an 'error' event on worker.process
+        // (child_process._send) AFTER the drain's sync try/catch has passed.
+        for (const w of Object.values(mockCluster.workers)) {
+          w!.autoExitOnDisconnect = true;
+          w!.send = () => {
+            setImmediate(() => {
+              const err = new Error("write EPIPE") as Error & { code?: string };
+              err.code = "EPIPE";
+              w!.process.emit("error", err);
+            });
+            return true;
+          };
+        }
+
+        // Probe uncaught exceptions: an escaped EPIPE must fail this test.
+        let uncaught: Error | undefined;
+        const onUncaught = (err: Error): void => {
+          uncaught ??= err;
+        };
+        process.on("uncaughtException", onUncaught);
+
+        try {
+          const restartPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "epipe" });
+          expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
+        } finally {
+          process.off("uncaughtException", onUncaught);
+        }
+
+        expect(uncaught).toBeUndefined();
+        // All workers exited via the drain (autoExit), not the kill backstop.
+        expect(orchestrator.getMetrics().forcedKills).toBe(0);
+      });
+
+      it("routes drain send errors to a callback and swallows process IPC errors", async () => {
+        vi.useFakeTimers();
+        const orchestrator = await setupPrimary(2, FAST_SHUTDOWN);
+        await vi.advanceTimersByTimeAsync(0);
+
+        const oldWorker = mockCluster.workers[1]!;
+        const sendSpy = vi.spyOn(oldWorker, "send");
+        oldWorker.autoExitOnDisconnect = true;
+
+        const restartPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "pin" });
+        expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
+
+        // The drain shutdown message is sent with a no-op callback: cluster's
+        // Worker.send() delegates to process.send(msg, cb), which routes send
+        // errors ('write EPIPE', 'IPC channel closed') to the callback instead
+        // of emitting them.
+        const drainSend = sendSpy.mock.calls.find(
+          (call) => (call[0] as { type?: string } | undefined)?.type === "__wm:shutdown",
+        );
+        expect(drainSend).toBeDefined();
+        expect(drainSend?.[1]).toBeTypeOf("function");
+
+        // disconnect()'s internal send has no callback: Node emits the error on
+        // worker.process, so a no-op 'error' listener must be attached.
+        expect(oldWorker.process.listenerCount("error")).toBeGreaterThan(0);
+        expect(() => oldWorker.process.emit("error", new Error("write EPIPE"))).not.toThrow();
+      });
     });
   });
 

@@ -357,6 +357,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    *
    * Idempotent: no-op if a restart is already in progress or shutdown has
    * started. Returns early in single-worker mode (no cluster to roll).
+   * If shutdown starts mid-roll, the roll stops without emitting
+   * `restart:complete` — a partial roll is not a complete one.
    *
    * Throws before any state change if the env overlay contains
    * prototype-pollution keys — no worker is marked for recycling and no
@@ -402,10 +404,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       this.safeEmit("restart:start", { reason, workerIds });
 
       const restartedWorkerIds: number[] = [];
+      let abortedByShutdown = false;
 
       for (const oldWorker of targeted) {
         if (this.shutdownCoordinator.isShutdownInProgress()) {
-          this.log?.info("Shutdown started during hot restart, aborting", { reason });
+          abortedByShutdown = true;
           break;
         }
 
@@ -424,8 +427,15 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
         }
       }
 
-      this.log?.info("Hot restart complete", { reason, restartedWorkerIds });
-      this.safeEmit("restart:complete", { restartedWorkerIds, reason });
+      if (abortedByShutdown) {
+        // A partial roll is not a complete roll: emit nothing — listeners
+        // must not mistake a partial restartedWorkerIds list for a finished
+        // restart (e.g. plugins that release resources on completion).
+        this.log?.warn("Hot restart aborted by shutdown", { reason, restartedWorkerIds });
+      } else {
+        this.log?.info("Hot restart complete", { reason, restartedWorkerIds });
+        this.safeEmit("restart:complete", { restartedWorkerIds, reason });
+      }
     } finally {
       this.restartInProgress = false;
     }
@@ -817,8 +827,21 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    * SIGTERM and SIGKILL if the worker does not exit on its own.
    */
   private drainRecycledWorker(oldWorker: Worker): void {
+    // A worker can exit concurrently with the drain: its IPC write then fails
+    // with 'write EPIPE'/'channel closed', which Node surfaces as an ASYNC
+    // 'error' event on worker.process (child_process._send) — after the sync
+    // try/catch below has passed, and fatal to the primary without a
+    // listener. Route send errors to a no-op callback (Worker.send delegates
+    // to process.send, which routes send errors to a callback when given)
+    // and keep a no-op 'error' listener on the process for the worker's
+    // remaining lifetime: disconnect()'s internal send accepts no callback,
+    // so its failure can only be absorbed by the listener (same pattern as
+    // ShutdownCoordinator.initiateShutdown).
+    const swallowError = (): void => {};
+    oldWorker.process.on("error", swallowError);
+
     try {
-      oldWorker.send({ type: this.shutdownType });
+      oldWorker.send({ type: this.shutdownType }, swallowError);
       if (!oldWorker.isDead()) oldWorker.disconnect();
     } catch {
       /* worker already dead */
@@ -826,14 +849,18 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
     if (oldWorker.isDead()) return;
 
-    // Escalate: after 5s send SIGTERM, after 2s more send SIGKILL.
+    // Escalate on the same budget as a coordinated shutdown: the worker keeps
+    // its full graceful window (shutdown.timeoutMs) before SIGTERM, then the
+    // same SIGTERM→SIGINT→SIGKILL escalation window (sigtermDelayMs +
+    // sigintDelayMs) before SIGKILL — matching what
+    // ShutdownCoordinator.killWorkerGradually would spend on it.
     // Calling disconnect() again is a no-op on an already-disconnected
     // worker, so we must escalate to signals to prevent a stuck worker
     // from leaking.
     //
     // The sigkillTimer's exit listener is registered inside the
     // forceKillTimer callback — so if the worker exits after SIGTERM
-    // (before the 2s SIGKILL window), the timer is cleared. Both
+    // (before the SIGKILL window), the timer is cleared. Both
     // listeners use once(), so no listener accumulation across recycles.
     const forceKillTimer = setTimeout(() => {
       if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
@@ -851,11 +878,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
               /* already dead */
             }
           }
-        }, 2_000);
+        }, this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs);
         sigkillTimer.unref();
         oldWorker.once("exit", () => clearTimeout(sigkillTimer));
       }
-    }, 5_000);
+    }, this.cfg.shutdown.timeoutMs);
     forceKillTimer.unref();
     oldWorker.once("exit", () => clearTimeout(forceKillTimer));
   }
