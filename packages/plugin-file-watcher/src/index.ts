@@ -84,6 +84,8 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
   let envPollInterval: NodeJS.Timeout | undefined;
   let debounceTimer: NodeJS.Timeout | undefined;
   let maxWaitTimer: NodeJS.Timeout | undefined;
+  let startDelayTimer: NodeJS.Timeout | undefined;
+  let closed = false;
   let pendingReason: string | undefined;
   let pendingEnv: NodeJS.ProcessEnv | undefined;
   let lastRestartAt = 0;
@@ -152,6 +154,7 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
       };
 
       const startWatchers = (): void => {
+        if (closed) return;
         // File watchers — chokidar for cross-platform reliability (v4: literal paths only)
         if (watchPaths.length > 0) {
           const chokidarOpts: ChokidarOptions = {
@@ -254,7 +257,7 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
 
       const start = (): void => {
         if (startDelayMs > 0) {
-          setTimeout(startWatchers, startDelayMs).unref();
+          startDelayTimer = setTimeout(startWatchers, startDelayMs).unref();
         } else {
           startWatchers();
         }
@@ -263,6 +266,11 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
       start();
 
       orchestrator.registerOnShutdown(async () => {
+        closed = true;
+        if (startDelayTimer) {
+          clearTimeout(startDelayTimer);
+          startDelayTimer = undefined;
+        }
         await Promise.all(watchers.map((w) => w.close()));
         watchers = [];
         if (envPollInterval) {
@@ -282,6 +290,11 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
     },
 
     async uninstall(): Promise<void> {
+      closed = true;
+      if (startDelayTimer) {
+        clearTimeout(startDelayTimer);
+        startDelayTimer = undefined;
+      }
       await Promise.all(watchers.map((w) => w.close()));
       watchers = [];
       if (envPollInterval) {

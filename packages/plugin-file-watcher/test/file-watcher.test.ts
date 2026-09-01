@@ -621,6 +621,70 @@ describe("file-watcher plugin", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
+  describe("startDelayMs cancellation", () => {
+    function stubWatcher(): Array<EventEmitter & { close: () => Promise<void> }> {
+      const watchers: Array<EventEmitter & { close: () => Promise<void> }> = [];
+      vi.spyOn(chokidar, "watch").mockImplementation(() => {
+        const emitter = new EventEmitter() as EventEmitter & { close: () => Promise<void> };
+        emitter.close = () => Promise.resolve();
+        watchers.push(emitter);
+        return emitter as any;
+      });
+      return watchers;
+    }
+
+    it("does not start watchers when uninstall happens during the start delay", async () => {
+      vi.useFakeTimers();
+      try {
+        const watchers = stubWatcher();
+        const plugin = createFileWatcherPlugin({
+          watch: ["./src"],
+          startDelayMs: 1000,
+        });
+        const orch = mockOrchestrator();
+
+        await plugin.install(orch, null, mockConfig(2));
+        expect(plugin.isWatching).toBe(false);
+
+        // Cleanup lands inside the delay window
+        await plugin.uninstall?.();
+
+        // The delay timer fires after cleanup — must not create watchers
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(plugin.isWatching).toBe(false);
+        expect(watchers.length).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does not start watchers when shutdown happens during the start delay", async () => {
+      vi.useFakeTimers();
+      try {
+        const watchers = stubWatcher();
+        const plugin = createFileWatcherPlugin({
+          watch: ["./src"],
+          startDelayMs: 1000,
+        });
+        const orch = mockOrchestrator();
+        let shutdownCb: (() => Promise<void>) | undefined;
+        orch.registerOnShutdown = vi.fn((cb) => {
+          shutdownCb = cb;
+        });
+
+        await plugin.install(orch, null, mockConfig(2));
+
+        await shutdownCb!();
+
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(plugin.isWatching).toBe(false);
+        expect(watchers.length).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe("storm hardening options", () => {
     function stubWatcher(): Array<EventEmitter & { close: () => Promise<void> }> {
       const watchers: Array<EventEmitter & { close: () => Promise<void> }> = [];
