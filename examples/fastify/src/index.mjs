@@ -39,7 +39,7 @@ import fastify from "fastify";
       });
       await metricsServer.listen({
         port: +(process.env?.METRICS_PORT || 9091),
-        host: "0.0.0.0",
+        host: process.env.METRICS_HOST ?? "0.0.0.0",
       });
 
       orchestrator.registerOnShutdown(async () => {

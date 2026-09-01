@@ -54,7 +54,7 @@ import { Hono } from "hono";
         metricsServer.listen(
           {
             port: +(process.env?.METRICS_PORT || 9092),
-            host: "0.0.0.0",
+            host: process.env.METRICS_HOST ?? "0.0.0.0",
           },
           () => {
             metricsServer.off("error", reject);

@@ -585,7 +585,7 @@ Nine ready-to-run examples live in [`examples/`](./examples/).
 pnpm examples:start
 # All servers start inside a single container.
 # curl http://localhost:3000      → Express app
-# curl http://localhost:9090/metrics → Prometheus metrics (requires explicit non-loopback metrics host)
+# curl http://localhost:9090/metrics → Prometheus metrics (binds METRICS_HOST, default 0.0.0.0)
 ```
 
 **Run a single example locally:**

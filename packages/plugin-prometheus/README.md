@@ -110,18 +110,15 @@ missing `metrics` array) triggers a `TypeError` inside the primary's message lis
 an `uncaughtException` and crashes the primary. A buggy or compromised worker can therefore crash the primary
 with a single malformed IPC message.
 
-Known limitations in `prom-client` (`lib/cluster.js`), verified against **15.1.3** — the latest release at the
-time of writing; no patched release exists yet:
-
-- No validation of `getMetricsRes` messages on the primary: an unknown `requestId` hits
-  `request.done(...)`/`request.pending--` on `undefined` → `TypeError` → primary crash.
-- Scrape timeouts never remove the pending request from the internal requests `Map`, so each timed-out scrape
-  leaks an entry — slow memory growth, e.g. with workers in a crash loop (every scrape times out).
-
-There is no in-plugin mitigation for either issue; the fix belongs upstream. Check or file an issue at
-[siimon/prom-client](https://github.com/siimon/prom-client) (`lib/cluster.js`) and track a patched release —
-the peer range here (`>=14 <16`) can be raised once one lands. If your threat model includes untrusted code
-executing inside worker processes, prefer an external metrics sidecar over in-process cluster aggregation.
+Known limitation in `prom-client` below **v0.16.0** (incl. 15.1.3, the latest release in this plugin's peer range
+`>=14 <16`): while a worker is dead or recycling, scrapes time out and `AggregatorRegistry.clusterMetrics()` never
+removes the pending entry from its internal requests `Map` — primary RSS grows slowly (e.g. with workers in a crash
+loop). Unexpected `getMetricsRes` messages can also crash the primary (no response validation). Both are fixed in
+[prom-client v0.16.0](https://github.com/siimon/prom-client/releases/tag/v0.16.0) (`clusterMetrics()` reworked with
+`finally`-based cleanup plus response guards), which sits outside the peer range — bump `prom-client` to `^0.16.0`
+yourself if you need the fix. There is no in-plugin mitigation for either issue. If your threat model includes
+untrusted code executing inside worker processes, prefer an external metrics sidecar over in-process cluster
+aggregation.
 
 ## Related docs
 

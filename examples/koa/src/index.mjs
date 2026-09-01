@@ -45,7 +45,7 @@ import Koa from "koa";
       });
       const metricsServer = metricsApp.listen({
         port: +(process.env?.METRICS_PORT || 9093),
-        host: "0.0.0.0",
+        host: process.env.METRICS_HOST ?? "0.0.0.0",
       });
 
       orchestrator.registerOnShutdown(() => {
