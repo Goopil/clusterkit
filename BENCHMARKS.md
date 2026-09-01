@@ -245,6 +245,9 @@ performer on multi-worker workloads.
 
 ### Notes
 
+- **Labeling correction**: every `Lat p95` column in the tables above actually contains **p97.5** values
+  (autocannon percentile bucket; the generator mislabeled it). The reporter now emits `Lat p97.5`; regenerating
+  these tables requires a full Docker bench run.
 - macOS RSS/CPU = N/A (no `/proc` filesystem). Use Linux Docker for memory/CPU metrics.
 - `stddev = 0` because only 1 run per scenario (quick mode). Reference mode (3 runs) needed for variance.
 - Later workloads (auth-verify, error-rate, upload-echo) show inflated RSS/CPU values due to cumulative

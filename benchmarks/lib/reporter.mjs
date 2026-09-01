@@ -33,7 +33,7 @@ export function buildMarkdownReport(report) {
     lines.push(`## Workload: ${label}`);
     lines.push("");
     lines.push(
-      "| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |",
+      "| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |",
     );
     lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 
@@ -46,7 +46,7 @@ export function buildMarkdownReport(report) {
       const workers = targetId === "single" ? 1 : 3;
       const rpsStr = tr.rps ? `${tr.rps.median.toLocaleString()} ± ${tr.rps.stddev}` : "N/A";
       const latP50 = tr.latency?.p50 != null ? `${tr.latency.p50} ms` : "N/A";
-      const latP95 = tr.latency?.p95 != null ? `${tr.latency.p95} ms` : "N/A";
+      const latP97_5 = tr.latency?.p97_5 != null ? `${tr.latency.p97_5} ms` : "N/A";
       const latP99 = tr.latency?.p99 != null ? `${tr.latency.p99} ms` : "N/A";
       const errors = tr.errors ?? 0;
       const boot = tr.bootTimeMs != null ? `${tr.bootTimeMs} ms` : "N/A";
@@ -58,7 +58,7 @@ export function buildMarkdownReport(report) {
       const pidsActive = tr.pids ? `${tr.pids.active}/${tr.pids.expected}` : "N/A";
 
       lines.push(
-        `| ${targetId} | ${workers} | ${rpsStr} | ${latP50} | ${latP95} | ${latP99} | ${errors} | ${boot} | ${shutdown} | ${rssAvg} | ${rssPeak} | ${cpuPct} | ${cpuTime} | ${pidsActive} |`,
+        `| ${targetId} | ${workers} | ${rpsStr} | ${latP50} | ${latP97_5} | ${latP99} | ${errors} | ${boot} | ${shutdown} | ${rssAvg} | ${rssPeak} | ${cpuPct} | ${cpuTime} | ${pidsActive} |`,
       );
     }
     lines.push("");
