@@ -71,10 +71,12 @@ orchestrator.run(async () => {
 
 #### Security guards
 
-- **`execArgv` blocklist** — flags that load or execute arbitrary code or attach a debugger are rejected with a
-  `WorkerManagerValidationError`: `--require`/`-r`, `--eval`/`-e`, `--print`/`-p`,
-  `--inspect`/`--inspect-brk`/`--inspect-port`, `--import`, and `--loader`/`--experimental-loader`. Code-loading and
-  debug flags are blocked because a JSON/YAML config could otherwise carry remote code into every worker.
+- **`execArgv` blocklist** — flags that load or execute arbitrary code, attach a debugger, or write diagnostics to disk
+  are rejected with a `WorkerManagerValidationError`: `--require`/`-r`, `--eval`/`-e`, `--print`/`-p`,
+  `--inspect`/`--inspect-brk`/`--inspect-port`, `--import`, `--loader`/`--experimental-loader`, `--tls-keylog`,
+  `--cpu-prof*`, `--heap-prof*`, `--report-*`, `--diagnostic-dir`, and `--redirect-warnings`. Code-loading and
+  debug flags are blocked because a JSON/YAML config could otherwise carry remote code into every worker; profiling and
+  diagnostic flags are blocked because they silently write files (or leak TLS keys) from every worker.
 - **`env` prototype-pollution guard** — the keys `__proto__`, `constructor`, and `prototype` are rejected in every env
   path: the config, `patchWorkerEnv()`, and the `restartWorkers()` env overlay.
 - **`NODE_OPTIONS` advisory** — a `NODE_OPTIONS` key in `workers.env` is accepted but emits a

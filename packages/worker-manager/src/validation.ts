@@ -69,6 +69,9 @@ const DANGEROUS_ARG_PATTERNS = [
   /^--inspect(?:-brk|-port|[=\s]|$)/,
   /^--import(?:[=\s]|$)/,
   /^--(?:experimental-)?loader(?:[=\s]|$)/,
+  // Prefix match covers flag variants sharing the same side effect
+  // (--cpu-prof-dir, --heap-prof-name, --report-dir, --report-signal, ...).
+  /^--(?:tls-keylog|cpu-prof|heap-prof|report-|diagnostic-dir|redirect-warnings)/,
   /^-r(?:$|\s)/,
   /^-e(?:$|\s)/,
   /^-p(?:$|\s)/,

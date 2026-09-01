@@ -106,6 +106,18 @@ describe("validation", () => {
       expect(() => validateConfig({ workers: { execArgv: [arg] } })).toThrow(WorkerManagerValidationError);
     });
 
+    it.each([
+      "--tls-keylog=./keylog.txt",
+      "--cpu-prof",
+      "--heap-prof",
+      "--report-on-signal=SIGUSR2",
+      "--report-on-fatalerror",
+      "--diagnostic-dir=./diagnostics",
+      "--redirect-warnings=./warnings.log",
+    ])("rejects side-effect execArgv flag %s", (arg) => {
+      expect(() => validateConfig({ workers: { execArgv: [arg] } })).toThrow(WorkerManagerValidationError);
+    });
+
     it("should reject dangerous execArgv flags with space separator", () => {
       expect(() => validateConfig({ workers: { execArgv: ["--require ./evil.js"] } })).toThrow(
         WorkerManagerValidationError,
@@ -125,6 +137,7 @@ describe("validation", () => {
       expect(() => validateConfig({ workers: { execArgv: ["--max-semi-space-size=64"] } })).not.toThrow();
       expect(() => validateConfig({ workers: { execArgv: ["--no-warnings"] } })).not.toThrow();
       expect(() => validateConfig({ workers: { execArgv: ["--expose-gc"] } })).not.toThrow();
+      expect(() => validateConfig({ workers: { execArgv: ["--stack-size=1024"] } })).not.toThrow();
     });
   });
 
