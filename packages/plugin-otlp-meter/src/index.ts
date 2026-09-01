@@ -197,6 +197,7 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
 
     async uninstall(): Promise<void> {
       clearPrimaryListeners();
+      await shutdownProvider();
     },
 
     async shutdown(): Promise<void> {

@@ -4,9 +4,9 @@ Priorisation: **impact × risque × urgence / effort**. Chaque tâche référenc
 
 ## Phase 0 — Immediate (critique, ≤ 1 jour)
 
-- [ ] Fix AUDIT-001 — exécuter `runShutdownCallbacks(signal)` dans `shutdownPrimary()` + test d'invariant paramétré sur les 3 modes (primaire-multi / single / worker). *Effort: S. Risque si non fait: cleanup/flush silencieusement sautés à chaque déploiement.*
-- [ ] Fix AUDIT-012 — flush OTLP aussi dans `uninstall()` (idempotent) — protège le path uninstall même avant la correction complète de 001. *Effort: XS.*
-- [ ] Fix AUDIT-004 — `.unref()` sur le timer de backoff (`orchestrator.ts:748`). *Effort: XS — une ligne.*
+- [x] Fix AUDIT-001 — exécuter `runShutdownCallbacks(signal)` dans `shutdownPrimary()` + test d'invariant paramétré sur les 3 modes (primaire-multi / single / worker). *Effort: S. Risque si non fait: cleanup/flush silencieusement sautés à chaque déploiement.*
+- [x] Fix AUDIT-012 — flush OTLP aussi dans `uninstall()` (idempotent) — protège le path uninstall même avant la correction complète de 001. *Effort: XS.*
+- [x] Fix AUDIT-004 — `.unref()` sur le timer de backoff (`orchestrator.ts:748`). *Effort: XS — une ligne.*
 - [x] Fix AUDIT-013 — `orchestrator.workerCount === 1` dans signal-restart (`:58`) et file-watcher (`:104`). *Effort: XS + tests.*
 - [x] Fix AUDIT-023 — SHA-pinner `codecov-action`, `upload-artifact`, et les 3 `@v4` de cq.yml. *Effort: XS.*
 - [x] Fix AUDIT-024 — `publint` en devDependencies racine, `pnpm exec publint` dans CI. *Effort: XS.*
