@@ -56,10 +56,10 @@ jobs:
         id: changesets
         uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1
         with:
-          version: pnpm run version-packages
-          publish: pnpm run ci:publish
-          commit: "chore(release): version packages"
-          title: "chore(release): version packages"
+          version-script: pnpm run version-packages
+          publish-script: pnpm run ci:publish
+          commit-message: "chore(release): version packages"
+          pr-title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
