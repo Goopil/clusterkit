@@ -357,6 +357,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    *
    * Idempotent: no-op if a restart is already in progress or shutdown has
    * started. Returns early in single-worker mode (no cluster to roll).
+   * If shutdown starts mid-roll, the roll stops without emitting
+   * `restart:complete` — a partial roll is not a complete one.
    *
    * Throws before any state change if the env overlay contains
    * prototype-pollution keys — no worker is marked for recycling and no
@@ -402,10 +404,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       this.safeEmit("restart:start", { reason, workerIds });
 
       const restartedWorkerIds: number[] = [];
+      let abortedByShutdown = false;
 
       for (const oldWorker of targeted) {
         if (this.shutdownCoordinator.isShutdownInProgress()) {
-          this.log?.info("Shutdown started during hot restart, aborting", { reason });
+          abortedByShutdown = true;
           break;
         }
 
@@ -424,8 +427,15 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
         }
       }
 
-      this.log?.info("Hot restart complete", { reason, restartedWorkerIds });
-      this.safeEmit("restart:complete", { restartedWorkerIds, reason });
+      if (abortedByShutdown) {
+        // A partial roll is not a complete roll: emit nothing — listeners
+        // must not mistake a partial restartedWorkerIds list for a finished
+        // restart (e.g. plugins that release resources on completion).
+        this.log?.warn("Hot restart aborted by shutdown", { reason, restartedWorkerIds });
+      } else {
+        this.log?.info("Hot restart complete", { reason, restartedWorkerIds });
+        this.safeEmit("restart:complete", { restartedWorkerIds, reason });
+      }
     } finally {
       this.restartInProgress = false;
     }

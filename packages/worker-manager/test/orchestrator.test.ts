@@ -1319,6 +1319,51 @@ describe("Orchestrator", () => {
       expect(orchestrator.getMetrics().forcedKills).toBe(2);
     });
 
+    it("does not emit restart:complete when shutdown aborts the roll", async () => {
+      vi.useFakeTimers();
+      const orchestrator = await setupPrimary(2, FAST_SHUTDOWN);
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const startEvents: Array<{ reason: string; workerIds: number[] }> = [];
+      const completeEvents: Array<{ restartedWorkerIds: number[]; reason: string }> = [];
+      orchestrator.on("restart:start", (d) => startEvents.push(d));
+      orchestrator.on("restart:complete", (d) => completeEvents.push(d));
+
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+
+      // First old worker stays alive after disconnect: the roll blocks in the
+      // first awaitBoundedWorkerExit while its drain is still pending — the
+      // shutdown window the abort branch must handle.
+      mockCluster.workers[1]!.autoExitOnDisconnect = false;
+
+      const restartPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "abort-test" });
+
+      // Drain of worker 1 begins (replacement online → send + disconnect)
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Shutdown starts mid-roll, during the first drain
+      const shutdownPromise = orchestrator.shutdownPrimary("SIGTERM");
+      expect(orchestrator.getHealth().ready).toBe(false);
+
+      // Only worker 1's replacement was forked so far
+      expect(forkSpy).toHaveBeenCalledTimes(1);
+
+      // Bounded exit wait (6.2s) + grace period (2s) elapse, then the roll
+      // hits the abort branch.
+      expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
+
+      expect(startEvents).toHaveLength(1);
+      // A partial roll is not a complete roll: no restart:complete.
+      expect(completeEvents).toHaveLength(0);
+
+      // No fork after shutdown initiation — the abort must not orphan
+      // replacements outside initiateShutdown's kill list.
+      expect(forkSpy).toHaveBeenCalledTimes(1);
+
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
     it("drains the old worker when the replacement dies before coming online", async () => {
       vi.useFakeTimers();
       const orchestrator = await setupPrimary(2, FAST_SHUTDOWN);
