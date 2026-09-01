@@ -1,5 +1,11 @@
 # @goopil/clusterkit
 
+## 1.2.2
+
+### Patch Changes
+
+- [#107](https://github.com/Goopil/clusterkit/pull/107) [`7e71a94`](https://github.com/Goopil/clusterkit/commit/7e71a946657e05adffd8f7a226acd7bbd2a71ec4) Thanks [@Goopil](https://github.com/Goopil)! - Run `registerOnShutdown` callbacks during multi-worker primary shutdown and unref the restart backoff timer, so plugin flushes and cleanups are no longer silently skipped on deploy.
+
 ## 1.2.1
 
 ### Patch Changes
