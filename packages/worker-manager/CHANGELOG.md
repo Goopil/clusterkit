@@ -1,5 +1,11 @@
 # @goopil/clusterkit
 
+## 1.2.4
+
+### Patch Changes
+
+- [#121](https://github.com/Goopil/clusterkit/pull/121) [`3872ed4`](https://github.com/Goopil/clusterkit/commit/3872ed4681de6af3148c9e301648bf0075bd8655) Thanks [@Goopil](https://github.com/Goopil)! - Register SIGTERM/SIGINT/SIGHUP handlers before forking workers so a signal received during the boot window triggers a graceful shutdown instead of orphaning the fleet.
+
 ## 1.2.3
 
 ### Patch Changes
