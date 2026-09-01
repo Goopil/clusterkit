@@ -1,5 +1,11 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { _resetDetectionCache, detectReusePortSupport, getPlatformCapabilities } from "../src/platform";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  _resetDetectionCache,
+  _setRuntimeProbe,
+  detectReusePortSupport,
+  getPlatformCapabilities,
+  ReusePortProbeTimeoutError,
+} from "../src/platform";
 
 describe("platform", () => {
   beforeEach(() => {
@@ -90,6 +96,73 @@ describe("platform", () => {
 
     it("should not throw on any platform", async () => {
       await expect(getPlatformCapabilities()).resolves.toBeDefined();
+    });
+  });
+
+  // Probe result caching ========================================================
+  // A timeout is inconclusive, not "unsupported": it must not be cached, or a
+  // CPU-starved pod at boot permanently loses reusePort. Definitive results
+  // (probe resolved with a boolean) stay cached. The probe is stubbed so the
+  // tests never depend on the platform actually supporting SO_REUSEPORT.
+
+  describe("probe result caching", () => {
+    const realPlatform = process.platform;
+
+    beforeEach(() => {
+      _resetDetectionCache();
+      // darwin/win32 short-circuit before the runtime probe runs — pretend we
+      // are on Linux (kernel >= 3.9) so the probe stub is reachable everywhere.
+      Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+    });
+
+    afterEach(() => {
+      _setRuntimeProbe(undefined);
+      Object.defineProperty(process, "platform", { value: realPlatform, configurable: true });
+      vi.useRealTimers();
+    });
+
+    it("caches a definitive false result", async () => {
+      let probeCalls = 0;
+      _setRuntimeProbe(() => {
+        probeCalls++;
+        return Promise.resolve(false);
+      });
+
+      await expect(detectReusePortSupport()).resolves.toBe(false);
+      await expect(detectReusePortSupport()).resolves.toBe(false);
+      expect(probeCalls).toBe(1);
+    });
+
+    it("caches a definitive true result", async () => {
+      let probeCalls = 0;
+      _setRuntimeProbe(() => {
+        probeCalls++;
+        return Promise.resolve(true);
+      });
+
+      await expect(detectReusePortSupport()).resolves.toBe(true);
+      await expect(detectReusePortSupport()).resolves.toBe(true);
+      expect(probeCalls).toBe(1);
+    });
+
+    it("does not cache a timeout outcome — the next call re-probes", async () => {
+      let probeCalls = 0;
+      _setRuntimeProbe(() => {
+        probeCalls++;
+        return new Promise((_, reject) => {
+          setTimeout(() => reject(new ReusePortProbeTimeoutError()), 500);
+        });
+      });
+      vi.useFakeTimers();
+
+      const first = detectReusePortSupport();
+      await vi.advanceTimersByTimeAsync(500);
+      await expect(first).resolves.toBe(false); // false for THIS call...
+
+      const second = detectReusePortSupport();
+      await vi.advanceTimersByTimeAsync(500);
+      await expect(second).resolves.toBe(false); // ...but a fresh probe ran
+      expect(probeCalls).toBe(2);
     });
   });
 });
