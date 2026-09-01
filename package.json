@@ -29,6 +29,7 @@
     "dev": "turbo run dev",
     "serve": "turbo run serve",
     "test": "turbo run test --filter=./packages/**",
+    "test:smoke": "vitest run --root examples",
     "test:coverage": "turbo run test:coverage --filter=./packages/**",
     "test:packages": "node scripts/package-smoke-test.mjs",
     "clean": "turbo run clean && rm -rf node_modules",
@@ -51,7 +52,8 @@
     "@changesets/changelog-github": "^1.0.0",
     "@changesets/cli": "^3.0.1",
     "publint": "^0.3.24",
-    "turbo": "^2.10.12"
+    "turbo": "^2.10.12",
+    "vitest": "catalog:"
   },
   "pnpm": {
     "overrides": {
