@@ -13,15 +13,15 @@ Priorisation: **impact × risque × urgence / effort**. Chaque tâche référenc
 
 ## Phase 1 — Stabilisation (réduction du risque, ≤ 1 semaine)
 
-- [ ] Fix AUDIT-014 — tracker le timer `startDelayMs`, garde "closed" dans `startWatchers`. *Effort: S.*
-- [ ] Fix AUDIT-015 — fusion du payload env dans le debounce + trailing flush après skip `minRestartIntervalMs`. *Effort: S + tests.*
-- [ ] Fix AUDIT-005 — enrichir l'erreur d'`installPlugins` (nom du plugin) + rollback des plugins déjà installés. *Effort: S.*
-- [ ] Fix AUDIT-002 — dériver l'escalade de `drainRecycledWorker` de la config shutdown + pinner les durées dans le test. *Effort: S (attention: AUDIT-033 item 11 pour le test).*
-- [ ] Fix AUDIT-003 — ne pas émettre `restart:complete` (ou `aborted: true`) sur break + test du chemin.
-- [ ] Tests AUDIT-033 (items 1, 2, 5, 6 d'abord): `gracefulShutdowns` asserté, guards recycle×shutdown, FIFO de la queue, `waitForWorkersToExit` négatif.
-- [ ] Fix AUDIT-020 — flag `defaultMetricsInstalled` (prometheus reinstall).
-- [ ] Fix AUDIT-018 — reset du latch `isShutdown` au reinstall (otlp).
-- [ ] Fix AUDIT-022 — throw explicite si `getMetrics()` hors primaire (prometheus).
+- [x] Fix AUDIT-014 — tracker le timer `startDelayMs`, garde "closed" dans `startWatchers`. *Effort: S.*
+- [x] Fix AUDIT-015 — fusion du payload env dans le debounce + trailing flush après skip `minRestartIntervalMs`. *Effort: S + tests.*
+- [x] Fix AUDIT-005 — enrichir l'erreur d'`installPlugins` (nom du plugin) + rollback des plugins déjà installés. *Effort: S.*
+- [x] Fix AUDIT-002 — dériver l'escalade de `drainRecycledWorker` de la config shutdown + pinner les durées dans le test. *Effort: S (attention: AUDIT-033 item 11 pour le test).*
+- [x] Fix AUDIT-003 — ne pas émettre `restart:complete` (ou `aborted: true`) sur break + test du chemin.
+- [x] Tests AUDIT-033 (items 1, 2, 5, 6 d'abord): `gracefulShutdowns` asserté, guards recycle×shutdown, FIFO de la queue, `waitForWorkersToExit` négatif.
+- [x] Fix AUDIT-020 — flag `defaultMetricsInstalled` (prometheus reinstall).
+- [x] Fix AUDIT-018 — reset du latch `isShutdown` au reinstall (otlp).
+- [x] Fix AUDIT-022 — throw explicite si `getMetrics()` hors primaire (prometheus).
 
 ## Phase 2 — Performance (impact mesurable)
 
