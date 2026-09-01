@@ -191,6 +191,36 @@ describe("ShutdownCoordinator", () => {
     await promise;
   });
 
+  // ── waitForWorkersToExit must wait for ALL workers ────────────────────────
+  // AUDIT-033 item 6: swapping every() → some() passed CI — the exit wait
+  // resolved as soon as ONE worker was dead, declaring shutdown successful
+  // while another worker was still alive.
+
+  it("does not resolve the exit wait while any worker is still alive", async () => {
+    const coordinator = new ShutdownCoordinator(baseConfig, null, makeMetrics(), "app");
+    coordinator.setupCallbacks(vi.fn(), vi.fn());
+    const dead = new MockWorker(1);
+    dead.exit(0); // already dead
+    const alive = new StubbornWorker(2); // never ACKs, never dies on its own
+
+    const promise = coordinator.initiateShutdown([dead, alive] as never, "SIGTERM");
+
+    // ACK phase ends at 500ms (live worker times out). The exit wait must
+    // still be pending: a live worker keeps it open until the full
+    // shutdown.timeoutMs. every → some would resolve the wait here and start
+    // force-killing the survivor ~1000ms early.
+    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(1); // 1ms into the exit wait
+    expect(alive.process.kill).not.toHaveBeenCalled(); // ← kills every → some
+    expect(alive.isDead()).toBe(false);
+
+    // The full timeout elapses → the survivor is force-killed → shutdown completes
+    await vi.advanceTimersByTimeAsync(1_700);
+    await vi.runAllTimersAsync();
+    await promise;
+    expect(alive.isDead()).toBe(true); // SIGKILL escalation reached the survivor
+  });
+
   // ── Multiple workers ──────────────────────────────────────────────────────
 
   it("handles mixed workers: one ACKs, one times out, one already dead", async () => {
