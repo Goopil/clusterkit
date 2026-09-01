@@ -1538,6 +1538,87 @@ describe("Orchestrator", () => {
       await expect(vi.runAllTimersAsync().then(() => shutdownPromise)).resolves.not.toThrow();
       vi.useRealTimers();
     });
+
+    it("enriches a failing install error with the plugin name and rolls back earlier plugins", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      const uninstall = vi.fn();
+      orch.use({ name: "good", install: vi.fn().mockResolvedValue(undefined), uninstall });
+      orch.use({
+        name: "bad",
+        install: () => {
+          throw new Error("boom");
+        },
+      });
+
+      const err = await orch.run(() => {}).catch((e) => e);
+      expect(err).toBeInstanceOf(Error);
+      expect(err.message).toContain("Plugin 'bad' install failed: boom");
+      expect(err.cause).toBeInstanceOf(Error);
+      expect((err.cause as Error).message).toBe("boom");
+      expect(uninstall).toHaveBeenCalledOnce();
+    });
+
+    it("enriches the error when the first plugin fails with nothing to roll back", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      const uninstall = vi.fn();
+      orch.use({
+        name: "bad",
+        install: () => {
+          throw new Error("boom");
+        },
+      });
+
+      await expect(orch.run(() => {})).rejects.toThrow("Plugin 'bad' install failed: boom");
+      expect(uninstall).not.toHaveBeenCalled();
+    });
+
+    it("does not mask the original error when a rollback uninstall fails", async () => {
+      mockCluster.isPrimary = true;
+      const logError = vi.fn();
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: logError },
+        }),
+      );
+      orch.use({
+        name: "good",
+        install: vi.fn().mockResolvedValue(undefined),
+        uninstall: () => {
+          throw new Error("rollback exploded");
+        },
+      });
+      orch.use({
+        name: "bad",
+        install: () => {
+          throw new Error("boom");
+        },
+      });
+
+      const err = await orch.run(() => {}).catch((e) => e);
+      expect(err.message).toContain("Plugin 'bad' install failed: boom");
+      expect(logError).toHaveBeenCalledWith(
+        expect.stringContaining("Plugin rollback failed"),
+        expect.objectContaining({ plugin: "good", error: "rollback exploded" }),
+      );
+    });
+
+    it("enriches the error when a plugin throws a non-Error value", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      orch.use({
+        name: "bad",
+        install: () => {
+          throw "boom-string";
+        },
+      });
+
+      const err = await orch.run(() => {}).catch((e) => e);
+      expect(err.message).toContain("Plugin 'bad' install failed: boom-string");
+      expect(err.cause).toBe("boom-string");
+    });
   });
 
   // --------------------------------------------------------------------------
