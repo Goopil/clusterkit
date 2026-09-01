@@ -6,6 +6,11 @@
 > Method: autocannon, 3s warmup + 10s measure, 1 run (median), 150 connections (50/worker)
 > SO_REUSEPORT: disabled (platform.ts hardcodes `false` for darwin)
 
+> **Data provenance warning — macOS `single` rows**: the `single` baseline below is not what it claims.
+> It reports 3–4 serving PIDs (expected: 1) and ~5001 ms shutdown times, and the serving-PID anomaly is
+> unexplained. Treat all macOS `single` rows as unreliable; the historical data is kept as-is until a
+> re-bench (preferably on the Linux Docker harness).
+
 ### Workload: Hello World (JSON trivial)
 
 | Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
@@ -245,6 +250,9 @@ performer on multi-worker workloads.
 
 ### Notes
 
+- **Labeling correction**: every `Lat p95` column in the tables above actually contains **p97.5** values
+  (autocannon percentile bucket; the generator mislabeled it). The reporter now emits `Lat p97.5`; regenerating
+  these tables requires a full Docker bench run.
 - macOS RSS/CPU = N/A (no `/proc` filesystem). Use Linux Docker for memory/CPU metrics.
 - `stddev = 0` because only 1 run per scenario (quick mode). Reference mode (3 runs) needed for variance.
 - Later workloads (auth-verify, error-rate, upload-echo) show inflated RSS/CPU values due to cumulative
