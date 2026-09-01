@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Orchestrator } from "../src/orchestrator";
+import { SignalHandler } from "../src/signal-handler";
 import { getCPUCount } from "../src/sizing";
 import { WorkerManagerValidationError } from "../src/validation";
 
@@ -457,6 +458,21 @@ describe("Orchestrator", () => {
       const orch = new Orchestrator(cfg({ workers: 3 }));
       await orch.run(() => {});
       expect(Object.keys(mockCluster.workers)).toHaveLength(3);
+    });
+
+    it("should register signal handlers before forking the first worker", async () => {
+      mockCluster.isPrimary = true;
+      const registerSpy = vi.spyOn(SignalHandler.prototype, "register");
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      await orch.run(() => {});
+
+      expect(registerSpy).toHaveBeenCalledTimes(1);
+      expect(forkSpy).toHaveBeenCalledTimes(2);
+      // A SIGTERM arriving between fork and register would kill the primary
+      // with Node's default handler and orphan the fleet (#93).
+      expect(registerSpy.mock.invocationCallOrder[0]).toBeLessThan(forkSpy.mock.invocationCallOrder[0]);
     });
 
     it("should track activeWorkers", async () => {
