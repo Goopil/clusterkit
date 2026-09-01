@@ -169,8 +169,29 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   }
 
   private async installPlugins(): Promise<void> {
+    const installed: OrchestratorPlugin[] = [];
     for (const plugin of this.plugins) {
-      await plugin.install(this, this.baseLog, this.cfg);
+      try {
+        await plugin.install(this, this.baseLog, this.cfg);
+        installed.push(plugin);
+      } catch (err) {
+        // Roll back plugins already installed in this pass so a failing install
+        // does not leave the instance half-configured. A failing uninstall must
+        // not mask the original install error.
+        for (const done of installed) {
+          try {
+            await done.uninstall?.(this);
+          } catch (rollbackErr) {
+            this.log?.error("Plugin rollback failed", {
+              plugin: done.name,
+              error: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+            });
+          }
+        }
+        throw new Error(`Plugin '${plugin.name}' install failed: ${err instanceof Error ? err.message : String(err)}`, {
+          cause: err,
+        });
+      }
     }
   }
 

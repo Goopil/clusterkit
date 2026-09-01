@@ -1538,6 +1538,41 @@ describe("Orchestrator", () => {
       await expect(vi.runAllTimersAsync().then(() => shutdownPromise)).resolves.not.toThrow();
       vi.useRealTimers();
     });
+
+    it("enriches a failing install error with the plugin name and rolls back earlier plugins", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      const uninstall = vi.fn();
+      orch.use({ name: "good", install: vi.fn().mockResolvedValue(undefined), uninstall });
+      orch.use({
+        name: "bad",
+        install: () => {
+          throw new Error("boom");
+        },
+      });
+
+      const err = await orch.run(() => {}).catch((e) => e);
+      expect(err).toBeInstanceOf(Error);
+      expect(err.message).toContain("Plugin 'bad' install failed: boom");
+      expect(err.cause).toBeInstanceOf(Error);
+      expect((err.cause as Error).message).toBe("boom");
+      expect(uninstall).toHaveBeenCalledOnce();
+    });
+
+    it("enriches the error when the first plugin fails with nothing to roll back", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      const uninstall = vi.fn();
+      orch.use({
+        name: "bad",
+        install: () => {
+          throw new Error("boom");
+        },
+      });
+
+      await expect(orch.run(() => {})).rejects.toThrow("Plugin 'bad' install failed: boom");
+      expect(uninstall).not.toHaveBeenCalled();
+    });
   });
 
   // --------------------------------------------------------------------------
