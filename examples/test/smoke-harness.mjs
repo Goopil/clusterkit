@@ -4,12 +4,18 @@ import { spawn } from "node:child_process";
 /**
  * Start an example server and wait until it's listening on the given port.
  * Returns the child process and a stop() function.
+ * `entry` overrides the default `examples/<name>/src/index.mjs` entry point
+ * (e.g. built TypeScript examples like NestJS run from `dist/main.js`).
  */
-export function startExample(name, env) {
-  const child = spawn("node", [`examples/${name}/src/index.mjs`], {
+export function startExample(name, env, entry = `examples/${name}/src/index.mjs`) {
+  const child = spawn("node", [entry], {
     env: { ...process.env, ...env },
     stdio: ["pipe", "pipe", "pipe"],
     cwd: process.cwd(),
+    // Own process group so the whole tree (primary + cluster workers) can be
+    // signalled: killing only the primary orphans its workers, which keep the
+    // app ports bound and poison subsequent smoke runs.
+    detached: true,
   });
 
   const stdout = [];
@@ -17,23 +23,37 @@ export function startExample(name, env) {
   child.stdout.on("data", (d) => stdout.push(d));
   child.stderr.on("data", (d) => stderr.push(d));
 
+  const signalTree = (signal) => {
+    if (!child.pid) return;
+    try {
+      // Negative pid = signal the whole process group (child is its own
+      // group leader thanks to detached: true)
+      process.kill(-child.pid, signal);
+    } catch {
+      // Group already gone, or child is not a group leader — fall back to
+      // signalling the primary only
+      try {
+        child.kill(signal);
+      } catch {
+        /* already dead */
+      }
+    }
+  };
+
   return {
     child,
     stdout: () => stdout.join(""),
     stderr: () => stderr.join(""),
     stop() {
-      if (!child.killed) {
-        child.kill("SIGTERM");
-      }
+      signalTree("SIGTERM");
     },
     async stopAndWait(timeoutMs = 5_000) {
-      if (!child.killed) {
-        child.kill("SIGTERM");
-      }
+      signalTree("SIGTERM");
       await new Promise((resolve) => {
-        const timer = setTimeout(resolve, timeoutMs);
+        // Escalate to SIGKILL if graceful shutdown hangs past the timeout
+        const killer = setTimeout(() => signalTree("SIGKILL"), timeoutMs);
         child.once("exit", () => {
-          clearTimeout(timer);
+          clearTimeout(killer);
           resolve();
         });
       });

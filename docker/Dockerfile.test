@@ -40,7 +40,8 @@ RUN pnpm install --frozen-lockfile
 COPY packages/ packages/
 COPY turbo.json ./
 
-# Build only the publishable packages (examples have no unit tests)
+# Build only the publishable packages (this harness runs package tests only;
+# the examples boot-smoke runs in the dedicated CI `smoke` job)
 RUN pnpm turbo run build --filter="./packages/**"
 
 RUN groupadd -r app && useradd -r -g app app -m
