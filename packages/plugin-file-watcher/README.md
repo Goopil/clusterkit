@@ -119,6 +119,7 @@ Factory returning a plugin implementing `OrchestratorPlugin`.
 ### `parseEnvFile(content: string): Record<string, string>`
 
 Exported utility: parses `.env` file content into a key-value map. Handles comments (`#`), quotes, and empty lines.
+Inline comments (` # ...`) are stripped from unquoted values only — comments inside quotes are preserved.
 
 ### `FileWatcherPlugin`
 

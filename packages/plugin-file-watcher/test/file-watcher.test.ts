@@ -45,6 +45,26 @@ describe("parseEnvFile", () => {
     const result = parseEnvFile("  FOO  =  bar  ");
     expect(result).toEqual({ FOO: "bar" });
   });
+
+  it("strips inline comment from unquoted value", () => {
+    const result = parseEnvFile("TOKEN=abc # rotated");
+    expect(result).toEqual({ TOKEN: "abc" });
+  });
+
+  it("keeps inline comment inside double quotes", () => {
+    const result = parseEnvFile('TOKEN="abc # keep"');
+    expect(result).toEqual({ TOKEN: "abc # keep" });
+  });
+
+  it("keeps inline comment inside single quotes", () => {
+    const result = parseEnvFile("TOKEN='abc # keep'");
+    expect(result).toEqual({ TOKEN: "abc # keep" });
+  });
+
+  it("skips prototype-pollution keys", () => {
+    const result = parseEnvFile("__proto__=x\nconstructor=y\nprototype=z\nFOO=bar");
+    expect(result).toEqual({ FOO: "bar" });
+  });
 });
 
 function mockOrchestrator(workerCount = 2): Orchestrator & {
