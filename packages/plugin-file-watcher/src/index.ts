@@ -96,12 +96,12 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
       return watching;
     },
 
-    async install(orchestrator: Orchestrator, logger: Logger | null, config: ResolvedConfig): Promise<void> {
+    async install(orchestrator: Orchestrator, logger: Logger | null, _config: ResolvedConfig): Promise<void> {
       if (!cluster.isPrimary) return;
 
       const log = withLoggerPrefix(logger, "clusterkit:file-watcher");
 
-      if (config.workers.count === 1) {
+      if (orchestrator.workerCount === 1) {
         log?.warn("file-watcher plugin has no effect in single-worker mode");
         return;
       }
