@@ -174,9 +174,6 @@ importers:
       '@goopil/clusterkit':
         specifier: workspace:*
         version: link:../../packages/worker-manager
-      '@goopil/clusterkit-prometheus':
-        specifier: workspace:*
-        version: link:../../packages/plugin-prometheus
       '@inertiajs/vue3':
         specifier: ^3.6.1
         version: 3.6.1(vue@3.5.42(typescript@7.0.2))
@@ -186,9 +183,6 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
-      prom-client:
-        specifier: ^15
-        version: 15.1.3
       vue:
         specifier: ^3.5.42
         version: 3.5.42(typescript@7.0.2)
@@ -214,18 +208,12 @@ importers:
       '@goopil/clusterkit':
         specifier: workspace:*
         version: link:../../packages/worker-manager
-      '@goopil/clusterkit-prometheus':
-        specifier: workspace:*
-        version: link:../../packages/plugin-prometheus
       '@inertiajs/react':
         specifier: ^3.6.1
         version: 3.6.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       express:
         specifier: ^5.2.1
         version: 5.2.1
-      prom-client:
-        specifier: ^15
-        version: 15.1.3
       react:
         specifier: ^19
         version: 19.2.8

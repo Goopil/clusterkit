@@ -1,5 +1,4 @@
 import { Orchestrator } from "@goopil/clusterkit";
-import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 import express from "express";
 
 // This is a drop-in replacement for @inertiajs/server.
@@ -25,9 +24,7 @@ const capabilities = await Orchestrator.getCapabilities();
 console.log("Platform:", capabilities.platform);
 console.log("SO_REUSEPORT:", capabilities.reusePort);
 
-const prometheus = createPrometheusPlugin({ metricsCacheTtlMs: 250 });
-
-orchestrator.use(prometheus).run(async () => {
+orchestrator.run(async () => {
   // Dynamically import the SSR bundle produced by `vite build --ssr`.
   // Each worker gets its own isolated module instance — no shared state.
   const { render } = await import("../dist/server/entry-server.mjs");

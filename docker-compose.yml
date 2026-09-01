@@ -35,9 +35,8 @@ services:
   #   http://localhost:3010  hot-reload
   #
   # Prometheus metrics (one per app):
-  #   http://localhost:9090  express     http://localhost:9093  koa
-  #   http://localhost:9091  fastify     http://localhost:9094  nestjs-express
-  #   http://localhost:9092  hono        http://localhost:9095  nestjs-fastify
+  #   http://localhost:9090  express     http://localhost:9092  hono
+  #   http://localhost:9091  fastify     http://localhost:9093  koa
   #
   # OTLP collector metrics (express-otlp):
   #   http://localhost:8889/metrics  (Prometheus scrape endpoint)
@@ -66,8 +65,6 @@ services:
       - "9091:9091"
       - "9092:9092"
       - "9093:9093"
-      - "9094:9094"
-      - "9095:9095"
     environment:
       TURBO_DAEMON: "false"
       TURBO_TELEMETRY_DISABLED: "1"
