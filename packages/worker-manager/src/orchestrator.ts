@@ -861,6 +861,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     const workers = this.workerManager.getActiveWorkers();
     await this.shutdownCoordinator.initiateShutdown(workers, signal);
 
+    await this.runShutdownCallbacks(signal);
+
     // Uninstall plugins
     await this.uninstallPlugins();
 

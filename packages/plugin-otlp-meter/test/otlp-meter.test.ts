@@ -336,6 +336,19 @@ describe("plugin lifecycle", () => {
     expect((orch as unknown as EventEmitter).listenerCount("worker:crash")).toBe(0);
     await plugin.shutdown();
   });
+
+  it("flushes the meter provider on uninstall", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    expect(plugin.meterProvider).toBeDefined();
+
+    await plugin.uninstall?.(orch);
+
+    expect(plugin.meterProvider).toBeUndefined();
+  });
 });
 
 // Single-worker mode =========================================================

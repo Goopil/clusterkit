@@ -255,6 +255,46 @@ describe("Orchestrator", () => {
       orch.registerOnShutdown(async () => {});
       expect(() => orch.registerOnShutdown(async () => {})).not.toThrow();
     });
+
+    it("should run callbacks during multi-worker primary shutdown, before plugin uninstall", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          shutdown: {
+            timeoutMs: 1_000,
+            ackTimeoutMs: 500,
+            sigtermDelayMs: 300,
+            sigintDelayMs: 200,
+          },
+        }),
+      );
+      const order: string[] = [];
+      orch.use({
+        name: "p",
+        install: vi.fn().mockResolvedValue(undefined),
+        uninstall: async () => {
+          order.push("uninstall");
+        },
+      });
+      await orch.run(() => {});
+
+      const onShutdown = vi.fn(async () => {
+        order.push("callback");
+      });
+      orch.registerOnShutdown(onShutdown);
+
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+
+      expect(order).toEqual(["callback", "uninstall"]);
+      expect(onShutdown).toHaveBeenCalledWith("SIGTERM");
+    });
   });
 
   // --------------------------------------------------------------------------
