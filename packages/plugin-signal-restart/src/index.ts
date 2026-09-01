@@ -35,7 +35,7 @@ export function createSignalRestartPlugin(options?: SignalRestartOptions): Signa
       return lastRestart;
     },
 
-    async install(orchestrator: Orchestrator, logger: Logger | null, config: ResolvedConfig): Promise<void> {
+    async install(orchestrator: Orchestrator, logger: Logger | null, _config: ResolvedConfig): Promise<void> {
       if (!cluster.isPrimary) return;
 
       const log = withLoggerPrefix(logger, "clusterkit:signal-restart");
@@ -55,7 +55,7 @@ export function createSignalRestartPlugin(options?: SignalRestartOptions): Signa
       const handleSignal = async () => {
         const reason = defaultReason;
 
-        if (config.workers.count === 1) {
+        if (orchestrator.workerCount === 1) {
           log?.info("Signal received in single-worker mode, exiting for external restart", {
             signal,
             reason,

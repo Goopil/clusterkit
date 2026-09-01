@@ -47,17 +47,22 @@ describe("parseEnvFile", () => {
   });
 });
 
-function mockOrchestrator(): Orchestrator & {
+function mockOrchestrator(workerCount = 2): Orchestrator & {
   restartWorkers: ReturnType<typeof vi.fn>;
   registerOnShutdown: ReturnType<typeof vi.fn>;
 } {
-  const emitter = new EventEmitter() as unknown as Orchestrator & {
+  const emitter = new EventEmitter() as EventEmitter & {
+    restartWorkers: ReturnType<typeof vi.fn>;
+    registerOnShutdown: ReturnType<typeof vi.fn>;
+    workerCount: number;
+  };
+  emitter.workerCount = workerCount;
+  emitter.restartWorkers = vi.fn().mockResolvedValue(undefined);
+  emitter.registerOnShutdown = vi.fn();
+  return emitter as unknown as Orchestrator & {
     restartWorkers: ReturnType<typeof vi.fn>;
     registerOnShutdown: ReturnType<typeof vi.fn>;
   };
-  emitter.restartWorkers = vi.fn().mockResolvedValue(undefined);
-  emitter.registerOnShutdown = vi.fn();
-  return emitter;
 }
 
 function mockConfig(count: number | "auto" = 2): ResolvedConfig {
@@ -91,11 +96,24 @@ describe("file-watcher plugin", () => {
   it("no-ops in single-worker mode", async () => {
     Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
     const plugin = createFileWatcherPlugin({ watch: ["./src"] });
-    const orch = mockOrchestrator();
+    const orch = mockOrchestrator(1);
 
     await plugin.install(orch, null, mockConfig(1));
 
     expect(plugin.isWatching).toBe(false);
+  });
+
+  it("no-ops when workers is 'auto' but resolves to a single worker", async () => {
+    Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
+    const plugin = createFileWatcherPlugin({ watch: ["./src"] });
+    const orch = mockOrchestrator(1);
+    try {
+      await plugin.install(orch, null, mockConfig("auto"));
+      expect(plugin.isWatching).toBe(false);
+      expect(orch.restartWorkers).not.toHaveBeenCalled();
+    } finally {
+      await plugin.uninstall?.();
+    }
   });
 
   it("no-ops in worker process", async () => {
