@@ -13,7 +13,6 @@ import { buildMarkdownReport, writeJsonReport, writeMarkdownReport } from "./lib
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(__dirname, "results");
-const REPO_ROOT = join(__dirname, "..");
 
 const ALL_TARGETS = [
   "single",
@@ -120,12 +119,12 @@ async function main() {
   writeJsonReport(report, RESULTS_DIR);
 
   const markdown = buildMarkdownReport(report);
-  writeMarkdownReport(markdown, REPO_ROOT);
+  writeMarkdownReport(markdown, RESULTS_DIR);
 
   const elapsed = Math.round((Date.now() - startTime) / 1000);
   console.log(`\n=== Done in ${elapsed}s ===`);
   console.log(`JSON: ${join(RESULTS_DIR, "latest.json")}`);
-  console.log(`Markdown: ${join(REPO_ROOT, "BENCHMARKS.md")}`);
+  console.log(`Markdown: ${join(RESULTS_DIR, "REPORT.generated.md")}`);
 }
 
 async function runScenarioForTarget(target, workload, config) {

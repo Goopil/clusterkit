@@ -66,11 +66,12 @@ The `upload-echo` workload uses POST method; the runner automatically sends a JS
 ## Output
 
 - **JSON**: `benchmarks/results/latest.json` — full raw data with per-run values
-- **Markdown**: `BENCHMARKS.md` at repo root — summary tables for presentation
+- **Markdown**: `benchmarks/results/REPORT.generated.md` — auto-generated tables (all workloads/targets found)
+- **`BENCHMARKS.md`** at the repo root is hand-maintained (Key Findings prose) — the reporter never writes to it
 
-Commit both after a Docker reference run:
+Commit both generated files after a Docker reference run:
 ```bash
-git add BENCHMARKS.md benchmarks/results/latest.json
+git add benchmarks/results/latest.json benchmarks/results/REPORT.generated.md
 ```
 
 ## How to add a new target
@@ -123,7 +124,7 @@ benchmarks/
 │   ├── pid-distributor.mjs    # Worker distribution checker
 │   ├── pm2-launcher.mjs      # pm2 API wrapper
 │   └── reporter.mjs           # JSON + Markdown generator
-├── results/             # Output directory (latest.json)
+├── results/             # Output directory (latest.json, REPORT.generated.md)
 ├── Dockerfile.bench     # Docker image for Linux reference runs
 └── docker-compose.override.yml  # Docker compose service
 ```

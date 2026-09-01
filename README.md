@@ -724,7 +724,8 @@ apps; 9090–9095 for metrics).
 ### Benchmarks
 
 The `benchmarks/` package compares clusterkit against other Node.js process orchestrators (native cluster, throng, pm2)
-on 3 HTTP workloads. Results are written to `BENCHMARKS.md` at the repo root.
+on 3 HTTP workloads. Results are written to `benchmarks/results/` (`latest.json` + auto-generated `REPORT.generated.md`);
+`BENCHMARKS.md` at the repo root is hand-maintained.
 
 ```bash
 pnpm bench:docker                                                      # full suite, Docker (~36 min)
