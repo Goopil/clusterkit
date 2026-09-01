@@ -827,8 +827,21 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    * SIGTERM and SIGKILL if the worker does not exit on its own.
    */
   private drainRecycledWorker(oldWorker: Worker): void {
+    // A worker can exit concurrently with the drain: its IPC write then fails
+    // with 'write EPIPE'/'channel closed', which Node surfaces as an ASYNC
+    // 'error' event on worker.process (child_process._send) — after the sync
+    // try/catch below has passed, and fatal to the primary without a
+    // listener. Route send errors to a no-op callback (Worker.send delegates
+    // to process.send, which routes send errors to a callback when given)
+    // and keep a no-op 'error' listener on the process for the worker's
+    // remaining lifetime: disconnect()'s internal send accepts no callback,
+    // so its failure can only be absorbed by the listener (same pattern as
+    // ShutdownCoordinator.initiateShutdown).
+    const swallowError = (): void => {};
+    oldWorker.process.on("error", swallowError);
+
     try {
-      oldWorker.send({ type: this.shutdownType });
+      oldWorker.send({ type: this.shutdownType }, swallowError);
       if (!oldWorker.isDead()) oldWorker.disconnect();
     } catch {
       /* worker already dead */

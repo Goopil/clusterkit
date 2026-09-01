@@ -9,7 +9,7 @@ import { WorkerManagerValidationError } from "../src/validation";
 
 class MockWorker extends EventEmitter {
   id: number;
-  process: { pid: number; kill: ReturnType<typeof vi.fn> };
+  process: EventEmitter & { pid: number; kill: ReturnType<typeof vi.fn> };
   exitedAfterDisconnect = false;
   autoExitOnDisconnect = false;
   private _isDead = false;
@@ -18,7 +18,9 @@ class MockWorker extends EventEmitter {
   constructor(id: number) {
     super();
     this.id = id;
-    this.process = { pid: 1000 + id, kill: vi.fn() };
+    // The real worker.process is a ChildProcess (an EventEmitter): the drain
+    // path attaches a no-op 'error' listener to it, so the mock mirrors that.
+    this.process = Object.assign(new EventEmitter(), { pid: 1000 + id, kill: vi.fn() });
   }
 
   isDead() {
@@ -1387,6 +1389,76 @@ describe("Orchestrator", () => {
       // Old workers were drained despite the never-online replacements.
       expect(mockCluster.workers[1]?.isDead()).toBe(true);
       expect(mockCluster.workers[2]?.isDead()).toBe(true);
+    });
+
+    // --------------------------------------------------------------------------
+    describe("recycled worker IPC EPIPE (drain race)", () => {
+      it("completes a roll whose old workers emit async EPIPE on drain", async () => {
+        vi.useFakeTimers();
+        const orchestrator = await setupPrimary(4, FAST_SHUTDOWN);
+        await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+        // Old workers fail their drain send asynchronously (dead IPC channel):
+        // Node surfaces the failure as an 'error' event on worker.process
+        // (child_process._send) AFTER the drain's sync try/catch has passed.
+        for (const w of Object.values(mockCluster.workers)) {
+          w!.autoExitOnDisconnect = true;
+          w!.send = () => {
+            setImmediate(() => {
+              const err = new Error("write EPIPE") as Error & { code?: string };
+              err.code = "EPIPE";
+              w!.process.emit("error", err);
+            });
+            return true;
+          };
+        }
+
+        // Probe uncaught exceptions: an escaped EPIPE must fail this test.
+        let uncaught: Error | undefined;
+        const onUncaught = (err: Error): void => {
+          uncaught ??= err;
+        };
+        process.on("uncaughtException", onUncaught);
+
+        try {
+          const restartPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "epipe" });
+          expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
+        } finally {
+          process.off("uncaughtException", onUncaught);
+        }
+
+        expect(uncaught).toBeUndefined();
+        // All workers exited via the drain (autoExit), not the kill backstop.
+        expect(orchestrator.getMetrics().forcedKills).toBe(0);
+      });
+
+      it("routes drain send errors to a callback and swallows process IPC errors", async () => {
+        vi.useFakeTimers();
+        const orchestrator = await setupPrimary(2, FAST_SHUTDOWN);
+        await vi.advanceTimersByTimeAsync(0);
+
+        const oldWorker = mockCluster.workers[1]!;
+        const sendSpy = vi.spyOn(oldWorker, "send");
+        oldWorker.autoExitOnDisconnect = true;
+
+        const restartPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "pin" });
+        expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
+
+        // The drain shutdown message is sent with a no-op callback: cluster's
+        // Worker.send() delegates to process.send(msg, cb), which routes send
+        // errors ('write EPIPE', 'IPC channel closed') to the callback instead
+        // of emitting them.
+        const drainSend = sendSpy.mock.calls.find(
+          (call) => (call[0] as { type?: string } | undefined)?.type === "__wm:shutdown",
+        );
+        expect(drainSend).toBeDefined();
+        expect(drainSend?.[1]).toBeTypeOf("function");
+
+        // disconnect()'s internal send has no callback: Node emits the error on
+        // worker.process, so a no-op 'error' listener must be attached.
+        expect(oldWorker.process.listenerCount("error")).toBeGreaterThan(0);
+        expect(() => oldWorker.process.emit("error", new Error("write EPIPE"))).not.toThrow();
+      });
     });
   });
 
