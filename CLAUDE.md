@@ -94,8 +94,8 @@ examples/express/          port 3000, metrics 9090
 examples/fastify/          port 3001, metrics 9091
 examples/hono/             port 3005, metrics 9092  (uses createAdaptorServer)
 examples/koa/              port 3006, metrics 9093
-examples/nestjs-express/   port 3007, metrics 9094  (TypeScript, tsc build)
-examples/nestjs-fastify/   port 3008, metrics 9095  (TypeScript, tsc build)
+examples/nestjs-express/   port 3007  (TypeScript, tsc build)
+examples/nestjs-fastify/   port 3008  (TypeScript, tsc build)
 ```
 
 NestJS examples require `app.init()` instead of `app.listen()` to bind the raw server with SO_REUSEPORT. Fastify adapter additionally needs `await fastifyInstance.ready()` between `app.init()` and `fastifyInstance.server.listen()` — without it Fastify's hook graph is not compiled and requests crash.

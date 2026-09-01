@@ -1,5 +1,4 @@
 import { Orchestrator } from "@goopil/clusterkit";
-import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 import express from "express";
 
 // Drop-in replacement for @inertiajs/server — React edition.
@@ -22,9 +21,7 @@ const capabilities = await Orchestrator.getCapabilities();
 console.log("Platform:", capabilities.platform);
 console.log("SO_REUSEPORT:", capabilities.reusePort);
 
-const prometheus = createPrometheusPlugin({ metricsCacheTtlMs: 250 });
-
-orchestrator.use(prometheus).run(async () => {
+orchestrator.run(async () => {
   const { render } = await import("../dist/server/entry-server.mjs");
 
   const app = express();

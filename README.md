@@ -573,10 +573,10 @@ Nine ready-to-run examples live in [`examples/`](./examples/).
 | `examples/fastify`           | 3001  | 9091         | Fastify HTTP server |
 | `examples/hono`              | 3005  | 9092         | Hono HTTP server |
 | `examples/koa`               | 3006  | 9093         | Koa HTTP server |
-| `examples/nestjs-express`    | 3007  | 9094         | NestJS (Express adapter) |
-| `examples/nestjs-fastify`    | 3008  | 9095         | NestJS (Fastify adapter) |
-| `examples/inertia-ssr`       | 13714 | 9096         | Inertia + Vue 3 SSR renderer |
-| `examples/inertia-ssr-react` | 13715 | 9097         | Inertia + React 18 SSR renderer |
+| `examples/nestjs-express`    | 3007  | —            | NestJS (Express adapter) |
+| `examples/nestjs-fastify`    | 3008  | —            | NestJS (Fastify adapter) |
+| `examples/inertia-ssr`       | 13714 | —            | Inertia + Vue 3 SSR renderer |
+| `examples/inertia-ssr-react` | 13715 | —            | Inertia + React 18 SSR renderer |
 | `examples/hot-reload`        | 3010  | —            | Signal-based + file watcher hot restart demo |
 
 **Run all examples at once (Docker):**
@@ -719,7 +719,7 @@ pnpm examples:start
 ```
 
 All 6 example servers start inside a single container with their ports mapped to the host (3000–3001, 3005–3008 for
-apps; 9090–9095 for metrics).
+apps; 9090–9093 for metrics).
 
 ### Benchmarks
 

@@ -12,10 +12,8 @@
   },
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
-    "@goopil/clusterkit-prometheus": "workspace:*",
     "@inertiajs/react": "^3.6.1",
     "express": "^5.2.1",
-    "prom-client": "^15",
     "react": "^19",
     "react-dom": "^19"
   },
