@@ -472,8 +472,9 @@ describe("exporter headers option", () => {
     await plugin.shutdown();
   });
 
-  it("forwards headers to the grpc exporter constructor", async () => {
+  it("warns and omits headers for the grpc exporter (unsupported)", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
+    const logger = mockLogger();
     const plugin = createOtlpMeterPlugin({
       instrumentation: false,
       protocol: "grpc",
@@ -481,9 +482,14 @@ describe("exporter headers option", () => {
       headers: { Authorization: "Bearer test-token" },
     });
     const orch = mockOrchestrator();
-    await plugin.install(orch, null, singleWorkerConfig());
+    await plugin.install(orch, logger, singleWorkerConfig());
 
-    expect(exporterCtorArgs.grpc).toEqual([{ url: "localhost:4317", headers: { Authorization: "Bearer test-token" } }]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("headers are not supported by the gRPC exporter"),
+      undefined,
+    );
+    // The gRPC exporter config has no `headers` support: constructed without them.
+    expect(exporterCtorArgs.grpc).toEqual([{ url: "localhost:4317" }]);
     await plugin.shutdown();
   });
 });

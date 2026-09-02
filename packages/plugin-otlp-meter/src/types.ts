@@ -13,6 +13,9 @@ export interface OtlpMeterPluginOptions {
   /**
    * Custom headers attached to every OTLP export request
    * (e.g. `Authorization` for authenticated collectors).
+   * Applies to `protocol: 'http'` only — with `'grpc'` the gRPC exporter
+   * does not support headers; they are ignored and a warning is logged.
+   * Configure metadata on the exporter directly instead.
    */
   headers?: Record<string, string>;
 

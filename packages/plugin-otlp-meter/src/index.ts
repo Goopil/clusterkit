@@ -74,9 +74,18 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
     const exporterModuleName =
       protocol === "grpc" ? "@opentelemetry/exporter-metrics-otlp-grpc" : "@opentelemetry/exporter-metrics-otlp-http";
 
+    // The gRPC exporter config omits `headers` (gRPC uses `metadata` instead):
+    // forwarding them would be silently dropped, leaving exports unauthenticated.
+    if (protocol === "grpc" && headers && Object.keys(headers).length > 0) {
+      pluginLog?.warn(
+        "headers are not supported by the gRPC exporter — configure metadata via the exporter's own options or use protocol: 'http'",
+      );
+    }
+
     try {
       const mod = await import(exporterModuleName);
-      return new mod.OTLPMetricExporter({ url: resolvedEndpoint, headers }) as PushMetricExporter;
+      const config = protocol === "grpc" ? { url: resolvedEndpoint } : { url: resolvedEndpoint, headers };
+      return new mod.OTLPMetricExporter(config) as PushMetricExporter;
     } catch (err) {
       if (isMissingModuleError(err)) {
         throw new Error(

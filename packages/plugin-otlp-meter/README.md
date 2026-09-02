@@ -61,7 +61,7 @@ orchestrator.use(otlp).run(async () => {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `endpoint` | `string` | `http://localhost:4318/v1/metrics` (HTTP) or `localhost:4317` (gRPC) | OTLP collector endpoint URL |
-| `headers` | `Record<string, string>` | — | Custom headers attached to every export request (e.g. `Authorization` for authenticated collectors) |
+| `headers` | `Record<string, string>` | — | Custom headers attached to every export request (e.g. `Authorization` for authenticated collectors). Applies to `http` only — with `grpc` they are ignored (warning logged); use exporter `metadata` instead |
 | `protocol` | `'http' \| 'grpc'` | `'http'` | OTLP transport protocol |
 | `instrumentation` | `boolean` | `true` | Collect Node.js host/process metrics |
 | `prefix` | `string` | `'clusterkit.'` | Metric name prefix |
