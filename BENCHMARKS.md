@@ -266,3 +266,6 @@ performer on multi-worker workloads.
 - throng-3 CPU % values on auth-verify (1903%), error-rate (2225%) and upload-echo (2615%) remain anomalous -- the
   proc-sampler may be double-counting threads or the IPC primary is under heavy load (pm2-reload-3 shows the same
   pattern on aggregate/auth-verify/error-rate). These are sampling artifacts, not real CPU usage.
+- cpu-io-mix is high-variance for clusterkit-3: across three separate invocations its median ranged 2,326 -> 2,431
+  (± 619) -> 2,670 (± 36) while native-cluster-3 stayed at 2,634-2,701 (± 11-36). clusterkit's best-case matches
+  native; the -13.7% figure reflects one noisy sample set, not a stable deficit.
