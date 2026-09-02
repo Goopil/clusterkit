@@ -10,6 +10,12 @@ export interface OtlpMeterPluginOptions {
    */
   endpoint?: string;
 
+  /**
+   * Custom headers attached to every OTLP export request
+   * (e.g. `Authorization` for authenticated collectors).
+   */
+  headers?: Record<string, string>;
+
   /** OTLP transport protocol. @default 'http' */
   protocol?: "http" | "grpc";
 
