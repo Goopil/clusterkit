@@ -50,7 +50,7 @@ Priorisation: **impact × risque × urgence / effort**. Chaque tâche référenc
 - [x] AUDIT-027 — pin digest du collector OTEL. [#131]
 - [x] AUDIT-028 — compléter SECURITY.md (3 packages) [#131], ne pousser que les tags du run [#110].
 - [x] AUDIT-032 — batch docs: compteurs d'exemples, image, SIGHUP, lien mort, RELEASING.md, engines >=22.12, hot-reload paths, `.catch()` dans les exemples. [#132]
-- [ ] AUDIT-033 (reste) — items 7-11 + per-file coverage thresholds sur les packages publiés.
+- [x] AUDIT-033 (reste) — items 7-11 + per-file coverage thresholds sur les packages publiés. [#138 — items 8-11 déjà couverts par #107/#116/#129; item 7 tué par nouveau test; thresholds lines+branches sur les 6 packages]
 
 ## Quick wins (fort impact, faible effort)
 
