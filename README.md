@@ -747,8 +747,9 @@ pnpm examples:start
 # Equivalent to: docker compose up examples --build
 ```
 
-All 10 example servers start inside a single container with their ports mapped to the host (3000–3001, 3005–3010, and
-13714–13715 for apps; 9090–9093 for metrics).
+8 of the 10 example servers start inside a single container with their ports mapped to the host (3000–3001 and 3005–3010
+for apps; 9090–9093 for metrics). The two inertia SSR examples (ports 13714–13715) are not part of the Docker setup —
+run them standalone from their `examples/` directory.
 
 ### Benchmarks
 

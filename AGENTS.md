@@ -139,7 +139,7 @@ corepack pnpm --filter @goopil/clusterkit-sizing test
 
 ```bash
 corepack pnpm test:linux        # docker compose run --build --rm test (full suite on real Linux kernel)
-corepack pnpm examples:start    # docker compose up examples --build (all 10 examples)
+corepack pnpm examples:start    # docker compose up examples --build (8 examples; inertia SSR excluded)
 ```
 
 ### Benchmarks
