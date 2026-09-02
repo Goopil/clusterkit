@@ -17,7 +17,9 @@ export interface Logger {
 // ============================================================================
 
 export interface HealthStatus {
+  /** Readiness signal: false while shutting down or after a crash-loop breaker trip. */
   ready: boolean;
+  /** Always true by design — readiness is the signal, not liveness. */
   live: boolean;
 }
 

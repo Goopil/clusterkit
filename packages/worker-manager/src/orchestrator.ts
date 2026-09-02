@@ -66,11 +66,12 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     forcedKills: 0,
   };
 
-  // Health
+  // Health — `live` is constant true by design (see HealthStatus): readiness is the signal.
   private readonly health: HealthStatus = { ready: true, live: true };
 
   // Circuit breaker
   private readonly crashTracker: CrashTracker;
+  private breakerWarningEmitted = false;
 
   // Intervals
   private crashCleanupInterval?: NodeJS.Timeout;
@@ -240,8 +241,13 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
   /**
    * Register a plugin (chainable).
+   * Must be called before run() — plugins are installed during startup; a
+   * later registration would be silently ignored yet still uninstalled.
    */
   use(plugin: OrchestratorPlugin): this {
+    if (this.isPrimaryStarted || this.isWorkerStarted) {
+      throw new Error("use: cannot be called after run() — plugins must be registered before the orchestrator starts");
+    }
     this.plugins.push(plugin);
     return this;
   }
@@ -714,6 +720,15 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       // A tripped breaker means the cluster can no longer maintain capacity:
       // flip readiness so load balancers / probes stop routing traffic here.
       this.health.ready = false;
+      // The default logger is null: without this, a minimal setup loses
+      // restart capacity with zero output. One warning per trip.
+      if (!this.breakerWarningEmitted) {
+        this.breakerWarningEmitted = true;
+        process.emitWarning(
+          "Crash loop detected — stopping worker restarts. Fix the cause, then call resetCircuitBreaker() to re-arm.",
+          "ClusterKitCrashLoop",
+        );
+      }
       this.safeEmit("circuit-breaker:tripped", {
         crashCount: this.crashTracker.count,
         windowMs: this.cfg.restart.crashWindowMs,
@@ -721,6 +736,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       this.metrics.crashLoopBackoffs++;
       return;
     }
+
+    // Breaker no longer tripped (reset or window slid) — a future trip warns again
+    this.breakerWarningEmitted = false;
 
     // Queue restart and process asynchronously
     this.pendingRestartQueue.push({ workerId: worker.id, code, signal });
@@ -1053,6 +1071,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
         }
         return parsed;
       }
+      this.log?.warn("WEB_CONCURRENCY is set but not a valid positive integer — falling back to CPU count", {
+        value: webConcurrency,
+      });
     }
 
     return getCPUCount();

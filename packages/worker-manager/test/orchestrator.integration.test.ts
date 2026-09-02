@@ -2,7 +2,7 @@ import cluster from "node:cluster";
 import { once } from "node:events";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Orchestrator } from "../src/orchestrator";
 import type { Logger, WorkerMetrics } from "../src/types";
 
@@ -202,6 +202,8 @@ describe("Orchestrator process-level integration", () => {
     const messagePrefix = randomPrefix();
     const { logger, entries } = createMemoryLogger();
     const restartTimestamps: number[] = [];
+    // Keep the new crash-loop process warning out of the test output
+    vi.spyOn(process, "emitWarning").mockImplementation(() => {});
 
     cluster.setupPrimary({ exec: WORKER_FIXTURE_PATH });
 

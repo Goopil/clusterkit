@@ -2,7 +2,7 @@ import cluster from "node:cluster";
 import { once } from "node:events";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Orchestrator } from "../src/orchestrator";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +33,8 @@ afterEach(async () => {
 
 describe("Orchestrator stress tests", () => {
   it("handles rapid crash-loop bursts and stabilizes after circuit breaker reset", async () => {
+    // Keep the new crash-loop process warning out of the test output
+    vi.spyOn(process, "emitWarning").mockImplementation(() => {});
     cluster.setupPrimary({ exec: WORKER_FIXTURE_PATH });
 
     const orchestrator = new Orchestrator({
