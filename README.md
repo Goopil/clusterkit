@@ -237,6 +237,18 @@ emits `circuit-breaker:tripped`. This prevents infinite crash loops that would o
 Each trip also emits a `process.emitWarning` (code `ClusterKitCrashLoop`) so setups without a configured logger are not
 fully silent.
 
+### Exit codes
+
+The primary flags a failure exit code (`process.exitCode = 1`) when the fleet becomes unrecoverable:
+
+- the circuit breaker trips (restarts stopped), or
+- the last worker crashes outside of a graceful shutdown.
+
+The flag is cleared (`process.exitCode = 0`) as soon as full capacity is restored (all workers back online) or a
+successful `resetCircuitBreaker()` refill brings the fleet back. Since all restart timers are unref'd, an
+unrecoverable fleet lets the primary drain and exit naturally — with the failure now visible to supervisors,
+Kubernetes, and process managers instead of masked as a clean exit `0`. Graceful shutdowns always exit with code `0`.
+
 ### Health checks
 
 ```ts

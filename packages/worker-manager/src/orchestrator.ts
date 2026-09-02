@@ -327,6 +327,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     if (!this.shutdownCoordinator.isShutdownInProgress()) {
       this.health.ready = true;
 
+      // The operator declared the underlying cause fixed: clear the failure
+      // exit code flagged when the breaker tripped or the fleet emptied
+      // (see handleWorkerExit).
+      process.exitCode = 0;
+
       // Refill any capacity lost while the breaker was tripped
       if (this.hasForked) {
         const missing = Math.max(0, this.resolveWorkerCount() - this.metrics.activeWorkers);
@@ -639,6 +644,12 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       this.scheduleBackoffReset(worker.id);
     }
 
+    // Fleet back at target capacity: a failure exit code flagged while the
+    // fleet was down (see handleWorkerExit) is resolved.
+    if (this.metrics.activeWorkers >= this.resolveWorkerCount()) {
+      process.exitCode = 0;
+    }
+
     this.safeEmit("worker:online", { workerId: worker.id, pid: worker.process.pid ?? 0 });
   }
 
@@ -712,6 +723,14 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     });
     this.crashTracker.record();
 
+    // An empty fleet cannot recover on its own once the event loop drains
+    // (all restart/backoff timers are unref'd): flag a failure exit code so
+    // supervisors do not read the death of the primary as a clean stop.
+    // Cleared when capacity is restored (see handleWorkerOnline).
+    if (this.metrics.activeWorkers === 0) {
+      process.exitCode = 1;
+    }
+
     if (this.crashTracker.isTripped()) {
       this.log?.error("Crash loop detected — stopping restarts", {
         crashCount: this.crashTracker.count,
@@ -720,6 +739,10 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       // A tripped breaker means the cluster can no longer maintain capacity:
       // flip readiness so load balancers / probes stop routing traffic here.
       this.health.ready = false;
+      // ... and flag a failure exit code: a tripped breaker self-terminates
+      // the primary once the fleet drains, and exit 0 would mask the crash.
+      // Cleared by resetCircuitBreaker() or restored capacity.
+      process.exitCode = 1;
       // The default logger is null: without this, a minimal setup loses
       // restart capacity with zero output. One warning per trip.
       if (!this.breakerWarningEmitted) {
