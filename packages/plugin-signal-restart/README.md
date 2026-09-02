@@ -39,6 +39,7 @@ The plugin warns at install time when the configured signal is likely to misbeha
 
 - **`SIGTERM` / `SIGINT`** are reserved for the orchestrator's graceful shutdown. Both handlers would fire on the same signal and race. Use a different signal (e.g. `SIGUSR2`).
 - **`SIGHUP`** (the default) is also the terminal hangup signal. In a TTY (dev terminal / SSH session), closing the terminal triggers a fleet restart. Prefer `SIGUSR2` in dev/TTY environments; `SIGHUP` remains fine when managed by a process manager (systemd, Docker, etc.) that detaches the process from a terminal.
+- **`SIGUSR2`** is also nodemon's restart signal — if nodemon runs in front of your app, it will react to the same signal. Avoid `SIGUSR2` behind nodemon and pick a signal not claimed by your other tooling.
 
 ## Options
 
