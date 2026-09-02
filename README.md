@@ -235,14 +235,20 @@ In each worker, the shutdown sequence is:
 If workers crash more than `crashThreshold` times within `crashWindowMs`, the orchestrator stops restarting them and
 emits `circuit-breaker:tripped`. This prevents infinite crash loops that would otherwise exhaust system resources.
 Each trip also emits a `process.emitWarning` (code `ClusterKitCrashLoop`) so setups without a configured logger are not
-fully silent.
+fully silent. Restart queue entries are dropped once the breaker is tripped — after a `resetCircuitBreaker()` call,
+missing capacity is refilled.
+
+A failed worker fork (for example `EMFILE`/`ENOMEM` under resource exhaustion) no longer permanently shrinks the
+fleet: the restart is re-queued and retried through the normal backoff. After 3 consecutive fork failures the
+environment is treated as unrecoverable and the pending restarts are abandoned.
 
 ### Exit codes
 
 The primary flags a failure exit code (`process.exitCode = 1`) when the fleet becomes unrecoverable:
 
-- the circuit breaker trips (restarts stopped), or
-- the last worker crashes outside of a graceful shutdown.
+- the circuit breaker trips (restarts stopped),
+- the last worker crashes outside of a graceful shutdown, or
+- 3 consecutive fork failures exhaust the restart queue (an environment that can no longer fork).
 
 The flag is cleared (`process.exitCode = 0`) as soon as full capacity is restored (all workers back online) or a
 successful `resetCircuitBreaker()` refill brings the fleet back. Since all restart timers are unref'd, an

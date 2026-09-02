@@ -23,6 +23,20 @@ import { WorkerManager } from "./worker-manager";
 const MAX_AUTO_WORKERS = 256;
 
 /**
+ * Consecutive fork failures (EMFILE/ENOMEM...) tolerated before the restart
+ * machinery declares the environment unrecoverable and stops retrying.
+ */
+const MAX_CONSECUTIVE_FORK_FAILURES = 3;
+
+/**
+ * A pending restart: either the restart of a crashed worker, or a capacity
+ * refill queued by resetCircuitBreaker() (no worker actually crashed).
+ */
+type RestartQueueEntry =
+  | { kind: "refill" }
+  | { kind: "crash"; workerId: number; code: number | null; signal: string | null };
+
+/**
  * Main orchestrator that coordinates worker lifecycle, shutdown, and health.
  * Delegates specific concerns to specialized services:
  * - WorkerManager: fork, tracking, recycling
@@ -79,10 +93,13 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
   // Restart queue state
   private restartLoopRunning = false;
-  private pendingRestartQueue: Array<{ workerId: number; code: number | null; signal: string | null }> = [];
+  private pendingRestartQueue: RestartQueueEntry[] = [];
 
   // Exponential backoff for worker restarts
   private restartBackoffDelay = 0;
+
+  // Consecutive forkWorker() failures — reset on any successful fork
+  private consecutiveForkFailures = 0;
 
   // Hot restart guard — prevents concurrent restartWorkers() calls
   private restartInProgress = false;
@@ -323,6 +340,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   resetCircuitBreaker(): this {
     this.crashTracker.reset();
     this.restartBackoffDelay = 0;
+    this.consecutiveForkFailures = 0;
 
     if (!this.shutdownCoordinator.isShutdownInProgress()) {
       this.health.ready = true;
@@ -336,7 +354,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       if (this.hasForked) {
         const missing = Math.max(0, this.resolveWorkerCount() - this.metrics.activeWorkers);
         for (let i = 0; i < missing; i++) {
-          this.pendingRestartQueue.push({ workerId: 0, code: null, signal: null });
+          this.pendingRestartQueue.push({ kind: "refill" });
         }
         if (missing > 0) {
           this.kickRestartQueue();
@@ -416,6 +434,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
       const restartedWorkerIds: number[] = [];
       let abortedByShutdown = false;
+      let forkFailureBailout = false;
 
       for (const oldWorker of targeted) {
         if (this.shutdownCoordinator.isShutdownInProgress()) {
@@ -423,9 +442,41 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
           break;
         }
 
-        this.workerManager.markForRecycling(oldWorker.id);
+        // A worker that exited between the snapshot and its turn already had
+        // its replacement forked by the crash-restart path: marking a dead id
+        // would leak a stale recycling mark (the 'exit' cleanup already ran)
+        // and inflate the recycling count, and the bounded exit wait would
+        // stall for the full drain budget on an exit event that already fired.
+        if (oldWorker.isDead()) {
+          this.log?.warn("Hot restart skipped worker — already exited", { workerId: oldWorker.id });
+          continue;
+        }
 
-        const newWorker = this.workerManager.forkWorker(opts?.env);
+        let newWorker: Worker;
+        try {
+          newWorker = this.workerManager.forkWorker(opts?.env);
+        } catch (err) {
+          // A fork failure (EMFILE/ENOMEM...) leaves the old worker running
+          // (still serving) — better than an unhandled exception killing the
+          // primary. The worker is NOT marked for recycling.
+          this.consecutiveForkFailures++;
+          this.log?.error("Hot restart fork failed — old worker left running", {
+            workerId: oldWorker.id,
+            attempt: this.consecutiveForkFailures,
+            maxAttempts: MAX_CONSECUTIVE_FORK_FAILURES,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          if (this.consecutiveForkFailures >= MAX_CONSECUTIVE_FORK_FAILURES) {
+            forkFailureBailout = true;
+            break;
+          }
+          continue;
+        }
+        this.consecutiveForkFailures = 0;
+
+        // Mark only once the replacement exists, so a failed fork never leaks
+        // a recycling mark for a worker that is still alive and serving.
+        this.workerManager.markForRecycling(oldWorker.id);
 
         this.handleWorkerRecycle(oldWorker, newWorker);
 
@@ -443,6 +494,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
         // must not mistake a partial restartedWorkerIds list for a finished
         // restart (e.g. plugins that release resources on completion).
         this.log?.warn("Hot restart aborted by shutdown", { reason, restartedWorkerIds });
+      } else if (forkFailureBailout) {
+        // Unrecoverable fork environment: flag a failure exit code (same
+        // protocol as a breaker trip). A partial roll is not a complete roll.
+        process.exitCode = 1;
+        this.log?.error("Hot restart abandoned — fork failing repeatedly", { reason, restartedWorkerIds });
       } else {
         this.log?.info("Hot restart complete", { reason, restartedWorkerIds });
         this.safeEmit("restart:complete", { restartedWorkerIds, reason });
@@ -466,6 +522,10 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    * vitest fake timers.
    */
   private async awaitBoundedWorkerExit(worker: Worker): Promise<void> {
+    // The worker may have died between the snapshot and this call: its "exit"
+    // event already fired, so waiting for it would stall for the full budget.
+    if (worker.isDead()) return;
+
     const exitWaitMs =
       this.cfg.shutdown.timeoutMs + this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs + 5_000;
 
@@ -764,7 +824,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     this.breakerWarningEmitted = false;
 
     // Queue restart and process asynchronously
-    this.pendingRestartQueue.push({ workerId: worker.id, code, signal });
+    this.pendingRestartQueue.push({ kind: "crash", workerId: worker.id, code, signal });
     this.kickRestartQueue();
   }
 
@@ -787,8 +847,15 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
           return;
         }
 
-        const crashed = this.pendingRestartQueue.shift();
-        if (!crashed) return;
+        // A tripped breaker stops all forks: queued entries are dropped —
+        // resetCircuitBreaker() refills the missing capacity after the reset.
+        if (this.crashTracker.isTripped()) {
+          this.pendingRestartQueue = [];
+          return;
+        }
+
+        const entry = this.pendingRestartQueue.shift();
+        if (!entry) return;
 
         // Workers being recycled are still alive but already have a replacement
         // (or are about to exit) — exclude them so a crash overlapping a recycle
@@ -800,7 +867,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
           continue;
         }
 
-        await this.restartWorkerWithBackoff(crashed.workerId, crashed.code, crashed.signal);
+        await this.restartWorkerWithBackoff(entry);
       }
     } finally {
       this.restartLoopRunning = false;
@@ -811,11 +878,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     }
   }
 
-  private async restartWorkerWithBackoff(
-    crashedWorkerId: number,
-    code: number | null,
-    signal: string | null,
-  ): Promise<void> {
+  private async restartWorkerWithBackoff(entry: RestartQueueEntry): Promise<void> {
+    const crashedWorkerId = entry.kind === "crash" ? entry.workerId : undefined;
+
     const delayMs = this.restartBackoffDelay > 0 ? this.restartBackoffDelay : this.cfg.restart.backoffMs;
 
     if (delayMs > 0) {
@@ -829,8 +894,50 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       }
     }
 
-    this.log?.warn("Worker crashed, restarting", { workerId: crashedWorkerId, code, signal });
-    const newWorker = this.workerManager.forkWorker();
+    // Fork-time breaker check: a trip between queueing and forking must not
+    // leak a fork past the breaker. resetCircuitBreaker() refills the missing
+    // capacity after the operator reset.
+    if (this.crashTracker.isTripped()) {
+      return;
+    }
+
+    if (entry.kind === "crash") {
+      this.log?.warn("Worker crashed, restarting", {
+        workerId: entry.workerId,
+        code: entry.code,
+        signal: entry.signal,
+      });
+    } else {
+      this.log?.info("Refilling capacity after circuit breaker reset");
+    }
+
+    let newWorker: Worker;
+    try {
+      newWorker = this.workerManager.forkWorker();
+    } catch (err) {
+      // A fork failure (EMFILE/ENOMEM...) must not permanently shrink the
+      // fleet: re-queue the entry so it is retried through the normal backoff.
+      this.consecutiveForkFailures++;
+      this.log?.error("Worker fork failed — restart re-queued", {
+        attempt: this.consecutiveForkFailures,
+        maxAttempts: MAX_CONSECUTIVE_FORK_FAILURES,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      if (this.consecutiveForkFailures >= MAX_CONSECUTIVE_FORK_FAILURES) {
+        // Unrecoverable fork environment: flag a failure exit code (same
+        // protocol as a breaker trip) and stop retrying.
+        this.log?.error("Fork failing repeatedly — giving up on pending restarts", {
+          maxAttempts: MAX_CONSECUTIVE_FORK_FAILURES,
+        });
+        process.exitCode = 1;
+        this.pendingRestartQueue.length = 0;
+        return;
+      }
+      this.pendingRestartQueue.push(entry);
+      return;
+    }
+    this.consecutiveForkFailures = 0;
+
     this.metrics.workerRestarts++;
     this.safeEmit("worker:restart", { newWorkerId: newWorker.id, newPid: newWorker.process.pid ?? 0 });
 
