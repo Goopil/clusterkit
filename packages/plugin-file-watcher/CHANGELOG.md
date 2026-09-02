@@ -1,5 +1,11 @@
 # @goopil/clusterkit-file-watcher
 
+## 1.1.3
+
+### Patch Changes
+
+- [#127](https://github.com/Goopil/clusterkit/pull/127) [`a516e35`](https://github.com/Goopil/clusterkit/commit/a516e35581d6bd9714973a8b934b27cc2c996c73) Thanks [@Goopil](https://github.com/Goopil)! - Harden `parseEnvFile`: strip inline comments (` # ...`) from unquoted values while preserving them inside quotes, and skip prototype-pollution keys (`__proto__`, `constructor`, `prototype`) instead of setting them on the parsed object.
+
 ## 1.1.2
 
 ### Patch Changes
