@@ -37,7 +37,7 @@ The plugin supports three independently selectable modes, all of which can be ac
 
 ## Watch paths are literal — no globs
 
-The plugin uses **chokidar v4, which removed glob support**: paths in `watch` are matched **literally**. Pass a file or a directory, not a pattern like `src/**/*.ts`:
+The plugin works with **chokidar v4 and v5 (`^4.0.0 || ^5.0.0`), which removed glob support**: paths in `watch` are matched **literally**. Pass a file or a directory, not a pattern like `src/**/*.ts`:
 
 ```js
 createFileWatcherPlugin({
@@ -45,7 +45,25 @@ createFileWatcherPlugin({
 })
 ```
 
-To exclude files inside a watched directory, use `ignore` — it is passed to chokidar's `ignored` option, which still accepts glob patterns.
+To exclude files inside a watched directory, use `ignore` — it is passed to chokidar's `ignored` option. Note that chokidar v4/v5 match string entries in `ignored` as **literal paths**, not glob patterns; for pattern-based exclusions pass a `RegExp` or a function via `watchOptions.ignored` (see below).
+
+### `node_modules` is ignored by default
+
+The plugin injects a default ignore for `node_modules` directories (`/(^|\/)node_modules(\/|$)/`) into chokidar's `ignored`. Without it, a `pnpm install` under a watched directory would emit `add`/`change`/`unlink` events for every touched package file and trigger a fleet-wide rolling restart.
+
+- `ignore` patterns are merged **after** the default (both apply).
+- An explicit `watchOptions.ignored` overrides the default **entirely** — include your own `node_modules` pattern if you still want it ignored:
+
+```js
+createFileWatcherPlugin({
+  watch: ["./src"],
+  watchOptions: { ignored: [/\.tmp$/] }, // replaces the default entirely
+})
+```
+
+## Reinstalling the plugin
+
+A `FileWatcherPlugin` instance can be `uninstall()`ed (or shut down with its orchestrator) and installed again on a new orchestrator — `install()` re-arms the watchers, so the same instance is reusable across orchestrator lifecycles.
 
 ## Watch out for the `add`-event restart loop
 
@@ -69,8 +87,8 @@ The plugin has no effect in single-worker mode (`workers: { count: 1 }`). A file
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `watch` | `string \| string[]` | `[]` | Literal paths (files or directories) to watch. No globs since chokidar v4. |
-| `watchOptions` | `object` | `{}` | Options passed through to the watcher. |
-| `ignore` | `string \| string[]` | `[]` | Patterns to ignore (chokidar's `ignored`, still supports globs). |
+| `watchOptions` | `object` | `{}` | Options passed through to the watcher. An explicit `ignored` here replaces the default `node_modules` ignore entirely. |
+| `ignore` | `string \| string[]` | `[]` | Extra patterns passed to chokidar's `ignored` (merged after the default `node_modules` ignore). String entries are matched as literal paths by chokidar v4/v5 — use `watchOptions.ignored` with a `RegExp`/function for pattern matching. |
 | `envFile` | `string \| string[]` | `[]` | Path(s) to `.env` files to parse on change. |
 | `envParser` | `(content: string) => Record<string, string>` | `parseEnvFile` | Custom `.env` parser. |
 | `pollEnv` | `boolean` | `false` | Enable `process.env` polling. |
