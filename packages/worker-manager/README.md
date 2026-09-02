@@ -178,4 +178,4 @@ capability detection can probe the runtime platform.
 ## Related docs
 
 - [Root README](../../README.md)
-- [Audit report](../../docs/audit-2026-05-03.md)
+- [Audit report](../../docs/audit/README.md)

@@ -66,23 +66,12 @@ publishing access to "Require two-factor authentication or automation".
 > that is expected and harmless. Once the RCs exist on the registry,
 > The release script skips already-published versions, so the job goes green.
 
-## Graduating the RC to stable
+## Stable releases
 
-Current versions are `1.0.0-rc.1` (core) and `0.1.0-rc.1` (prometheus, sizing,
-otlp-meter). The `signal-restart` and `file-watcher` plugins start at `0.1.0`.
-Once the RC has been validated (examples running in Docker, ideally a real deployment):
-
-```bash
-corepack pnpm changeset       # select all packages, bump type: patch
-```
-
-A `patch` bump on a prerelease graduates it (`1.0.0-rc.1` → `1.0.0`,
-`0.1.0-rc.1` → `0.1.0`). Merge the resulting Version Packages PR: the workflow
-publishes the stable versions to the default `latest` dist-tag.
-
-If another RC round is needed instead, publish it manually with
-`pnpm publish -r --tag next` after bumping to `-rc.2` by hand — the automated
-pipeline is reserved for stable releases.
+All packages publish stable versions from `main` (e.g. core `1.2.x`, plugins
+`1.1.x`) — the automated pipeline never publishes prereleases or `next`
+dist-tags. Every release follows the day-to-day flow above: add changesets in
+PRs, merge the Version Packages PR, and the workflow publishes to `latest`.
 
 ## Sanity checklist before any release
 
