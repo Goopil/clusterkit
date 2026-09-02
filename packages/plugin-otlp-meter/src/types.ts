@@ -31,8 +31,8 @@ export interface OtlpMeterPluginOptions {
 
 export interface OtlpMeterPlugin extends OrchestratorPlugin {
   /**
-   * The OpenTelemetry MeterProvider (primary only; undefined in workers
-   * and before install).
+   * The OpenTelemetry MeterProvider (created in primary and worker processes;
+   * undefined before install).
    */
   readonly meterProvider: MeterProvider | undefined;
 

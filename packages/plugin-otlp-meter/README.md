@@ -94,6 +94,10 @@ httpRequests.add(1);
 This works in both primary and worker processes — each process has its own provider
 pushing to the same collector endpoint.
 
+If the host application has already registered its own OpenTelemetry global meter
+provider, the plugin does **not** replace it: it logs a warning and keeps using its own
+provider for the `clusterkit.*` metrics.
+
 ## Metrics exposed
 
 With the default prefix (`clusterkit.`):

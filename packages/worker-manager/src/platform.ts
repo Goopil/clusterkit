@@ -7,11 +7,29 @@ import { release } from "node:os";
 
 let cachedReusePortSupport: boolean | undefined;
 let detectionPromise: Promise<boolean> | undefined;
+let runtimeProbe: () => Promise<boolean> = detectRuntimeReusePortSupport;
 
 /** @internal — test only */
 export function _resetDetectionCache(): void {
   cachedReusePortSupport = undefined;
   detectionPromise = undefined;
+}
+
+/** @internal — test only: stub the runtime probe (undefined restores the real probe) */
+export function _setRuntimeProbe(probe: (() => Promise<boolean>) | undefined): void {
+  runtimeProbe = probe ?? detectRuntimeReusePortSupport;
+}
+
+/**
+ * Thrown when the two-socket probe times out. The outcome is inconclusive —
+ * not "unsupported" — so it must not be cached.
+ * @internal — exported for tests
+ */
+export class ReusePortProbeTimeoutError extends Error {
+  constructor() {
+    super("SO_REUSEPORT probe timed out (inconclusive)");
+    this.name = "ReusePortProbeTimeoutError";
+  }
 }
 
 // ============================================================================
@@ -32,15 +50,12 @@ function parseKernelVersion(versionString: string): { major: number; minor: numb
  * Event-driven — no polling.
  */
 function detectRuntimeReusePortSupport(): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
+  return new Promise<boolean>((resolve, reject) => {
     const first = createServer();
     const second = createServer();
     let settled = false;
 
-    const cleanup = (result: boolean): void => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
+    const closeServers = (): void => {
       for (const server of [first, second]) {
         server.removeAllListeners();
         // A late async error on a closing socket must not crash the process
@@ -52,13 +67,26 @@ function detectRuntimeReusePortSupport(): Promise<boolean> {
           /* already closed */
         }
       }
+    };
+
+    const cleanup = (result: boolean): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      closeServers();
       resolve(result);
     };
 
-    // Safety timeout — must not block startup. Generous enough that a
-    // CPU-starved host (throttled pod at boot) does not cache a false negative
-    // for the whole process lifetime.
-    const timer = setTimeout(() => cleanup(false), 500);
+    // Safety timeout — must not block startup. Rejects as INCONCLUSIVE instead
+    // of resolving false: a CPU-starved host (throttled pod at boot) must not
+    // have a timeout cached as "unsupported" for the whole process lifetime.
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      closeServers();
+      reject(new ReusePortProbeTimeoutError());
+    }, 500);
 
     first.once("error", () => cleanup(false));
     second.once("error", () => cleanup(false));
@@ -92,7 +120,8 @@ function detectRuntimeReusePortSupport(): Promise<boolean> {
 
 /**
  * Detects whether SO_REUSEPORT is supported on the current platform.
- * Result is cached — the call is idempotent.
+ * Definitive results are cached — the call is idempotent. An inconclusive
+ * probe timeout is not cached (the next call re-probes).
  */
 export async function detectReusePortSupport(): Promise<boolean> {
   if (cachedReusePortSupport !== undefined) return cachedReusePortSupport;
@@ -128,9 +157,14 @@ export async function detectReusePortSupport(): Promise<boolean> {
       }
 
       // macOS/BSD + Linux >= 3.9: runtime detection
-      cachedReusePortSupport = await detectRuntimeReusePortSupport();
+      cachedReusePortSupport = await runtimeProbe();
       return cachedReusePortSupport;
     } catch (err) {
+      if (err instanceof ReusePortProbeTimeoutError) {
+        // Inconclusive — answer false for THIS call but leave the cache empty
+        // so a later call re-probes (e.g. once a throttled boot settles down).
+        return false;
+      }
       // Cache a safe default so the call stays idempotent on the error path
       // — without this, cachedReusePortSupport stays undefined and every
       // subsequent caller re-runs detection (and re-throws) indefinitely.

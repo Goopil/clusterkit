@@ -143,7 +143,13 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
         readers: [metricReader],
       });
 
-      metrics.setGlobalMeterProvider(meterProvider);
+      // setGlobalMeterProvider() refuses to override an existing registration
+      // and returns false — never clobber the app's own OTel setup.
+      if (!metrics.setGlobalMeterProvider(meterProvider)) {
+        log?.warn(
+          "A global OpenTelemetry meter provider is already registered — leaving it untouched; clusterkit meters use the plugin's own provider",
+        );
+      }
 
       const meter = meterProvider.getMeter("@goopil/clusterkit", PLUGIN_VERSION);
 
