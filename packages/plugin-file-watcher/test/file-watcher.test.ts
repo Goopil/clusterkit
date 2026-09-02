@@ -1,6 +1,6 @@
 import cluster from "node:cluster";
 import { EventEmitter } from "node:events";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
@@ -294,6 +294,34 @@ describe("file-watcher plugin", () => {
 
     await plugin.uninstall?.();
     expect(plugin.isWatching).toBe(false);
+  });
+
+  it("watches again after uninstall and reinstall", async () => {
+    const watchers: Array<EventEmitter & { close: () => Promise<void> }> = [];
+    vi.spyOn(chokidar, "watch").mockImplementation(() => {
+      const emitter = new EventEmitter() as EventEmitter & { close: () => Promise<void> };
+      emitter.close = () => Promise.resolve();
+      watchers.push(emitter);
+      return emitter as any;
+    });
+
+    const plugin = createFileWatcherPlugin({ watch: ["./src"] });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+    expect(plugin.isWatching).toBe(true);
+    expect(watchers.length).toBe(1);
+
+    await plugin.uninstall?.();
+    expect(plugin.isWatching).toBe(false);
+    expect(watchers.length).toBe(1);
+
+    // Re-using the same plugin instance on a new orchestrator must start watchers again
+    await plugin.install(mockOrchestrator(), null, mockConfig(2));
+    expect(plugin.isWatching).toBe(true);
+    expect(watchers.length).toBe(2);
+
+    await plugin.uninstall?.();
   });
 
   it("pollEnv detects new env var and triggers restart", async () => {
@@ -590,17 +618,76 @@ describe("file-watcher plugin", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it("passes ignore option to chokidar", async () => {
+  it("merges ignore option with the node_modules default passed to chokidar", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
     const spy = vi.spyOn(chokidar, "watch");
 
     const plugin = createFileWatcherPlugin({
       watch: [tempDir],
-      ignore: ["**/node_modules/**"],
+      ignore: ["**/logs/**"],
     });
     await plugin.install(mockOrchestrator(), null, mockConfig(2));
 
-    expect(spy).toHaveBeenCalledWith([tempDir], expect.objectContaining({ ignored: ["**/node_modules/**"] }));
+    expect(spy).toHaveBeenCalledWith(
+      [tempDir],
+      // chokidar v4/v5 ignore strings literally, so the default is a regex matcher
+      expect.objectContaining({ ignored: [expect.any(RegExp), "**/logs/**"] }),
+    );
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("lets watchOptions.ignored override the node_modules default entirely", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    const spy = vi.spyOn(chokidar, "watch");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      watchOptions: { ignored: ["**/vendor/**"] },
+    });
+    await plugin.install(mockOrchestrator(), null, mockConfig(2));
+
+    expect(spy).toHaveBeenCalledWith([tempDir], expect.objectContaining({ ignored: ["**/vendor/**"] }));
+
+    await plugin.uninstall?.();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("does not restart on file events under node_modules without user-configured ignore", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "fw-test-"));
+    mkdirSync(join(tempDir, "node_modules", "some-pkg"), { recursive: true });
+    const srcFile = join(tempDir, "index.js");
+    const nmFile = join(tempDir, "node_modules", "some-pkg", "index.js");
+    writeFileSync(srcFile, "initial");
+    writeFileSync(nmFile, "initial");
+
+    const plugin = createFileWatcherPlugin({
+      watch: [tempDir],
+      debounceMs: 50,
+      staggerMs: 0,
+    });
+    const orch = mockOrchestrator();
+
+    await plugin.install(orch, null, mockConfig(2));
+
+    // Give chokidar time to fully initialize and settle spurious initial events
+    await new Promise((r) => setTimeout(r, 500));
+    orch.restartWorkers.mockClear();
+
+    // Package-install-like churn inside node_modules must not trigger a restart
+    writeFileSync(nmFile, "changed");
+    writeFileSync(join(tempDir, "node_modules", "some-pkg", "extra.js"), "new");
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).not.toHaveBeenCalled();
+
+    // Regular file change still triggers
+    writeFileSync(srcFile, "changed");
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
+    expect(orch.restartWorkers).toHaveBeenCalledWith(expect.objectContaining({ reason: "file-change", staggerMs: 0 }));
 
     await plugin.uninstall?.();
     rmSync(tempDir, { recursive: true, force: true });

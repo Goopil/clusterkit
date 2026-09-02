@@ -65,6 +65,10 @@ function toArray(value: string[] | string | undefined): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
+// chokidar v4/v5 match string `ignored` entries as literal paths (no globs),
+// so the default node_modules filter must be a regex to take effect.
+const NODE_MODULES_IGNORE = /(^|\/)node_modules(\/|$)/;
+
 export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatcherPlugin {
   const watchPaths = toArray(options?.watch);
   const ignorePaths = toArray(options?.ignore);
@@ -99,6 +103,11 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
     },
 
     async install(orchestrator: Orchestrator, logger: Logger | null, _config: ResolvedConfig): Promise<void> {
+      // Reinstalling the same instance after uninstall/shutdown must start
+      // watchers again, not stay latched at `closed = true`.
+      closed = false;
+      lastRestartAt = 0;
+
       if (!cluster.isPrimary) return;
 
       const log = withLoggerPrefix(logger, "clusterkit:file-watcher");
@@ -171,8 +180,11 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
         if (watchPaths.length > 0) {
           const chokidarOpts: ChokidarOptions = {
             ignoreInitial: true,
-            ignored: ignorePaths.length > 0 ? ignorePaths : undefined,
             ...options?.watchOptions,
+            // Ignore node_modules by default: watching it turns a `pnpm install`
+            // into a fleet-wide restart storm. An explicit `watchOptions.ignored`
+            // wins entirely; `ignore` patterns are merged after the default.
+            ignored: options?.watchOptions?.ignored ?? [NODE_MODULES_IGNORE, ...ignorePaths],
           };
           try {
             const w = chokidar.watch(watchPaths, chokidarOpts);
