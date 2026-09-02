@@ -36,7 +36,7 @@ Sécurité: **aucun Critical ni High**; deux Medium d'hygiène CI (actions tag-p
 
 | # | ID | Problème | Sévérité |
 |---|---|---|---|
-| 1 | AUDIT-001 | `registerOnShutdown` jamais appelé en primaire multi-workers (API documentée morte) | High |
+| 1 | AUDIT-001 | ~~`registerOnShutdown` jamais appelé en primaire multi-workers (API documentée morte)~~ → **FIXED** in PR #107 | ~~High~~ Fixed |
 | 2 | AUDIT-033 | 11 mutations dangereuses passent CI (métriques, races croisées, ordre) | Medium |
 | 3 | AUDIT-012 | Flush OTLP perdu à chaque déploiement (conséquence #1) | Medium |
 | 4 | AUDIT-015 | file-watcher perd le payload `.env` → restart avec env périmé | Medium |
