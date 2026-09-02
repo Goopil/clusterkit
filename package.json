@@ -36,10 +36,10 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "test:linux": "docker-compose run --build --rm test",
-    "examples:start": "docker-compose up examples --build",
+    "test:linux": "docker compose run --build --rm test",
+    "examples:start": "docker compose up examples --build",
     "bench": "pnpm --filter benchmarks exec node runner.mjs",
-    "bench:docker": "docker-compose -f benchmarks/docker-compose.bench.yml run --build --rm benchmark",
+    "bench:docker": "docker compose -f benchmarks/docker-compose.bench.yml run --build --rm benchmark",
     "changeset": "changeset",
     "version-packages": "changeset version && pnpm install --lockfile-only",
     "ci:publish": "pnpm build && node scripts/publish-with-oidc.mjs && changeset tag"
