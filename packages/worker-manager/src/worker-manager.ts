@@ -79,6 +79,19 @@ export class WorkerManager {
 
     const env = envOverlay !== undefined ? { ...this.cfg.workers.env, ...envOverlay } : this.cfg.workers.env;
     const worker = this.clusterRef.fork(env);
+
+    // Fork resource exhaustion (EMFILE/ENOMEM) often surfaces as an async
+    // 'error' event on the worker instead of a synchronous throw. Without a
+    // listener it would escape as an uncaught exception and kill the primary.
+    // The 'exit' event that follows owns the crash/restart bookkeeping, so
+    // this listener only logs.
+    worker.on("error", (err) => {
+      this.log?.error("Worker error event", {
+        workerId: worker.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
     this.workerStartTimes.set(worker.id, Date.now());
     this.metrics.activeWorkers++;
     return worker;
@@ -156,7 +169,20 @@ export class WorkerManager {
           this.log?.info("Recycling aged worker", { workerId: worker.id, ageMs });
 
           // Start replacement worker first (rolling restart pattern)
-          const newWorker = this.forkWorker();
+          let newWorker: Worker;
+          try {
+            newWorker = this.forkWorker();
+          } catch (err) {
+            // Fork failed (EMFILE/ENOMEM...): unmark so the worker stays
+            // eligible for the next recycle sweep instead of leaking a stale
+            // recycling mark that would skew the crash-restart capacity math.
+            this.recyclingWorkerIds.delete(worker.id);
+            this.log?.error("Aged-worker recycle fork failed — worker left running", {
+              workerId: worker.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            return;
+          }
           onRecycle(worker, newWorker);
         }, idx * 30_000);
 

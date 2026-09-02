@@ -79,6 +79,19 @@ describe("WorkerManager", () => {
 
   // ── cleanupWorker ─────────────────────────────────────────────────────────
 
+  // Fork resource exhaustion (EMFILE/ENOMEM) often surfaces as an async
+  // 'error' event on the worker instead of a synchronous throw: without a
+  // listener it would escape as an uncaught exception and kill the primary.
+  it("attaches an error listener to freshly forked workers", () => {
+    const cluster = new MockCluster();
+    const manager = new WorkerManager(cluster as never, config, null, makeMetrics(), []);
+
+    const worker = manager.forkWorker();
+
+    expect(worker.listenerCount("error")).toBeGreaterThan(0);
+    expect(() => worker.emit("error", new Error("Resource temporarily unavailable"))).not.toThrow();
+  });
+
   it("cleans worker state when the cluster reports an exit", () => {
     const cluster = new MockCluster();
     const workerMetrics = makeMetrics();
@@ -266,6 +279,34 @@ describe("WorkerManager", () => {
       vi.advanceTimersByTime(1);
 
       expect(onRecycle).not.toHaveBeenCalled(); // already marked, skipped
+    });
+
+    // A failed recycle fork (EMFILE/ENOMEM...) must not leak a stale
+    // recycling mark: the worker stays eligible for the next sweep.
+    it("unmarks the worker and skips the recycle when the replacement fork throws", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      manager.setupEventHandlers(vi.fn(), vi.fn());
+      manager.forkWorker(); // id=1
+
+      const forkSpy = vi.spyOn(cluster, "fork").mockImplementation(() => {
+        throw new Error("EMFILE: too many open files");
+      });
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => false, onRecycle);
+
+      vi.advanceTimersByTime(60_001);
+      vi.advanceTimersByTime(1);
+
+      expect(onRecycle).not.toHaveBeenCalled();
+      expect(manager.getRecyclingCount()).toBe(0);
+
+      // The worker is eligible again: the next sweep retries the recycle
+      forkSpy.mockRestore();
+      vi.advanceTimersByTime(60_001);
+      vi.advanceTimersByTime(1);
+      expect(onRecycle).toHaveBeenCalledTimes(1);
     });
   });
 
