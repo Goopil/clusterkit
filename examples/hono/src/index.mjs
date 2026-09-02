@@ -68,4 +68,7 @@ import { Hono } from "hono";
         metricsServer.close();
       });
     });
-})();
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
