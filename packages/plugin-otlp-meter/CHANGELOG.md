@@ -1,5 +1,11 @@
 # @goopil/clusterkit-otlp-meter
 
+## 1.1.3
+
+### Patch Changes
+
+- [#128](https://github.com/Goopil/clusterkit/pull/128) [`6832b32`](https://github.com/Goopil/clusterkit/commit/6832b325d750cd8e75f298a54fcda8aefb97d665) Thanks [@Goopil](https://github.com/Goopil)! - Do not clobber a pre-existing OpenTelemetry global meter provider: when the host app has already registered one, the plugin logs a warning and keeps its own provider for the `clusterkit.*` metrics instead of registering over it.
+
 ## 1.1.2
 
 ### Patch Changes

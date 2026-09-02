@@ -1,5 +1,15 @@
 # @goopil/clusterkit
 
+## 1.2.5
+
+### Patch Changes
+
+- [#129](https://github.com/Goopil/clusterkit/pull/129) [`9c4d41a`](https://github.com/Goopil/clusterkit/commit/9c4d41abdb317b54452312e1072aea4c860581d1) Thanks [@Goopil](https://github.com/Goopil)! - Core hygiene fixes from audit issue [#97](https://github.com/Goopil/clusterkit/issues/97): `use()` now throws when called after `run()` (plugins must be registered before the orchestrator starts — previously silently ignored); an invalid `WEB_CONCURRENCY` value now logs a warning through the configured logger before falling back to the CPU count; a crash-loop circuit-breaker trip emits a `process.emitWarning` (`ClusterKitCrashLoop`) so setups without a logger are not fully silent; `HealthStatus.live` is documented as always true by design (readiness is the signal, not liveness).
+
+- [#127](https://github.com/Goopil/clusterkit/pull/127) [`a516e35`](https://github.com/Goopil/clusterkit/commit/a516e35581d6bd9714973a8b934b27cc2c996c73) Thanks [@Goopil](https://github.com/Goopil)! - Extend the `workers.execArgv` blocklist to reject side-effect flags that previously passed validation: `--tls-keylog`, `--cpu-prof`/`--heap-prof` (and their variants), `--report-*`, `--diagnostic-dir`, and `--redirect-warnings`, which could silently write profiling data or leak TLS session keys from every worker.
+
+- [#128](https://github.com/Goopil/clusterkit/pull/128) [`6832b32`](https://github.com/Goopil/clusterkit/commit/6832b325d750cd8e75f298a54fcda8aefb97d665) Thanks [@Goopil](https://github.com/Goopil)! - The SO_REUSEPORT two-socket probe no longer caches a timeout as "unsupported": a timeout is inconclusive, so the next call re-probes instead of permanently losing reusePort after a CPU-starved boot.
+
 ## 1.2.4
 
 ### Patch Changes
