@@ -426,7 +426,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     try {
       const staggerMs = opts?.staggerMs ?? 1_000;
       const workers = this.workerManager.getActiveWorkers();
-      const targeted = opts?.filter ? workers.filter((w) => opts.filter!(w.id)) : workers;
+      const filter = opts?.filter;
+      const targeted = filter ? workers.filter((w) => filter(w.id)) : workers;
       const workerIds = targeted.map((w) => w.id);
 
       this.log?.info("Hot restart initiated", { reason, workerIds });
