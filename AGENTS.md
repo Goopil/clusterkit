@@ -139,14 +139,14 @@ corepack pnpm --filter @goopil/clusterkit-sizing test
 
 ```bash
 corepack pnpm test:linux        # docker compose run --build --rm test (full suite on real Linux kernel)
-corepack pnpm examples:start    # docker compose up examples --build (all 9 examples)
+corepack pnpm examples:start    # docker compose up examples --build (all 10 examples)
 ```
 
 ### Benchmarks
 
 ```bash
-corepack pnpm bench:docker                                          # full suite, Docker (reference results, ~36 min)
-corepack pnpm bench                                                 # full suite, local (~36 min)
+corepack pnpm bench:docker                                          # full suite, Docker (reference results, ~3.3h)
+corepack pnpm bench                                                 # full suite, local (~3.3h)
 corepack pnpm --filter benchmarks exec node runner.mjs --quick      # quick mode (~8 min)
 corepack pnpm --filter benchmarks exec node runner.mjs --target clusterkit-3 --workload hello
 corepack pnpm --filter benchmarks smoke                             # smoke test (boot check, no perf)
@@ -159,7 +159,7 @@ harness runs but those metrics are unavailable. See `benchmarks/README.md` for t
 
 - Start with the narrowest relevant test target, then widen scope if needed.
 - `workers: 1` is single-worker mode (no cluster fork); crash/restart behavior needs `workers >= 2`.
-- `shutdownTimeoutMs` has a minimum of `1000` ms.
+- `shutdown.timeoutMs` has a minimum of `1000` ms.
 - macOS is unreliable for `SO_REUSEPORT` assertions. Use the Linux Docker harness for Linux-specific behavior.
 - Use fake timers (`vi.useFakeTimers()` + `vi.runAllTimersAsync()`) for shutdown/circuit-breaker timing tests.
 - For Prometheus plugin tests, prefer isolated registries and disable default metrics unless the test specifically needs
@@ -198,19 +198,23 @@ scan — no manual coverage step is needed.
 
 ## Examples
 
-Nine standalone apps in `examples/`, each integrating core + plugins:
+Ten standalone apps in `examples/`, each integrating core + plugins:
 
-| Example           | Port  | Metrics port |
+| Example           | Port  | Metrics port (worker-side) |
 |-------------------|-------|--------------|
 | express           | 3000  | 9090         |
+| express-otlp      | 3009  | —            |
 | fastify           | 3001  | 9091         |
 | hono              | 3005  | 9092         |
-| koa              | 3006  | 9093         |
+| koa               | 3006  | 9093         |
 | nestjs-express    | 3007  | —            |
 | nestjs-fastify    | 3008  | —            |
 | inertia-ssr       | 13714 | —            |
 | inertia-ssr-react | 13715 | —            |
 | hot-reload        | 3010  | —            |
+
+Metrics ports are bound inside each worker's `run()` callback (per-worker bind) — how examples should expose metrics in
+multi-worker mode is an open decision tracked in issue #95.
 
 NestJS examples require `app.init()` (not `app.listen()`) to bind the raw server socket with `reusePort`. The Fastify
 adapter additionally needs `await fastifyInstance.ready()` between `app.init()` and
