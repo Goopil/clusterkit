@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   _resetDetectionCache,
@@ -163,6 +164,66 @@ describe("platform", () => {
       await vi.advanceTimersByTimeAsync(500);
       await expect(second).resolves.toBe(false); // ...but a fresh probe ran
       expect(probeCalls).toBe(2);
+    });
+
+    // Exercises the REAL two-socket probe body (module-private) by mocking
+    // node:net: servers that never listen leave only the 500 ms safety timer,
+    // which must reject as INCONCLUSIVE (not resolve false, which would cache).
+
+    function fakeServer(): any {
+      const server = new EventEmitter() as any;
+      server.listen = () => {};
+      server.address = () => ({ port: 40000 });
+      server.close = () => {};
+      server.unref = () => {};
+      return server;
+    }
+
+    it("re-probes after a real probe timeout (inconclusive, not cached)", async () => {
+      vi.useFakeTimers();
+      const servers: unknown[] = [];
+      vi.doMock("node:net", () => ({
+        createServer: () => {
+          const server = fakeServer();
+          servers.push(server);
+          return server;
+        },
+      }));
+      vi.resetModules();
+      try {
+        const platform = await import("../src/platform");
+
+        const first = platform.detectReusePortSupport();
+        await vi.advanceTimersByTimeAsync(500);
+        await expect(first).resolves.toBe(false);
+
+        // Cache stayed empty: the next call re-runs the probe (2 new servers)
+        const second = platform.detectReusePortSupport();
+        await vi.advanceTimersByTimeAsync(500);
+        await expect(second).resolves.toBe(false);
+        expect(servers).toHaveLength(4);
+      } finally {
+        vi.doUnmock("node:net");
+        vi.resetModules();
+        vi.useRealTimers();
+      }
+    });
+
+    it("caches a safe default and logs a diagnostic when the probe fails unexpectedly", async () => {
+      const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+      let probeCalls = 0;
+      _setRuntimeProbe(() => {
+        probeCalls++;
+        return Promise.reject(new TypeError("boom"));
+      });
+      try {
+        await expect(detectReusePortSupport()).resolves.toBe(false);
+        await expect(detectReusePortSupport()).resolves.toBe(false); // cached — no second probe
+        expect(probeCalls).toBe(1);
+        expect(stderr).toHaveBeenCalledWith(expect.stringContaining("SO_REUSEPORT detection failed: boom"));
+      } finally {
+        stderr.mockRestore();
+      }
     });
   });
 });
