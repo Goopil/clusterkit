@@ -959,18 +959,44 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // flag...), the online handler below never runs and the old worker would
     // linger undrained — drain it instead so the recycle still completes.
     let replacementOnline = false;
-    newWorker.once("exit", () => {
-      if (replacementOnline || this.shutdownCoordinator.isShutdownInProgress()) return;
-      this.log?.warn("Replacement died before online, draining old worker", { workerId: oldWorker.id });
+    let drained = false;
+    const drainOldWorker = (): void => {
+      if (drained) return;
+      drained = true;
+      clearTimeout(drainFailsafeTimer);
       this.drainRecycledWorker(oldWorker);
+    };
+
+    newWorker.once("exit", () => {
+      if (drained || replacementOnline || this.shutdownCoordinator.isShutdownInProgress()) return;
+      this.log?.warn("Replacement died before online, draining old worker", { workerId: oldWorker.id });
+      drainOldWorker();
     });
 
     // Disconnect old worker after new one is online
     newWorker.once("online", () => {
       replacementOnline = true;
       if (this.shutdownCoordinator.isShutdownInProgress()) return;
-      this.drainRecycledWorker(oldWorker);
+      drainOldWorker();
     });
+
+    // Failsafe: the drain trigger fires only on the replacement's "online" or
+    // "exit" event — a replacement that is forked but stuck before "online"
+    // (boot hang) and never exits would leave the old worker undrained
+    // forever. Drain it anyway once the same bounded budget as
+    // awaitBoundedWorkerExit expires.
+    const drainFailsafeTimer = setTimeout(
+      () => {
+        if (replacementOnline || this.shutdownCoordinator.isShutdownInProgress() || oldWorker.isDead()) return;
+        this.log?.warn("Replacement did not come online in time, draining old worker anyway", {
+          workerId: oldWorker.id,
+          newWorkerId: newWorker.id,
+        });
+        drainOldWorker();
+      },
+      this.cfg.shutdown.timeoutMs + this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs + 5_000,
+    );
+    drainFailsafeTimer.unref();
   }
 
   /**
@@ -1060,16 +1086,37 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     const workers = this.workerManager.getActiveWorkers();
     await this.shutdownCoordinator.initiateShutdown(workers, signal);
 
-    await this.runShutdownCallbacks(signal);
+    // Failsafe: user callbacks and plugin uninstall are unbounded async work —
+    // one callback that never resolves would hang the primary after SIGTERM
+    // forever. Single-worker mode and worker children have the same failsafe.
+    let shutdownTimedOut = false;
+    const exitTimer = setTimeout(() => {
+      shutdownTimedOut = true;
+      this.log?.error("Forced exit after shutdown timeout", { timeoutMs: this.cfg.shutdown.timeoutMs });
+      process.exit(1);
+    }, this.cfg.shutdown.timeoutMs).unref();
 
-    // Uninstall plugins
-    await this.uninstallPlugins();
+    try {
+      await this.runShutdownCallbacks(signal);
+
+      // Uninstall plugins
+      await this.uninstallPlugins();
+
+      // Emitted after user callbacks and plugin uninstall (same contract as
+      // single-worker mode) — plugins doing final work must do it in
+      // uninstall(): their shutdown:complete listener is gone by then.
+      this.safeEmit("shutdown:complete", { metrics: { ...this.metrics } });
+    } finally {
+      clearTimeout(exitTimer);
+    }
 
     // Cleanup worker manager
     this.workerManager.dispose();
 
     // Exit
-    process.exitCode = 0;
+    if (!shutdownTimedOut) {
+      process.exitCode = 0;
+    }
   }
 
   private handleShutdownStart(signal: string): void {
@@ -1078,7 +1125,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   }
 
   private handleShutdownComplete(metrics: WorkerMetrics): void {
-    this.safeEmit("shutdown:complete", { metrics: { ...metrics } });
+    // No shutdown:complete emission here: the event is emitted at the end of
+    // shutdownPrimary(), after user callbacks and plugin uninstall, matching
+    // single-worker mode.
     this.log?.info("All workers terminated", { metrics });
   }
 

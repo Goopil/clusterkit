@@ -439,6 +439,34 @@ describe("Orchestrator", () => {
       expect(order).toEqual(["cb-1", "cb-2", "uninstall"]);
       expect(completeEvents).toHaveLength(1);
     });
+
+    // #144: multi-worker shutdownPrimary awaited user callbacks with no
+    // failsafe — one callback that never resolves would hang the primary
+    // after SIGTERM forever (single-worker mode and worker children already
+    // force-exit on timeout).
+    it("force-exits when a multi-worker shutdown callback never resolves", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          shutdown: { timeoutMs: 4_000, ackTimeoutMs: 1_000, sigtermDelayMs: 300, sigintDelayMs: 200 },
+        }),
+      );
+      await orch.run(() => {});
+      orch.registerOnShutdown(() => new Promise<void>(() => {})); // never resolves
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+
+      const exitSpy = vi.mocked(process.exit);
+      void orch.shutdownPrimary("SIGTERM");
+
+      // The failsafe wraps the callbacks+uninstall phase: it arms only after
+      // the coordinator phase (~1s of ACK budget) and fires one timeoutMs later.
+      await vi.advanceTimersByTimeAsync(6_000);
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -1482,6 +1510,54 @@ describe("Orchestrator", () => {
       await vi.runAllTimersAsync();
       await shutdownPromise;
     });
+
+    // #144: the drain trigger fires only on the replacement's "online" or
+    // "exit" event — a replacement that is forked but stuck before "online"
+    // (boot hang) and never exits would leave the old worker undrained
+    // forever. A bounded failsafe drains it anyway.
+    it("drains the old worker when the replacement never comes online", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+      vi.setSystemTime(new Date("2026-04-12T00:00:00.000Z"));
+
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: { count: 2, maxAgeMs: 10_000 },
+          shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, sigtermDelayMs: 300, sigintDelayMs: 200 },
+        }),
+      );
+      await orch.run(() => {});
+      await new Promise<void>((r) => setImmediate(r)); // deliver initial workers' "online"
+
+      const [oldWorker] = Object.values(mockCluster.workers);
+      oldWorker.autoExitOnDisconnect = false; // stay alive to observe the drain
+      const disconnectSpy = vi.spyOn(oldWorker, "disconnect");
+
+      // Replacement that never reaches "online" and never exits (boot hang):
+      // bypass the mock's automatic "online" emission entirely.
+      vi.spyOn(mockCluster, "fork").mockImplementation(() => {
+        const stuck = new MockWorker(999);
+        mockCluster.workers[stuck.id] = stuck;
+        return stuck;
+      });
+
+      // Trigger age-based recycling: the sweep forks the stuck replacement
+      await vi.advanceTimersByTimeAsync(60_001);
+      expect(disconnectSpy).not.toHaveBeenCalled(); // not drained before the budget
+
+      // Failsafe budget = timeoutMs + sigtermDelayMs + sigintDelayMs + 5s,
+      // armed when the recycle stagger lands (virtual 60_001) → fires at 66.5s.
+      await vi.advanceTimersByTimeAsync(6_500);
+      expect(oldWorker.isConnected()).toBe(false); // drained (shutdown message + disconnect)
+      expect(disconnectSpy).toHaveBeenCalledTimes(1); // exactly once — no double drain
+
+      // The drain escalation still arms relative to the drain, not the budget:
+      // SIGTERM after shutdown.timeoutMs (at 67.5s).
+      await vi.advanceTimersByTimeAsync(999);
+      expect(oldWorker.process.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2);
+      expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGTERM");
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -1735,10 +1811,15 @@ describe("Orchestrator", () => {
       expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
 
       expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGKILL");
-      // Kill comes from the restart bounded wait, not the recycle escalation
-      // (which never arms because the replacement never came online).
+      // Worker 1 is killed by the restart bounded wait alone (its drain
+      // escalation is cleared when the SIGKILL lands): SIGKILL without a
+      // prior SIGTERM.
       expect(oldWorker.process.kill).not.toHaveBeenCalledWith("SIGTERM");
-      expect(orchestrator.getMetrics().forcedKills).toBe(2);
+      // Worker 1: bounded-wait SIGKILL. Worker 2 ignores signals entirely, so
+      // after its bounded-wait SIGKILL the drain escalation armed by the
+      // recycle failsafe (#144 — previously it never armed when the
+      // replacement never came online) runs to completion: SIGTERM, SIGKILL.
+      expect(orchestrator.getMetrics().forcedKills).toBe(3);
     });
 
     it("does not emit restart:complete when shutdown aborts the roll", async () => {
@@ -2401,7 +2482,11 @@ describe("Orchestrator", () => {
       expect(order).toEqual(["a", "b"]);
     });
 
-    it("uninstall() is called after shutdown:complete", async () => {
+    // #144: the ordering is unified on the single-worker contract — user
+    // callbacks and plugin uninstall run BEFORE shutdown:complete, so a
+    // plugin's shutdown:complete listener is not removed by its own
+    // uninstall() before the event fires.
+    it("emits shutdown:complete after plugin uninstall", async () => {
       vi.useFakeTimers();
       mockCluster.isPrimary = true;
       const orch = new Orchestrator(
@@ -2415,15 +2500,22 @@ describe("Orchestrator", () => {
           },
         }),
       );
-      const uninstall = vi.fn().mockResolvedValue(undefined);
-      orch.use({ name: "test", install: vi.fn().mockResolvedValue(undefined), uninstall });
+      const order: string[] = [];
+      orch.use({
+        name: "test",
+        install: vi.fn().mockResolvedValue(undefined),
+        uninstall: async () => {
+          order.push("uninstall");
+        },
+      });
       await orch.run(() => {});
+      orch.on("shutdown:complete", () => order.push("shutdown:complete"));
 
       const shutdownPromise = orch.shutdownPrimary("SIGTERM");
       await vi.runAllTimersAsync();
       await shutdownPromise;
 
-      expect(uninstall).toHaveBeenCalledOnce();
+      expect(order).toEqual(["uninstall", "shutdown:complete"]);
       vi.useRealTimers();
     });
 
