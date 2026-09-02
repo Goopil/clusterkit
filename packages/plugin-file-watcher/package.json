@@ -58,7 +58,7 @@
   },
   "peerDependencies": {
     "@goopil/clusterkit": "workspace:^",
-    "chokidar": "^4"
+    "chokidar": "^4.0.0 || ^5.0.0"
   },
   "devDependencies": {
     "@goopil/clusterkit": "workspace:*",
