@@ -279,6 +279,46 @@ describe("plugin lifecycle", () => {
     expect(logger.debug).toHaveBeenCalledWith("[clusterkit:prometheus] Plugin installed on primary process", undefined);
     plugin = undefined; // already cleaned up
   });
+
+  it("syncs the active_workers gauge to the final fleet state on uninstall", async () => {
+    plugin = makePlugin();
+    const orch = mockOrchestrator(2);
+    await plugin.install(orch, null);
+
+    // Workers drained without a further worker:exit event — the final
+    // sync must happen in uninstall(), not in the (gone) shutdown:complete listener.
+    (orch as unknown as { currentActiveWorkers: number }).currentActiveWorkers = 0;
+    await plugin.uninstall?.(orch);
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_active_workers", 0));
+    plugin = undefined; // already cleaned up
+  });
+
+  it("clears the merged metrics cache on uninstall", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-03T12:00:00.000Z"));
+
+    let clusterMetricsCalls = 0;
+    const clusterMetricsSpy = vi
+      .spyOn(AggregatorRegistry.prototype, "clusterMetrics")
+      .mockImplementation(async () => `plugin_cache_probe ${++clusterMetricsCalls}`);
+
+    plugin = makePlugin({ metricsCacheTtlMs: 60_000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null);
+
+    await plugin.getMetrics(); // populates the cache (probe 1)
+    await plugin.uninstall?.(orch);
+
+    const after = await plugin.getMetrics(); // cache cleared → fresh collect (probe 2)
+    expect(after).toContain("plugin_cache_probe 2");
+    expect(clusterMetricsSpy).toHaveBeenCalledTimes(2);
+
+    clusterMetricsSpy.mockRestore();
+    vi.useRealTimers();
+    plugin = undefined; // already cleaned up
+  });
 });
 
 // ============================================================================
@@ -457,6 +497,23 @@ describe("single-worker mode", () => {
     await plugin.install(orch, null, singleWorkerConfig());
     await plugin.uninstall?.(orch);
     await expect(plugin.install(orch, null, singleWorkerConfig())).resolves.not.toThrow();
+  });
+
+  it("removes default metrics on uninstall and collects them again on reinstall", async () => {
+    const registry = new Registry();
+    const plugin = createPrometheusPlugin({ defaultMetrics: true, registry });
+    const orch = mockOrchestrator(0, 1);
+
+    await plugin.install(orch, null, singleWorkerConfig());
+    await plugin.uninstall?.(orch);
+
+    const afterUninstall = await plugin.getMetrics();
+    expect(afterUninstall).not.toContain("process_cpu_user_seconds_total");
+
+    // Reinstall against the now-fresh registry: default metrics come back.
+    await plugin.install(orch, null, singleWorkerConfig());
+    const afterReinstall = await plugin.getMetrics();
+    expect(afterReinstall).toContain("process_cpu_user_seconds_total");
   });
 
   it("sets active_workers to 1 when workers is 'auto' and resolves to 1", async () => {
