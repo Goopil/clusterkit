@@ -39,17 +39,17 @@ Priorisation: **impact × risque × urgence / effort**. Chaque tâche référenc
 
 ## Phase 4 — Long term (non urgent)
 
-- [ ] AUDIT-025 — étendre la blocklist execArgv (tls-keylog, cpu-prof, report-, redirect-warnings, diagnostic-dir).
-- [ ] AUDIT-016 — commentaires inline + clés interdites dans `parse-env.ts`; documenter les limites du parser.
-- [ ] AUDIT-006 — documenter `health.live` comme constant + test d'invariant (ou le retirer en 2.0).
-- [ ] AUDIT-007 — warn sur `WEB_CONCURRENCY` invalide.
-- [ ] AUDIT-008 — throw sur `use()` après `run()`.
-- [ ] AUDIT-010 — `process.emitWarning` sur `circuit-breaker:tripped` quand aucun logger.
-- [ ] AUDIT-011 — ne pas cacher le `false` issu du timeout de sonde reuseport.
-- [ ] AUDIT-017 — ne pas écraser un provider OTel global préexistant + corriger la doc types.ts.
-- [ ] AUDIT-027 — pin digest du collector OTEL.
-- [ ] AUDIT-028 — compléter SECURITY.md (3 packages), ne pousser que les tags du run.
-- [ ] AUDIT-032 — batch docs: compteurs d'exemples, image, SIGHUP, lien mort, RELEASING.md, engines >=22.12, hot-reload paths, `.catch()` dans les exemples.
+- [x] AUDIT-025 — étendre la blocklist execArgv (tls-keylog, cpu-prof, report-, redirect-warnings, diagnostic-dir). [#127]
+- [x] AUDIT-016 — commentaires inline + clés interdites dans `parse-env.ts`; documenter les limites du parser. [#127]
+- [x] AUDIT-006 — documenter `health.live` comme constant + test d'invariant (ou le retirer en 2.0). [#129]
+- [x] AUDIT-007 — warn sur `WEB_CONCURRENCY` invalide. [#129]
+- [x] AUDIT-008 — throw sur `use()` après `run()`. [#129]
+- [x] AUDIT-010 — `process.emitWarning` sur `circuit-breaker:tripped` quand aucun logger. [#129]
+- [x] AUDIT-011 — ne pas cacher le `false` issu du timeout de sonde reuseport. [#128]
+- [x] AUDIT-017 — ne pas écraser un provider OTel global préexistant + corriger la doc types.ts. [#128]
+- [x] AUDIT-027 — pin digest du collector OTEL. [#131]
+- [x] AUDIT-028 — compléter SECURITY.md (3 packages) [#131], ne pousser que les tags du run [#110].
+- [x] AUDIT-032 — batch docs: compteurs d'exemples, image, SIGHUP, lien mort, RELEASING.md, engines >=22.12, hot-reload paths, `.catch()` dans les exemples. [#132]
 - [ ] AUDIT-033 (reste) — items 7-11 + per-file coverage thresholds sur les packages publiés.
 
 ## Quick wins (fort impact, faible effort)
