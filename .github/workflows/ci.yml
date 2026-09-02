@@ -97,6 +97,8 @@ jobs:
             packages/plugin-prometheus/coverage/
             packages/plugin-container-sizing/coverage/
             packages/plugin-otlp-meter/coverage/
+            packages/plugin-signal-restart/coverage/
+            packages/plugin-file-watcher/coverage/
 
   test-linux:
     name: Test (Linux Docker — SO_REUSEPORT)

@@ -29,7 +29,7 @@
     },
     "test:coverage": {
       "dependsOn": ["^build", "build"],
-      "inputs": ["src/**", "test/**", "vitest.config.ts", "package.json"],
+      "inputs": ["src/**", "test/**", "{workspaceRoot}/test-support/**", "vitest.config.ts", "package.json"],
       "outputs": ["coverage/**"]
     },
     "start": {
