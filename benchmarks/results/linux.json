@@ -1,48 +1,48 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-13T21:15:56.812Z",
+    "generatedAt": "2026-09-02T11:42:21.833Z",
     "nodeVersion": "v22.23.2",
     "platform": "linux arm64",
     "cpuCount": 4,
     "cpuModel": "unknown",
     "dockerImage": "node:22-slim",
     "method": {
-      "warmupSec": 3,
-      "measureSec": 10,
-      "repetitions": 1,
+      "warmupSec": 10,
+      "measureSec": 30,
+      "repetitions": 3,
       "connsPerWorker": 50,
-      "mode": "quick"
+      "mode": "reference"
     }
   },
   "results": {
     "hello": {
       "single": {
         "rps": {
-          "median": 17784,
-          "min": 17784,
-          "max": 17784,
-          "stddev": 0,
-          "runs": [17784]
+          "median": 15790,
+          "min": 15735,
+          "max": 15832,
+          "stddev": 40,
+          "runs": [15735, 15790, 15832]
         },
         "latency": {
-          "p50": 8,
-          "p95": 10,
-          "p99": 11,
-          "p50Runs": [8],
-          "p95Runs": [10],
-          "p99Runs": [11]
+          "p50": 9,
+          "p97_5": 13,
+          "p99": 16,
+          "p50Runs": [9, 9, 9],
+          "p97_5Runs": [13, 13, 13],
+          "p99Runs": [16, 16, 16]
         },
         "errors": 0,
-        "bootTimeMs": 108,
-        "shutdownTimeMs": 5,
+        "bootTimeMs": 216,
+        "shutdownTimeMs": 16,
         "rss": {
-          "avgKb": 137581,
-          "peakKb": 145792
+          "avgKb": 152302,
+          "peakKb": 155176
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 104.4,
-          "timeMs": 15660
+          "avgPercent": 107.3,
+          "timeMs": 131970
         },
         "pids": {
           "active": 1,
@@ -54,228 +54,229 @@
       },
       "clusterkit-3": {
         "rps": {
-          "median": 53005,
-          "min": 53005,
-          "max": 53005,
-          "stddev": 0,
-          "runs": [53005]
+          "median": 43954,
+          "min": 43710,
+          "max": 44142,
+          "stddev": 177,
+          "runs": [43710, 43954, 44142]
         },
         "latency": {
           "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p97_5": 8,
+          "p99": 10,
+          "p50Runs": [2, 2, 2],
+          "p97_5Runs": [8, 8, 8],
+          "p99Runs": [10, 10, 10]
         },
         "errors": 0,
-        "bootTimeMs": 208,
-        "shutdownTimeMs": 24,
+        "bootTimeMs": 204,
+        "shutdownTimeMs": 35,
         "rss": {
-          "avgKb": 195533,
-          "peakKb": 140656
+          "avgKb": 197332,
+          "peakKb": 141332
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 95,
-          "timeMs": 13300
+          "avgPercent": 88.7,
+          "timeMs": 107320
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "30": 22,
-            "31": 49,
-            "32": 29
+            "30": 32,
+            "31": 32,
+            "32": 36
           }
         }
       },
       "native-cluster-3": {
         "rps": {
-          "median": 52355,
-          "min": 52355,
-          "max": 52355,
-          "stddev": 0,
-          "runs": [52355]
+          "median": 44615,
+          "min": 44347,
+          "max": 45061,
+          "stddev": 295,
+          "runs": [44347, 44615, 45061]
         },
         "latency": {
           "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p97_5": 8,
+          "p99": 10,
+          "p50Runs": [2, 2, 2],
+          "p97_5Runs": [8, 8, 8],
+          "p99Runs": [10, 10, 10]
         },
         "errors": 0,
-        "bootTimeMs": 209,
-        "shutdownTimeMs": 1,
+        "bootTimeMs": 205,
+        "shutdownTimeMs": 10,
         "rss": {
-          "avgKb": 188860,
-          "peakKb": 136124
+          "avgKb": 199567,
+          "peakKb": 143428
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 93.9,
-          "timeMs": 13140
+          "avgPercent": 90.1,
+          "timeMs": 109930
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "58": 37,
-            "59": 28,
-            "60": 35
+            "58": 49,
+            "59": 43,
+            "60": 8
           }
         }
       },
       "native-cluster-reuseport-3": {
         "rps": {
-          "median": 51565,
-          "min": 51565,
-          "max": 51565,
-          "stddev": 0,
-          "runs": [51565]
+          "median": 45728,
+          "min": 43993,
+          "max": 46137,
+          "stddev": 929,
+          "runs": [43993, 45728, 46137]
         },
         "latency": {
           "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p97_5": 8,
+          "p99": 9,
+          "p50Runs": [2, 2, 2],
+          "p97_5Runs": [7, 8, 8],
+          "p99Runs": [9, 9, 10]
         },
         "errors": 0,
-        "bootTimeMs": 203,
-        "shutdownTimeMs": 2,
+        "bootTimeMs": 207,
+        "shutdownTimeMs": 3,
         "rss": {
-          "avgKb": 188993,
-          "peakKb": 136496
+          "avgKb": 195274,
+          "peakKb": 141292
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 94.4,
-          "timeMs": 14160
+          "avgPercent": 90,
+          "timeMs": 108950
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "86": 41,
-            "87": 36,
-            "88": 23
+            "86": 40,
+            "87": 23,
+            "88": 37
           }
         }
       },
       "throng-3": {
         "rps": {
-          "median": 51779,
-          "min": 51779,
-          "max": 51779,
-          "stddev": 0,
-          "runs": [51779]
+          "median": 41030,
+          "min": 40644,
+          "max": 44723,
+          "stddev": 1839,
+          "runs": [40644, 41030, 44723]
         },
         "latency": {
           "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p97_5": 9,
+          "p99": 12,
+          "p50Runs": [2, 2, 3],
+          "p97_5Runs": [8, 9, 9],
+          "p99Runs": [10, 12, 12]
         },
         "errors": 0,
-        "bootTimeMs": 5,
-        "shutdownTimeMs": 12,
+        "bootTimeMs": 2,
+        "shutdownTimeMs": 29,
         "rss": {
-          "avgKb": 197027,
-          "peakKb": 145236
+          "avgKb": 209158,
+          "peakKb": 153168
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 91.8,
-          "timeMs": 12850
+          "avgPercent": 89.2,
+          "timeMs": 107890
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "114": 38,
-            "115": 25,
-            "116": 37
+            "114": 24,
+            "115": 15,
+            "116": 61
           }
         }
       },
       "pm2-3": {
         "rps": {
-          "median": 51059,
-          "min": 51059,
-          "max": 51059,
-          "stddev": 0,
-          "runs": [51059]
+          "median": 38222,
+          "min": 38087,
+          "max": 39303,
+          "stddev": 544,
+          "runs": [38087, 38222, 39303]
         },
         "latency": {
-          "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p50": 3,
+          "p97_5": 10,
+          "p99": 12,
+          "p50Runs": [3, 3, 3],
+          "p97_5Runs": [9, 10, 10],
+          "p99Runs": [12, 12, 14]
         },
         "errors": 0,
-        "bootTimeMs": 512,
-        "shutdownTimeMs": 229,
+        "bootTimeMs": 508,
+        "shutdownTimeMs": 228,
         "rss": {
-          "avgKb": 442560,
-          "peakKb": 179320
+          "avgKb": 416189,
+          "peakKb": 177492
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 146,
-          "timeMs": 21900
+          "avgPercent": 142.1,
+          "timeMs": 173400
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "154": 37,
-            "161": 33,
-            "168": 30
+            "154": 47,
+            "161": 27,
+            "168": 26
           }
         }
       },
       "pm2-reload-3": {
         "rps": {
-          "median": 16649,
-          "min": 16649,
-          "max": 16649,
-          "stddev": 0,
-          "runs": [16649]
+          "median": 41553,
+          "min": 18155,
+          "max": 42106,
+          "stddev": 11162,
+          "runs": [18155, 41553, 42106]
         },
         "latency": {
-          "p50": 8,
-          "p95": 12,
-          "p99": 16,
-          "p50Runs": [8],
-          "p95Runs": [12],
-          "p99Runs": [16]
+          "p50": 2,
+          "p97_5": 8,
+          "p99": 10,
+          "p50Runs": [2, 2, 3],
+          "p97_5Runs": [8, 8, 35],
+          "p99Runs": [10, 10, 118]
         },
         "errors": 0,
-        "bootTimeMs": 417,
-        "shutdownTimeMs": 234,
+        "bootTimeMs": 408,
+        "shutdownTimeMs": 243,
         "rss": {
-          "avgKb": 270852,
-          "peakKb": 154124
+          "avgKb": 270433,
+          "peakKb": 152108
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 91.3,
-          "timeMs": 12780
+          "avgPercent": 75.4,
+          "timeMs": 91280
         },
         "pids": {
-          "active": 2,
+          "active": 3,
           "expected": 3,
           "distribution": {
-            "213": 81,
-            "224": 19
+            "221": 34,
+            "233": 32,
+            "245": 34
           }
         }
       }
@@ -283,264 +284,265 @@
     "latency-10ms": {
       "single": {
         "rps": {
-          "median": 11130,
-          "min": 11130,
-          "max": 11130,
-          "stddev": 0,
-          "runs": [11130]
+          "median": 10579,
+          "min": 10261,
+          "max": 11024,
+          "stddev": 313,
+          "runs": [10261, 10579, 11024]
         },
         "latency": {
           "p50": 13,
-          "p95": 15,
-          "p99": 16,
-          "p50Runs": [13],
-          "p95Runs": [15],
-          "p99Runs": [16]
+          "p97_5": 19,
+          "p99": 22,
+          "p50Runs": [13, 13, 14],
+          "p97_5Runs": [18, 19, 19],
+          "p99Runs": [20, 22, 25]
         },
         "errors": 0,
-        "bootTimeMs": 212,
-        "shutdownTimeMs": 7,
+        "bootTimeMs": 105,
+        "shutdownTimeMs": 13,
         "rss": {
-          "avgKb": 131200,
-          "peakKb": 138576
+          "avgKb": 136840,
+          "peakKb": 140936
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 67.6,
-          "timeMs": 9470
+          "avgPercent": 73.1,
+          "timeMs": 88430
         },
         "pids": {
           "active": 1,
           "expected": 1,
           "distribution": {
-            "241": 100
+            "269": 100
           }
         }
       },
       "clusterkit-3": {
         "rps": {
-          "median": 11980,
-          "min": 11980,
-          "max": 11980,
-          "stddev": 0,
-          "runs": [11980]
+          "median": 12669,
+          "min": 11823,
+          "max": 12777,
+          "stddev": 427,
+          "runs": [11823, 12669, 12777]
         },
         "latency": {
-          "p50": 12,
-          "p95": 14,
-          "p99": 15,
-          "p50Runs": [12],
-          "p95Runs": [14],
-          "p99Runs": [15]
+          "p50": 11,
+          "p97_5": 14,
+          "p99": 16,
+          "p50Runs": [11, 11, 12],
+          "p97_5Runs": [14, 14, 16],
+          "p99Runs": [16, 16, 20]
         },
         "errors": 0,
-        "bootTimeMs": 203,
-        "shutdownTimeMs": 12,
+        "bootTimeMs": 204,
+        "shutdownTimeMs": 27,
         "rss": {
-          "avgKb": 182643,
-          "peakKb": 126728
+          "avgKb": 189030,
+          "peakKb": 130392
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 29.9,
-          "timeMs": 4180
+          "avgPercent": 31.8,
+          "timeMs": 38510
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "255": 41,
-            "256": 31,
-            "257": 28
+            "283": 28,
+            "284": 45,
+            "285": 27
           }
         }
       },
       "native-cluster-3": {
         "rps": {
-          "median": 11745,
-          "min": 11745,
-          "max": 11745,
-          "stddev": 0,
-          "runs": [11745]
+          "median": 12105,
+          "min": 12057,
+          "max": 12603,
+          "stddev": 247,
+          "runs": [12057, 12105, 12603]
         },
         "latency": {
-          "p50": 12,
-          "p95": 15,
-          "p99": 15,
-          "p50Runs": [12],
-          "p95Runs": [15],
-          "p99Runs": [15]
+          "p50": 11,
+          "p97_5": 15,
+          "p99": 18,
+          "p50Runs": [11, 11, 12],
+          "p97_5Runs": [14, 15, 16],
+          "p99Runs": [16, 18, 21]
         },
         "errors": 0,
-        "bootTimeMs": 208,
-        "shutdownTimeMs": 1,
+        "bootTimeMs": 205,
+        "shutdownTimeMs": 4,
         "rss": {
-          "avgKb": 178818,
-          "peakKb": 124464
+          "avgKb": 184160,
+          "peakKb": 126100
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 27.6,
-          "timeMs": 3860
+          "avgPercent": 32.7,
+          "timeMs": 39600
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "283": 26,
-            "284": 35,
-            "285": 39
+            "311": 38,
+            "312": 37,
+            "313": 25
           }
         }
       },
       "native-cluster-reuseport-3": {
         "rps": {
-          "median": 11659,
-          "min": 11659,
-          "max": 11659,
-          "stddev": 0,
-          "runs": [11659]
+          "median": 12612,
+          "min": 11961,
+          "max": 12810,
+          "stddev": 363,
+          "runs": [11961, 12612, 12810]
         },
         "latency": {
-          "p50": 12,
-          "p95": 15,
-          "p99": 16,
-          "p50Runs": [12],
-          "p95Runs": [15],
-          "p99Runs": [16]
+          "p50": 11,
+          "p97_5": 15,
+          "p99": 17,
+          "p50Runs": [11, 11, 12],
+          "p97_5Runs": [13, 15, 16],
+          "p99Runs": [14, 17, 18]
         },
         "errors": 0,
-        "bootTimeMs": 203,
-        "shutdownTimeMs": 2,
+        "bootTimeMs": 208,
+        "shutdownTimeMs": 3,
         "rss": {
-          "avgKb": 175540,
-          "peakKb": 122540
+          "avgKb": 185789,
+          "peakKb": 128920
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 30.3,
-          "timeMs": 4240
+          "avgPercent": 31.6,
+          "timeMs": 38190
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "311": 43,
-            "312": 37,
-            "313": 20
+            "339": 31,
+            "340": 35,
+            "341": 34
           }
         }
       },
       "throng-3": {
         "rps": {
-          "median": 11998,
-          "min": 11998,
-          "max": 11998,
-          "stddev": 0,
-          "runs": [11998]
+          "median": 12739,
+          "min": 12293,
+          "max": 12916,
+          "stddev": 262,
+          "runs": [12293, 12739, 12916]
         },
         "latency": {
-          "p50": 12,
-          "p95": 14,
+          "p50": 11,
+          "p97_5": 14,
           "p99": 15,
-          "p50Runs": [12],
-          "p95Runs": [14],
-          "p99Runs": [15]
+          "p50Runs": [11, 11, 12],
+          "p97_5Runs": [13, 14, 15],
+          "p99Runs": [14, 15, 15]
         },
         "errors": 0,
-        "bootTimeMs": 2,
-        "shutdownTimeMs": 11,
+        "bootTimeMs": 4,
+        "shutdownTimeMs": 24,
         "rss": {
-          "avgKb": 184318,
-          "peakKb": 134820
+          "avgKb": 199490,
+          "peakKb": 139216
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 33.1,
-          "timeMs": 4640
+          "avgPercent": 32.3,
+          "timeMs": 39110
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "339": 25,
-            "340": 64,
-            "341": 11
+            "367": 37,
+            "368": 31,
+            "369": 32
           }
         }
       },
       "pm2-3": {
         "rps": {
-          "median": 12098,
-          "min": 12098,
-          "max": 12098,
-          "stddev": 0,
-          "runs": [12098]
+          "median": 12664,
+          "min": 10867,
+          "max": 12685,
+          "stddev": 852,
+          "runs": [10867, 12664, 12685]
         },
         "latency": {
-          "p50": 12,
-          "p95": 14,
+          "p50": 11,
+          "p97_5": 14,
           "p99": 15,
-          "p50Runs": [12],
-          "p95Runs": [14],
-          "p99Runs": [15]
+          "p50Runs": [11, 11, 12],
+          "p97_5Runs": [14, 14, 25],
+          "p99Runs": [15, 15, 37]
         },
         "errors": 0,
-        "bootTimeMs": 412,
-        "shutdownTimeMs": 231,
+        "bootTimeMs": 409,
+        "shutdownTimeMs": 233,
         "rss": {
-          "avgKb": 254054,
-          "peakKb": 137568
+          "avgKb": 261111,
+          "peakKb": 140156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 33.5,
-          "timeMs": 4690
+          "avgPercent": 32.6,
+          "timeMs": 39410
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "379": 18,
-            "386": 26,
-            "393": 56
+            "407": 41,
+            "414": 27,
+            "421": 32
           }
         }
       },
       "pm2-reload-3": {
         "rps": {
-          "median": 11129,
-          "min": 11129,
-          "max": 11129,
-          "stddev": 0,
-          "runs": [11129]
+          "median": 12293,
+          "min": 11662,
+          "max": 12594,
+          "stddev": 388,
+          "runs": [11662, 12293, 12594]
         },
         "latency": {
-          "p50": 13,
-          "p95": 15,
-          "p99": 16,
-          "p50Runs": [13],
-          "p95Runs": [15],
-          "p99Runs": [16]
+          "p50": 11,
+          "p97_5": 15,
+          "p99": 17,
+          "p50Runs": [11, 11, 12],
+          "p97_5Runs": [14, 15, 16],
+          "p99Runs": [16, 17, 21]
         },
         "errors": 0,
-        "bootTimeMs": 411,
-        "shutdownTimeMs": 229,
+        "bootTimeMs": 512,
+        "shutdownTimeMs": 223,
         "rss": {
-          "avgKb": 266760,
-          "peakKb": 149924
+          "avgKb": 260065,
+          "peakKb": 140064
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 60.4,
-          "timeMs": 8450
+          "avgPercent": 34.7,
+          "timeMs": 41960
         },
         "pids": {
-          "active": 2,
+          "active": 3,
           "expected": 3,
           "distribution": {
-            "438": 15,
-            "449": 85
+            "474": 26,
+            "486": 27,
+            "498": 47
           }
         }
       }
@@ -548,263 +550,265 @@
     "cpu-io-mix": {
       "single": {
         "rps": {
-          "median": 917,
-          "min": 917,
-          "max": 917,
-          "stddev": 0,
-          "runs": [917]
+          "median": 901,
+          "min": 892,
+          "max": 903,
+          "stddev": 4,
+          "runs": [892, 901, 903]
         },
         "latency": {
-          "p50": 104,
-          "p95": 145,
-          "p99": 1174,
-          "p50Runs": [104],
-          "p95Runs": [145],
-          "p99Runs": [1174]
+          "p50": 158,
+          "p97_5": 182,
+          "p99": 322,
+          "p50Runs": [154, 158, 158],
+          "p97_5Runs": [180, 182, 193],
+          "p99Runs": [321, 322, 323]
         },
-        "errors": 26,
-        "bootTimeMs": 112,
-        "shutdownTimeMs": 6,
+        "errors": 96,
+        "bootTimeMs": 113,
+        "shutdownTimeMs": 13,
         "rss": {
-          "avgKb": 115696,
-          "peakKb": 125536
+          "avgKb": 126131,
+          "peakKb": 129892
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 96.1,
-          "timeMs": 13460
+          "avgPercent": 101.1,
+          "timeMs": 122280
         },
         "pids": {
           "active": 1,
           "expected": 1,
           "distribution": {
-            "466": 100
+            "522": 100
           }
         }
       },
       "clusterkit-3": {
         "rps": {
-          "median": 2757,
-          "min": 2757,
-          "max": 2757,
-          "stddev": 0,
-          "runs": [2757]
+          "median": 2326,
+          "min": 2253,
+          "max": 2516,
+          "stddev": 111,
+          "runs": [2253, 2326, 2516]
         },
         "latency": {
-          "p50": 53,
-          "p95": 105,
-          "p99": 112,
-          "p50Runs": [53],
-          "p95Runs": [105],
-          "p99Runs": [112]
+          "p50": 54,
+          "p97_5": 146,
+          "p99": 183,
+          "p50Runs": [50, 54, 55],
+          "p97_5Runs": [125, 146, 182],
+          "p99Runs": [147, 183, 233]
         },
         "errors": 0,
-        "bootTimeMs": 207,
-        "shutdownTimeMs": 9,
+        "bootTimeMs": 204,
+        "shutdownTimeMs": 24,
         "rss": {
-          "avgKb": 175875,
-          "peakKb": 121788
+          "avgKb": 183265,
+          "peakKb": 129308
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 94.5,
-          "timeMs": 13230
+          "avgPercent": 91.8,
+          "timeMs": 111030
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "480": 33,
-            "481": 33,
-            "482": 34
+            "536": 46,
+            "537": 14,
+            "538": 40
           }
         }
       },
       "native-cluster-3": {
         "rps": {
-          "median": 2722,
-          "min": 2722,
-          "max": 2722,
-          "stddev": 0,
-          "runs": [2722]
+          "median": 2696,
+          "min": 2675,
+          "max": 2701,
+          "stddev": 11,
+          "runs": [2675, 2696, 2701]
         },
         "latency": {
-          "p50": 50,
-          "p95": 101,
-          "p99": 111,
-          "p50Runs": [50],
-          "p95Runs": [101],
-          "p99Runs": [111]
+          "p50": 52,
+          "p97_5": 102,
+          "p99": 106,
+          "p50Runs": [51, 52, 52],
+          "p97_5Runs": [102, 102, 103],
+          "p99Runs": [105, 106, 107]
         },
         "errors": 0,
-        "bootTimeMs": 208,
-        "shutdownTimeMs": 5,
+        "bootTimeMs": 204,
+        "shutdownTimeMs": 3,
         "rss": {
-          "avgKb": 169405,
-          "peakKb": 114012
+          "avgKb": 176879,
+          "peakKb": 123436
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 94.9,
-          "timeMs": 13280
+          "avgPercent": 96.7,
+          "timeMs": 117040
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "508": 8,
-            "509": 47,
-            "510": 45
+            "564": 67,
+            "565": 29,
+            "566": 4
           }
         }
       },
       "native-cluster-reuseport-3": {
         "rps": {
-          "median": 2743,
-          "min": 2743,
-          "max": 2743,
-          "stddev": 0,
-          "runs": [2743]
+          "median": 2693,
+          "min": 2680,
+          "max": 2694,
+          "stddev": 6,
+          "runs": [2680, 2693, 2694]
         },
         "latency": {
           "p50": 51,
-          "p95": 103,
-          "p99": 105,
-          "p50Runs": [51],
-          "p95Runs": [103],
-          "p99Runs": [105]
+          "p97_5": 101,
+          "p99": 110,
+          "p50Runs": [51, 51, 55],
+          "p97_5Runs": [100, 101, 108],
+          "p99Runs": [110, 110, 114]
         },
         "errors": 0,
-        "bootTimeMs": 317,
-        "shutdownTimeMs": 2,
+        "bootTimeMs": 206,
+        "shutdownTimeMs": 3,
         "rss": {
-          "avgKb": 178082,
-          "peakKb": 127244
+          "avgKb": 175449,
+          "peakKb": 122468
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 94.7,
-          "timeMs": 13260
+          "avgPercent": 96.3,
+          "timeMs": 116550
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "536": 34,
-            "537": 28,
-            "538": 38
+            "592": 35,
+            "593": 25,
+            "594": 40
           }
         }
       },
       "throng-3": {
         "rps": {
-          "median": 2755,
-          "min": 2755,
-          "max": 2755,
-          "stddev": 0,
-          "runs": [2755]
+          "median": 2684,
+          "min": 2674,
+          "max": 2695,
+          "stddev": 8,
+          "runs": [2674, 2684, 2695]
         },
         "latency": {
-          "p50": 51,
-          "p95": 101,
+          "p50": 52,
+          "p97_5": 103,
           "p99": 106,
-          "p50Runs": [51],
-          "p95Runs": [101],
-          "p99Runs": [106]
+          "p50Runs": [51, 52, 52],
+          "p97_5Runs": [102, 103, 103],
+          "p99Runs": [106, 106, 107]
         },
         "errors": 0,
         "bootTimeMs": 4,
-        "shutdownTimeMs": 7,
+        "shutdownTimeMs": 22,
         "rss": {
-          "avgKb": 168051,
-          "peakKb": 117480
+          "avgKb": 198630,
+          "peakKb": 138816
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 94.9,
-          "timeMs": 13280
+          "avgPercent": 97.1,
+          "timeMs": 117490
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "564": 5,
-            "565": 4,
-            "566": 91
+            "620": 24,
+            "621": 4,
+            "627": 72
           }
         }
       },
       "pm2-3": {
         "rps": {
-          "median": 2735,
-          "min": 2735,
-          "max": 2735,
-          "stddev": 0,
-          "runs": [2735]
+          "median": 2676,
+          "min": 2672,
+          "max": 2680,
+          "stddev": 3,
+          "runs": [2672, 2676, 2680]
         },
         "latency": {
-          "p50": 51,
-          "p95": 102,
-          "p99": 105,
-          "p50Runs": [51],
-          "p95Runs": [102],
-          "p99Runs": [105]
+          "p50": 52,
+          "p97_5": 103,
+          "p99": 107,
+          "p50Runs": [52, 52, 52],
+          "p97_5Runs": [103, 103, 103],
+          "p99Runs": [106, 107, 107]
         },
         "errors": 0,
-        "bootTimeMs": 414,
-        "shutdownTimeMs": 229,
+        "bootTimeMs": 408,
+        "shutdownTimeMs": 222,
         "rss": {
-          "avgKb": 242211,
-          "peakKb": 132340
+          "avgKb": 253921,
+          "peakKb": 134584
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 93.6,
-          "timeMs": 13110
+          "avgPercent": 95.4,
+          "timeMs": 115460
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "604": 8,
-            "611": 48,
-            "618": 44
+            "660": 67,
+            "667": 29,
+            "675": 4
           }
         }
       },
       "pm2-reload-3": {
         "rps": {
-          "median": 1281,
-          "min": 1281,
-          "max": 1281,
-          "stddev": 0,
-          "runs": [1281]
+          "median": 2671,
+          "min": 2105,
+          "max": 2677,
+          "stddev": 268,
+          "runs": [2105, 2671, 2677]
         },
         "latency": {
-          "p50": 81,
-          "p95": 126,
-          "p99": 344,
-          "p50Runs": [81],
-          "p95Runs": [126],
-          "p99Runs": [344]
+          "p50": 52,
+          "p97_5": 103,
+          "p99": 107,
+          "p50Runs": [52, 52, 60],
+          "p97_5Runs": [103, 103, 149],
+          "p99Runs": [106, 107, 184]
         },
         "errors": 0,
         "bootTimeMs": 417,
-        "shutdownTimeMs": 223,
+        "shutdownTimeMs": 236,
         "rss": {
-          "avgKb": 239994,
-          "peakKb": 122932
+          "avgKb": 259439,
+          "peakKb": 139232
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 95.7,
-          "timeMs": 14350
+          "avgPercent": 93.8,
+          "timeMs": 113460
         },
         "pids": {
-          "active": 1,
+          "active": 3,
           "expected": 3,
           "distribution": {
-            "674": 100
+            "727": 24,
+            "739": 13,
+            "751": 63
           }
         }
       }
@@ -812,264 +816,265 @@
     "list-100": {
       "single": {
         "rps": {
-          "median": 10378,
-          "min": 10378,
-          "max": 10378,
-          "stddev": 0,
-          "runs": [10378]
+          "median": 9062,
+          "min": 8587,
+          "max": 9503,
+          "stddev": 374,
+          "runs": [8587, 9062, 9503]
         },
         "latency": {
-          "p50": 14,
-          "p95": 17,
-          "p99": 18,
-          "p50Runs": [14],
-          "p95Runs": [17],
-          "p99Runs": [18]
+          "p50": 15,
+          "p97_5": 25,
+          "p99": 32,
+          "p50Runs": [15, 15, 15],
+          "p97_5Runs": [22, 25, 30],
+          "p99Runs": [26, 32, 46]
         },
         "errors": 0,
-        "bootTimeMs": 107,
-        "shutdownTimeMs": 6,
+        "bootTimeMs": 340,
+        "shutdownTimeMs": 13,
         "rss": {
-          "avgKb": 150231,
-          "peakKb": 159200
+          "avgKb": 157132,
+          "peakKb": 159600
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 101.1,
-          "timeMs": 15160
+          "avgPercent": 103,
+          "timeMs": 126630
         },
         "pids": {
           "active": 1,
           "expected": 1,
           "distribution": {
-            "691": 100
+            "775": 100
           }
         }
       },
       "clusterkit-3": {
         "rps": {
-          "median": 29934,
-          "min": 29934,
-          "max": 29934,
-          "stddev": 0,
-          "runs": [29934]
+          "median": 23361,
+          "min": 23075,
+          "max": 23692,
+          "stddev": 252,
+          "runs": [23075, 23361, 23692]
         },
         "latency": {
-          "p50": 4,
-          "p95": 10,
-          "p99": 12,
-          "p50Runs": [4],
-          "p95Runs": [10],
-          "p99Runs": [12]
+          "p50": 5,
+          "p97_5": 16,
+          "p99": 20,
+          "p50Runs": [5, 5, 5],
+          "p97_5Runs": [15, 16, 16],
+          "p99Runs": [19, 20, 20]
         },
         "errors": 0,
-        "bootTimeMs": 206,
-        "shutdownTimeMs": 10,
+        "bootTimeMs": 207,
+        "shutdownTimeMs": 42,
         "rss": {
-          "avgKb": 201406,
-          "peakKb": 146620
+          "avgKb": 206149,
+          "peakKb": 148912
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 91,
-          "timeMs": 12740
+          "avgPercent": 83.2,
+          "timeMs": 100660
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "705": 39,
-            "706": 20,
-            "707": 41
+            "789": 35,
+            "790": 31,
+            "791": 34
           }
         }
       },
       "native-cluster-3": {
         "rps": {
-          "median": 31050,
-          "min": 31050,
-          "max": 31050,
-          "stddev": 0,
-          "runs": [31050]
+          "median": 22786,
+          "min": 22409,
+          "max": 23187,
+          "stddev": 317,
+          "runs": [22409, 22786, 23187]
         },
         "latency": {
-          "p50": 4,
-          "p95": 8,
-          "p99": 10,
-          "p50Runs": [4],
-          "p95Runs": [8],
-          "p99Runs": [10]
+          "p50": 5,
+          "p97_5": 17,
+          "p99": 21,
+          "p50Runs": [5, 5, 5],
+          "p97_5Runs": [16, 17, 17],
+          "p99Runs": [21, 21, 23]
         },
         "errors": 0,
-        "bootTimeMs": 208,
-        "shutdownTimeMs": 1,
+        "bootTimeMs": 203,
+        "shutdownTimeMs": 4,
         "rss": {
-          "avgKb": 198669,
-          "peakKb": 146240
+          "avgKb": 204468,
+          "peakKb": 147104
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 95,
-          "timeMs": 13300
+          "avgPercent": 82.7,
+          "timeMs": 100050
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "733": 31,
-            "734": 39,
-            "735": 30
+            "817": 12,
+            "818": 58,
+            "819": 30
           }
         }
       },
       "native-cluster-reuseport-3": {
         "rps": {
-          "median": 30818,
-          "min": 30818,
-          "max": 30818,
-          "stddev": 0,
-          "runs": [30818]
+          "median": 23518,
+          "min": 22451,
+          "max": 24765,
+          "stddev": 946,
+          "runs": [22451, 23518, 24765]
         },
         "latency": {
-          "p50": 4,
-          "p95": 9,
-          "p99": 10,
-          "p50Runs": [4],
-          "p95Runs": [9],
-          "p99Runs": [10]
+          "p50": 5,
+          "p97_5": 16,
+          "p99": 21,
+          "p50Runs": [5, 5, 5],
+          "p97_5Runs": [14, 16, 17],
+          "p99Runs": [18, 21, 23]
         },
         "errors": 0,
-        "bootTimeMs": 208,
-        "shutdownTimeMs": 2,
+        "bootTimeMs": 210,
+        "shutdownTimeMs": 3,
         "rss": {
-          "avgKb": 195381,
-          "peakKb": 143260
+          "avgKb": 205088,
+          "peakKb": 149460
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 94.2,
-          "timeMs": 13190
+          "avgPercent": 83.8,
+          "timeMs": 101350
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "761": 29,
-            "762": 43,
-            "763": 28
+            "845": 31,
+            "846": 34,
+            "847": 35
           }
         }
       },
       "throng-3": {
         "rps": {
-          "median": 30450,
-          "min": 30450,
-          "max": 30450,
-          "stddev": 0,
-          "runs": [30450]
+          "median": 27379,
+          "min": 25907,
+          "max": 28257,
+          "stddev": 969,
+          "runs": [25907, 27379, 28257]
         },
         "latency": {
           "p50": 4,
-          "p95": 9,
-          "p99": 10,
-          "p50Runs": [4],
-          "p95Runs": [9],
-          "p99Runs": [10]
+          "p97_5": 11,
+          "p99": 13,
+          "p50Runs": [4, 4, 5],
+          "p97_5Runs": [10, 11, 12],
+          "p99Runs": [13, 13, 16]
         },
         "errors": 0,
-        "bootTimeMs": 2,
-        "shutdownTimeMs": 10,
+        "bootTimeMs": 3,
+        "shutdownTimeMs": 20,
         "rss": {
-          "avgKb": 201048,
-          "peakKb": 149524
+          "avgKb": 213134,
+          "peakKb": 154316
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 93.9,
-          "timeMs": 14090
+          "avgPercent": 90.9,
+          "timeMs": 110920
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "789": 54,
-            "790": 14,
-            "791": 32
+            "873": 24,
+            "874": 38,
+            "875": 38
           }
         }
       },
       "pm2-3": {
         "rps": {
-          "median": 30251,
-          "min": 30251,
-          "max": 30251,
-          "stddev": 0,
-          "runs": [30251]
+          "median": 23410,
+          "min": 22929,
+          "max": 25328,
+          "stddev": 1036,
+          "runs": [22929, 23410, 25328]
         },
         "latency": {
-          "p50": 4,
-          "p95": 9,
-          "p99": 10,
-          "p50Runs": [4],
-          "p95Runs": [9],
-          "p99Runs": [10]
+          "p50": 5,
+          "p97_5": 14,
+          "p99": 18,
+          "p50Runs": [5, 5, 5],
+          "p97_5Runs": [12, 14, 15],
+          "p99Runs": [14, 18, 21]
         },
         "errors": 0,
-        "bootTimeMs": 410,
-        "shutdownTimeMs": 233,
+        "bootTimeMs": 408,
+        "shutdownTimeMs": 229,
         "rss": {
-          "avgKb": 273948,
-          "peakKb": 157384
+          "avgKb": 275755,
+          "peakKb": 154844
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 87.6,
-          "timeMs": 13140
+          "avgPercent": 83.7,
+          "timeMs": 101270
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "829": 10,
-            "836": 10,
-            "843": 80
+            "913": 21,
+            "920": 12,
+            "927": 67
           }
         }
       },
       "pm2-reload-3": {
         "rps": {
-          "median": 10078,
-          "min": 10078,
-          "max": 10078,
-          "stddev": 0,
-          "runs": [10078]
+          "median": 24397,
+          "min": 23948,
+          "max": 25529,
+          "stddev": 665,
+          "runs": [23948, 24397, 25529]
         },
         "latency": {
-          "p50": 14,
-          "p95": 18,
-          "p99": 19,
-          "p50Runs": [14],
-          "p95Runs": [18],
-          "p99Runs": [19]
+          "p50": 5,
+          "p97_5": 14,
+          "p99": 17,
+          "p50Runs": [5, 5, 5],
+          "p97_5Runs": [11, 14, 14],
+          "p99Runs": [14, 17, 17]
         },
         "errors": 0,
-        "bootTimeMs": 415,
-        "shutdownTimeMs": 232,
+        "bootTimeMs": 404,
+        "shutdownTimeMs": 229,
         "rss": {
-          "avgKb": 279527,
-          "peakKb": 162940
+          "avgKb": 278837,
+          "peakKb": 155068
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 92.3,
-          "timeMs": 13850
+          "avgPercent": 82.7,
+          "timeMs": 100060
         },
         "pids": {
-          "active": 2,
+          "active": 3,
           "expected": 3,
           "distribution": {
-            "888": 9,
-            "899": 91
+            "980": 36,
+            "992": 24,
+            "1004": 40
           }
         }
       }
@@ -1077,263 +1082,265 @@
     "aggregate": {
       "single": {
         "rps": {
-          "median": 6159,
-          "min": 6159,
-          "max": 6159,
-          "stddev": 0,
-          "runs": [6159]
+          "median": 5542,
+          "min": 5496,
+          "max": 5739,
+          "stddev": 105,
+          "runs": [5496, 5542, 5739]
         },
         "latency": {
-          "p50": 23,
-          "p95": 28,
-          "p99": 29,
-          "p50Runs": [23],
-          "p95Runs": [28],
-          "p99Runs": [29]
+          "p50": 26,
+          "p97_5": 33,
+          "p99": 37,
+          "p50Runs": [25, 26, 26],
+          "p97_5Runs": [31, 33, 34],
+          "p99Runs": [33, 37, 37]
         },
         "errors": 0,
-        "bootTimeMs": 104,
-        "shutdownTimeMs": 6,
+        "bootTimeMs": 207,
+        "shutdownTimeMs": 10,
         "rss": {
-          "avgKb": 145872,
-          "peakKb": 153236
+          "avgKb": 153582,
+          "peakKb": 154660
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 98.7,
-          "timeMs": 14800
+          "avgPercent": 102.9,
+          "timeMs": 126560
         },
         "pids": {
           "active": 1,
           "expected": 1,
           "distribution": {
-            "916": 100
+            "1028": 100
           }
         }
       },
       "clusterkit-3": {
         "rps": {
-          "median": 17905,
-          "min": 17905,
-          "max": 17905,
-          "stddev": 0,
-          "runs": [17905]
+          "median": 16545,
+          "min": 16427,
+          "max": 16979,
+          "stddev": 238,
+          "runs": [16427, 16545, 16979]
         },
         "latency": {
           "p50": 8,
-          "p95": 13,
-          "p99": 16,
-          "p50Runs": [8],
-          "p95Runs": [13],
-          "p99Runs": [16]
+          "p97_5": 16,
+          "p99": 20,
+          "p50Runs": [8, 8, 8],
+          "p97_5Runs": [16, 16, 16],
+          "p99Runs": [19, 20, 20]
         },
         "errors": 0,
-        "bootTimeMs": 204,
-        "shutdownTimeMs": 12,
+        "bootTimeMs": 205,
+        "shutdownTimeMs": 16,
         "rss": {
-          "avgKb": 197247,
-          "peakKb": 142320
+          "avgKb": 202174,
+          "peakKb": 144280
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 96,
-          "timeMs": 14400
+          "avgPercent": 95.1,
+          "timeMs": 116990
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "930": 42,
-            "931": 15,
-            "932": 43
+            "1042": 45,
+            "1043": 34,
+            "1044": 21
           }
         }
       },
       "native-cluster-3": {
         "rps": {
-          "median": 18005,
-          "min": 18005,
-          "max": 18005,
-          "stddev": 0,
-          "runs": [18005]
+          "median": 15742,
+          "min": 14760,
+          "max": 16660,
+          "stddev": 776,
+          "runs": [14760, 15742, 16660]
         },
         "latency": {
-          "p50": 7,
-          "p95": 12,
-          "p99": 15,
-          "p50Runs": [7],
-          "p95Runs": [12],
-          "p99Runs": [15]
+          "p50": 8,
+          "p97_5": 17,
+          "p99": 20,
+          "p50Runs": [8, 8, 8],
+          "p97_5Runs": [16, 17, 20],
+          "p99Runs": [19, 20, 28]
         },
         "errors": 0,
-        "bootTimeMs": 205,
-        "shutdownTimeMs": 2,
+        "bootTimeMs": 203,
+        "shutdownTimeMs": 4,
         "rss": {
-          "avgKb": 196602,
-          "peakKb": 141496
+          "avgKb": 203474,
+          "peakKb": 144840
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 96.3,
-          "timeMs": 14440
+          "avgPercent": 94,
+          "timeMs": 113730
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "958": 42,
-            "959": 12,
-            "960": 46
+            "1070": 35,
+            "1071": 27,
+            "1072": 38
           }
         }
       },
       "native-cluster-reuseport-3": {
         "rps": {
-          "median": 18216,
-          "min": 18216,
-          "max": 18216,
-          "stddev": 0,
-          "runs": [18216]
+          "median": 15460,
+          "min": 15356,
+          "max": 15634,
+          "stddev": 115,
+          "runs": [15356, 15460, 15634]
         },
         "latency": {
-          "p50": 7,
-          "p95": 13,
-          "p99": 15,
-          "p50Runs": [7],
-          "p95Runs": [13],
-          "p99Runs": [15]
+          "p50": 9,
+          "p97_5": 18,
+          "p99": 22,
+          "p50Runs": [8, 9, 9],
+          "p97_5Runs": [18, 18, 18],
+          "p99Runs": [21, 22, 22]
         },
         "errors": 0,
-        "bootTimeMs": 209,
-        "shutdownTimeMs": 2,
+        "bootTimeMs": 210,
+        "shutdownTimeMs": 3,
         "rss": {
-          "avgKb": 192371,
-          "peakKb": 138332
+          "avgKb": 361641,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 95.6,
-          "timeMs": 13390
+          "avgPercent": 129,
+          "timeMs": 158720
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "986": 41,
-            "987": 18,
-            "988": 41
+            "1098": 49,
+            "1099": 33,
+            "1100": 18
           }
         }
       },
       "throng-3": {
         "rps": {
-          "median": 18424,
-          "min": 18424,
-          "max": 18424,
-          "stddev": 0,
-          "runs": [18424]
+          "median": 15637,
+          "min": 12098,
+          "max": 15667,
+          "stddev": 1675,
+          "runs": [12098, 15637, 15667]
         },
         "latency": {
-          "p50": 7,
-          "p95": 12,
-          "p99": 15,
-          "p50Runs": [7],
-          "p95Runs": [12],
-          "p99Runs": [15]
+          "p50": 8,
+          "p97_5": 17,
+          "p99": 21,
+          "p50Runs": [8, 8, 9],
+          "p97_5Runs": [17, 17, 38],
+          "p99Runs": [21, 21, 59]
         },
         "errors": 0,
-        "bootTimeMs": 2,
-        "shutdownTimeMs": 10,
+        "bootTimeMs": 4,
+        "shutdownTimeMs": 21,
         "rss": {
-          "avgKb": 193213,
-          "peakKb": 145428
+          "avgKb": 210165,
+          "peakKb": 149564
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 95,
-          "timeMs": 13300
+          "avgPercent": 91.8,
+          "timeMs": 111960
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1014": 35,
-            "1015": 25,
-            "1016": 40
+            "1126": 65,
+            "1127": 4,
+            "1128": 31
           }
         }
       },
       "pm2-3": {
         "rps": {
-          "median": 17730,
-          "min": 17730,
-          "max": 17730,
-          "stddev": 0,
-          "runs": [17730]
+          "median": 15139,
+          "min": 13591,
+          "max": 15621,
+          "stddev": 866,
+          "runs": [13591, 15139, 15621]
         },
         "latency": {
-          "p50": 8,
-          "p95": 13,
-          "p99": 16,
-          "p50Runs": [8],
-          "p95Runs": [13],
-          "p99Runs": [16]
+          "p50": 9,
+          "p97_5": 18,
+          "p99": 22,
+          "p50Runs": [8, 9, 9],
+          "p97_5Runs": [17, 18, 25],
+          "p99Runs": [19, 22, 35]
         },
         "errors": 0,
-        "bootTimeMs": 409,
-        "shutdownTimeMs": 223,
+        "bootTimeMs": 405,
+        "shutdownTimeMs": 221,
         "rss": {
-          "avgKb": 267802,
-          "peakKb": 151808
+          "avgKb": 272402,
+          "peakKb": 152028
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 91.5,
-          "timeMs": 13720
+          "avgPercent": 88.1,
+          "timeMs": 106560
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1054": 34,
-            "1061": 33,
-            "1068": 33
+            "1166": 5,
+            "1173": 91,
+            "1180": 4
           }
         }
       },
       "pm2-reload-3": {
         "rps": {
-          "median": 6119,
-          "min": 6119,
-          "max": 6119,
-          "stddev": 0,
-          "runs": [6119]
+          "median": 15033,
+          "min": 12687,
+          "max": 15227,
+          "stddev": 1154,
+          "runs": [12687, 15033, 15227]
         },
         "latency": {
-          "p50": 23,
-          "p95": 28,
-          "p99": 29,
-          "p50Runs": [23],
-          "p95Runs": [28],
-          "p99Runs": [29]
+          "p50": 9,
+          "p97_5": 17,
+          "p99": 21,
+          "p50Runs": [8, 9, 9],
+          "p97_5Runs": [17, 17, 29],
+          "p99Runs": [20, 21, 45]
         },
         "errors": 0,
-        "bootTimeMs": 413,
-        "shutdownTimeMs": 229,
+        "bootTimeMs": 409,
+        "shutdownTimeMs": 225,
         "rss": {
-          "avgKb": 276565,
-          "peakKb": 161748
+          "avgKb": 429162,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 93.7,
-          "timeMs": 14050
+          "avgPercent": 1520.8,
+          "timeMs": 1840140
         },
         "pids": {
-          "active": 1,
+          "active": 3,
           "expected": 3,
           "distribution": {
-            "1124": 100
+            "1233": 82,
+            "1245": 11,
+            "1257": 7
           }
         }
       }
@@ -1341,264 +1348,265 @@
     "auth-verify": {
       "single": {
         "rps": {
-          "median": 16672,
-          "min": 16672,
-          "max": 16672,
-          "stddev": 0,
-          "runs": [16672]
+          "median": 14316,
+          "min": 14186,
+          "max": 14427,
+          "stddev": 99,
+          "runs": [14186, 14316, 14427]
         },
         "latency": {
-          "p50": 8,
-          "p95": 11,
-          "p99": 12,
-          "p50Runs": [8],
-          "p95Runs": [11],
-          "p99Runs": [12]
+          "p50": 9,
+          "p97_5": 16,
+          "p99": 19,
+          "p50Runs": [9, 9, 9],
+          "p97_5Runs": [14, 16, 16],
+          "p99Runs": [16, 19, 20]
         },
         "errors": 0,
-        "bootTimeMs": 105,
-        "shutdownTimeMs": 8,
+        "bootTimeMs": 107,
+        "shutdownTimeMs": 13,
         "rss": {
-          "avgKb": 136867,
-          "peakKb": 143544
+          "avgKb": 142458,
+          "peakKb": 143624
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 104.2,
-          "timeMs": 15630
+          "avgPercent": 107.6,
+          "timeMs": 133370
         },
         "pids": {
           "active": 1,
           "expected": 1,
           "distribution": {
-            "1141": 100
+            "1281": 100
           }
         }
       },
       "clusterkit-3": {
         "rps": {
-          "median": 49939,
-          "min": 49939,
-          "max": 49939,
-          "stddev": 0,
-          "runs": [49939]
+          "median": 39976,
+          "min": 39471,
+          "max": 40152,
+          "stddev": 288,
+          "runs": [39471, 39976, 40152]
         },
         "latency": {
-          "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p50": 3,
+          "p97_5": 9,
+          "p99": 11,
+          "p50Runs": [3, 3, 3],
+          "p97_5Runs": [9, 9, 9],
+          "p99Runs": [11, 11, 12]
         },
         "errors": 0,
-        "bootTimeMs": 202,
-        "shutdownTimeMs": 11,
+        "bootTimeMs": 204,
+        "shutdownTimeMs": 32,
         "rss": {
-          "avgKb": 193338,
-          "peakKb": 139916
+          "avgKb": 363177,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 94.3,
-          "timeMs": 13200
+          "avgPercent": 150.3,
+          "timeMs": 183400
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1155": 27,
-            "1156": 34,
-            "1157": 39
+            "1295": 54,
+            "1296": 22,
+            "1297": 24
           }
         }
       },
       "native-cluster-3": {
         "rps": {
-          "median": 50563,
-          "min": 50563,
-          "max": 50563,
-          "stddev": 0,
-          "runs": [50563]
+          "median": 40398,
+          "min": 38368,
+          "max": 40893,
+          "stddev": 1093,
+          "runs": [38368, 40398, 40893]
         },
         "latency": {
-          "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p50": 3,
+          "p97_5": 9,
+          "p99": 11,
+          "p50Runs": [3, 3, 3],
+          "p97_5Runs": [8, 9, 9],
+          "p99Runs": [10, 11, 12]
         },
         "errors": 0,
-        "bootTimeMs": 209,
-        "shutdownTimeMs": 2,
+        "bootTimeMs": 305,
+        "shutdownTimeMs": 10,
         "rss": {
-          "avgKb": 187516,
-          "peakKb": 133928
+          "avgKb": 359145,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 96,
-          "timeMs": 13440
+          "avgPercent": 151.5,
+          "timeMs": 183270
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1183": 46,
-            "1184": 44,
-            "1185": 10
+            "1323": 23,
+            "1324": 31,
+            "1325": 46
           }
         }
       },
       "native-cluster-reuseport-3": {
         "rps": {
-          "median": 50433,
-          "min": 50433,
-          "max": 50433,
-          "stddev": 0,
-          "runs": [50433]
+          "median": 41842,
+          "min": 39950,
+          "max": 42443,
+          "stddev": 1062,
+          "runs": [39950, 41842, 42443]
         },
         "latency": {
           "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p97_5": 8,
+          "p99": 10,
+          "p50Runs": [2, 2, 3],
+          "p97_5Runs": [8, 8, 9],
+          "p99Runs": [10, 10, 11]
         },
         "errors": 0,
         "bootTimeMs": 208,
-        "shutdownTimeMs": 2,
+        "shutdownTimeMs": 5,
         "rss": {
-          "avgKb": 400892,
-          "peakKb": 215724
+          "avgKb": 356459,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 155.7,
-          "timeMs": 23360
+          "avgPercent": 152.2,
+          "timeMs": 184110
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1211": 28,
-            "1212": 33,
-            "1213": 39
+            "1351": 34,
+            "1352": 34,
+            "1353": 32
           }
         }
       },
       "throng-3": {
         "rps": {
-          "median": 49978,
-          "min": 49978,
-          "max": 49978,
-          "stddev": 0,
-          "runs": [49978]
+          "median": 43775,
+          "min": 42380,
+          "max": 44971,
+          "stddev": 1059,
+          "runs": [42380, 43775, 44971]
         },
         "latency": {
           "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p97_5": 8,
+          "p99": 9,
+          "p50Runs": [2, 2, 2],
+          "p97_5Runs": [7, 8, 8],
+          "p99Runs": [9, 9, 10]
         },
         "errors": 0,
-        "bootTimeMs": 1,
-        "shutdownTimeMs": 8,
+        "bootTimeMs": 7,
+        "shutdownTimeMs": 27,
         "rss": {
-          "avgKb": 393531,
-          "peakKb": 215852
+          "avgKb": 512778,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 1675.4,
-          "timeMs": 234550
+          "avgPercent": 1902.9,
+          "timeMs": 2302500
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1239": 13,
-            "1240": 57,
-            "1241": 30
+            "1379": 62,
+            "1380": 6,
+            "1381": 32
           }
         }
       },
       "pm2-3": {
         "rps": {
-          "median": 48566,
-          "min": 48566,
-          "max": 48566,
-          "stddev": 0,
-          "runs": [48566]
+          "median": 40393,
+          "min": 38969,
+          "max": 40867,
+          "stddev": 806,
+          "runs": [38969, 40393, 40867]
         },
         "latency": {
-          "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p50": 3,
+          "p97_5": 8,
+          "p99": 11,
+          "p50Runs": [2, 3, 3],
+          "p97_5Runs": [8, 8, 9],
+          "p99Runs": [10, 11, 12]
         },
         "errors": 0,
-        "bootTimeMs": 414,
-        "shutdownTimeMs": 225,
+        "bootTimeMs": 405,
+        "shutdownTimeMs": 223,
         "rss": {
-          "avgKb": 621632,
-          "peakKb": 215852
+          "avgKb": 432158,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 241,
-          "timeMs": 33740
+          "avgPercent": 141.8,
+          "timeMs": 171600
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1279": 20,
-            "1286": 47,
-            "1293": 33
+            "1419": 34,
+            "1426": 56,
+            "1433": 10
           }
         }
       },
       "pm2-reload-3": {
         "rps": {
-          "median": 16158,
-          "min": 16158,
-          "max": 16158,
-          "stddev": 0,
-          "runs": [16158]
+          "median": 33048,
+          "min": 26615,
+          "max": 35930,
+          "stddev": 3893,
+          "runs": [26615, 33048, 35930]
         },
         "latency": {
-          "p50": 8,
-          "p95": 11,
-          "p99": 12,
-          "p50Runs": [8],
-          "p95Runs": [11],
-          "p99Runs": [12]
+          "p50": 3,
+          "p97_5": 13,
+          "p99": 18,
+          "p50Runs": [3, 3, 4],
+          "p97_5Runs": [11, 13, 16],
+          "p99Runs": [16, 18, 20]
         },
         "errors": 0,
-        "bootTimeMs": 415,
-        "shutdownTimeMs": 225,
+        "bootTimeMs": 405,
+        "shutdownTimeMs": 248,
         "rss": {
-          "avgKb": 272482,
-          "peakKb": 155928
+          "avgKb": 426920,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 92.1,
-          "timeMs": 13820
+          "avgPercent": 1920.6,
+          "timeMs": 2323920
         },
         "pids": {
-          "active": 2,
+          "active": 3,
           "expected": 3,
           "distribution": {
-            "1338": 49,
-            "1349": 51
+            "1486": 32,
+            "1498": 39,
+            "1510": 29
           }
         }
       }
@@ -1606,264 +1614,265 @@
     "error-rate": {
       "single": {
         "rps": {
-          "median": 17615,
-          "min": 17615,
-          "max": 17615,
-          "stddev": 0,
-          "runs": [17615]
+          "median": 17572,
+          "min": 15287,
+          "max": 17751,
+          "stddev": 1122,
+          "runs": [15287, 17572, 17751]
         },
         "latency": {
           "p50": 8,
-          "p95": 10,
-          "p99": 11,
-          "p50Runs": [8],
-          "p95Runs": [10],
-          "p99Runs": [11]
+          "p97_5": 11,
+          "p99": 14,
+          "p50Runs": [7, 8, 8],
+          "p97_5Runs": [11, 11, 16],
+          "p99Runs": [13, 14, 22]
         },
         "errors": 0,
-        "bootTimeMs": 107,
-        "shutdownTimeMs": 6,
+        "bootTimeMs": 205,
+        "shutdownTimeMs": 14,
         "rss": {
-          "avgKb": 138016,
-          "peakKb": 144548
+          "avgKb": 143559,
+          "peakKb": 144896
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 104.8,
-          "timeMs": 15720
+          "avgPercent": 108.1,
+          "timeMs": 131890
         },
         "pids": {
           "active": 1,
           "expected": 1,
           "distribution": {
-            "1366": 100
+            "1534": 100
           }
         }
       },
       "clusterkit-3": {
         "rps": {
-          "median": 53066,
-          "min": 53066,
-          "max": 53066,
-          "stddev": 0,
-          "runs": [53066]
+          "median": 44239,
+          "min": 43101,
+          "max": 45164,
+          "stddev": 844,
+          "runs": [43101, 44239, 45164]
         },
         "latency": {
           "p50": 2,
-          "p95": 6,
-          "p99": 6,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [6]
+          "p97_5": 8,
+          "p99": 11,
+          "p50Runs": [2, 2, 2],
+          "p97_5Runs": [8, 8, 8],
+          "p99Runs": [10, 11, 11]
         },
         "errors": 0,
-        "bootTimeMs": 209,
-        "shutdownTimeMs": 10,
+        "bootTimeMs": 204,
+        "shutdownTimeMs": 24,
         "rss": {
-          "avgKb": 407759,
-          "peakKb": 215852
+          "avgKb": 512745,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 158.7,
-          "timeMs": 22220
+          "avgPercent": 241.9,
+          "timeMs": 292710
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1380": 42,
-            "1381": 33,
-            "1382": 25
+            "1548": 39,
+            "1549": 24,
+            "1550": 37
           }
         }
       },
       "native-cluster-3": {
         "rps": {
-          "median": 53194,
-          "min": 53194,
-          "max": 53194,
-          "stddev": 0,
-          "runs": [53194]
+          "median": 42941,
+          "min": 40683,
+          "max": 43705,
+          "stddev": 1283,
+          "runs": [40683, 42941, 43705]
         },
         "latency": {
           "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p97_5": 8,
+          "p99": 10,
+          "p50Runs": [2, 2, 2],
+          "p97_5Runs": [8, 8, 9],
+          "p99Runs": [10, 10, 12]
         },
         "errors": 0,
-        "bootTimeMs": 205,
-        "shutdownTimeMs": 1,
+        "bootTimeMs": 207,
+        "shutdownTimeMs": 3,
         "rss": {
-          "avgKb": 406033,
-          "peakKb": 215980
+          "avgKb": 361814,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 159.3,
-          "timeMs": 22300
+          "avgPercent": 152,
+          "timeMs": 183880
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1408": 29,
-            "1409": 45,
-            "1410": 26
+            "1576": 50,
+            "1577": 41,
+            "1578": 9
           }
         }
       },
       "native-cluster-reuseport-3": {
         "rps": {
-          "median": 53130,
-          "min": 53130,
-          "max": 53130,
-          "stddev": 0,
-          "runs": [53130]
+          "median": 43842,
+          "min": 42650,
+          "max": 45243,
+          "stddev": 1060,
+          "runs": [42650, 43842, 45243]
         },
         "latency": {
           "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p97_5": 8,
+          "p99": 10,
+          "p50Runs": [2, 2, 2],
+          "p97_5Runs": [8, 8, 8],
+          "p99Runs": [10, 10, 11]
         },
         "errors": 0,
         "bootTimeMs": 208,
-        "shutdownTimeMs": 2,
+        "shutdownTimeMs": 5,
         "rss": {
-          "avgKb": 531413,
-          "peakKb": 215980
+          "avgKb": 355645,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 252.8,
-          "timeMs": 35390
+          "avgPercent": 152.1,
+          "timeMs": 184070
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1436": 44,
-            "1437": 25,
-            "1438": 31
+            "1604": 29,
+            "1605": 37,
+            "1606": 34
           }
         }
       },
       "throng-3": {
         "rps": {
-          "median": 53447,
-          "min": 53447,
-          "max": 53447,
-          "stddev": 0,
-          "runs": [53447]
+          "median": 40560,
+          "min": 34822,
+          "max": 41682,
+          "stddev": 3005,
+          "runs": [34822, 40560, 41682]
         },
         "latency": {
           "p50": 2,
-          "p95": 5,
-          "p99": 6,
-          "p50Runs": [2],
-          "p95Runs": [5],
-          "p99Runs": [6]
+          "p97_5": 9,
+          "p99": 12,
+          "p50Runs": [2, 2, 2],
+          "p97_5Runs": [9, 9, 13],
+          "p99Runs": [12, 12, 23]
         },
         "errors": 0,
-        "bootTimeMs": 3,
-        "shutdownTimeMs": 8,
+        "bootTimeMs": 10,
+        "shutdownTimeMs": 53,
         "rss": {
-          "avgKb": 395107,
-          "peakKb": 215980
+          "avgKb": 366715,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 1950,
-          "timeMs": 292500
+          "avgPercent": 2224.8,
+          "timeMs": 2691990
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1464": 35,
-            "1465": 29,
-            "1466": 36
+            "1632": 34,
+            "1633": 45,
+            "1634": 21
           }
         }
       },
       "pm2-3": {
         "rps": {
-          "median": 51424,
-          "min": 51424,
-          "max": 51424,
-          "stddev": 0,
-          "runs": [51424]
+          "median": 39312,
+          "min": 24359,
+          "max": 43752,
+          "stddev": 8296,
+          "runs": [24359, 39312, 43752]
         },
         "latency": {
-          "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p50": 3,
+          "p97_5": 10,
+          "p99": 13,
+          "p50Runs": [2, 3, 3],
+          "p97_5Runs": [8, 10, 29],
+          "p99Runs": [10, 13, 46]
         },
         "errors": 0,
-        "bootTimeMs": 414,
-        "shutdownTimeMs": 227,
+        "bootTimeMs": 728,
+        "shutdownTimeMs": 222,
         "rss": {
-          "avgKb": 480374,
-          "peakKb": 215980
+          "avgKb": 427017,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 148.1,
-          "timeMs": 20740
+          "avgPercent": 133.8,
+          "timeMs": 163220
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1504": 49,
-            "1511": 28,
-            "1518": 23
+            "1672": 10,
+            "1679": 48,
+            "1686": 42
           }
         }
       },
       "pm2-reload-3": {
         "rps": {
-          "median": 17140,
-          "min": 17140,
-          "max": 17140,
-          "stddev": 0,
-          "runs": [17140]
+          "median": 42456,
+          "min": 41573,
+          "max": 43838,
+          "stddev": 932,
+          "runs": [41573, 42456, 43838]
         },
         "latency": {
-          "p50": 8,
-          "p95": 11,
-          "p99": 12,
-          "p50Runs": [8],
-          "p95Runs": [11],
-          "p99Runs": [12]
+          "p50": 2,
+          "p97_5": 8,
+          "p99": 11,
+          "p50Runs": [2, 2, 2],
+          "p97_5Runs": [8, 8, 9],
+          "p99Runs": [10, 11, 11]
         },
         "errors": 0,
-        "bootTimeMs": 411,
-        "shutdownTimeMs": 230,
+        "bootTimeMs": 409,
+        "shutdownTimeMs": 217,
         "rss": {
-          "avgKb": 271774,
-          "peakKb": 154420
+          "avgKb": 427514,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 91.9,
-          "timeMs": 13790
+          "avgPercent": 2340.1,
+          "timeMs": 2831530
         },
         "pids": {
-          "active": 2,
+          "active": 3,
           "expected": 3,
           "distribution": {
-            "1563": 64,
-            "1574": 36
+            "1739": 30,
+            "1751": 20,
+            "1763": 50
           }
         }
       }
@@ -1871,264 +1880,265 @@
     "upload-echo": {
       "single": {
         "rps": {
-          "median": 14876,
-          "min": 14876,
-          "max": 14876,
-          "stddev": 0,
-          "runs": [14876]
+          "median": 13130,
+          "min": 12324,
+          "max": 13589,
+          "stddev": 523,
+          "runs": [12324, 13130, 13589]
         },
         "latency": {
-          "p50": 9,
-          "p95": 12,
-          "p99": 14,
-          "p50Runs": [9],
-          "p95Runs": [12],
-          "p99Runs": [14]
+          "p50": 10,
+          "p97_5": 15,
+          "p99": 19,
+          "p50Runs": [10, 10, 11],
+          "p97_5Runs": [15, 15, 19],
+          "p99Runs": [19, 19, 24]
         },
         "errors": 0,
-        "bootTimeMs": 110,
-        "shutdownTimeMs": 7,
+        "bootTimeMs": 105,
+        "shutdownTimeMs": 14,
         "rss": {
-          "avgKb": 141392,
-          "peakKb": 148372
+          "avgKb": 148054,
+          "peakKb": 149380
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 104.6,
-          "timeMs": 15690
+          "avgPercent": 108.1,
+          "timeMs": 132930
         },
         "pids": {
           "active": 1,
           "expected": 1,
           "distribution": {
-            "1591": 100
+            "1787": 100
           }
         }
       },
       "clusterkit-3": {
         "rps": {
-          "median": 44525,
-          "min": 44525,
-          "max": 44525,
-          "stddev": 0,
-          "runs": [44525]
+          "median": 35539,
+          "min": 35492,
+          "max": 37818,
+          "stddev": 1086,
+          "runs": [35492, 35539, 37818]
         },
         "latency": {
           "p50": 3,
-          "p95": 6,
-          "p99": 8,
-          "p50Runs": [3],
-          "p95Runs": [6],
-          "p99Runs": [8]
+          "p97_5": 9,
+          "p99": 12,
+          "p50Runs": [3, 3, 3],
+          "p97_5Runs": [9, 9, 10],
+          "p99Runs": [10, 12, 13]
         },
         "errors": 0,
-        "bootTimeMs": 211,
-        "shutdownTimeMs": 11,
+        "bootTimeMs": 206,
+        "shutdownTimeMs": 30,
         "rss": {
-          "avgKb": 412051,
-          "peakKb": 215980
+          "avgKb": 366079,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 152.7,
-          "timeMs": 21380
+          "avgPercent": 148.5,
+          "timeMs": 179730
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1605": 24,
-            "1606": 47,
-            "1607": 29
+            "1801": 38,
+            "1803": 30,
+            "1808": 32
           }
         }
       },
       "native-cluster-3": {
         "rps": {
-          "median": 44448,
-          "min": 44448,
-          "max": 44448,
-          "stddev": 0,
-          "runs": [44448]
+          "median": 37494,
+          "min": 37325,
+          "max": 37858,
+          "stddev": 222,
+          "runs": [37325, 37494, 37858]
         },
         "latency": {
-          "p50": 2,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [2],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p50": 3,
+          "p97_5": 9,
+          "p99": 11,
+          "p50Runs": [3, 3, 3],
+          "p97_5Runs": [9, 9, 9],
+          "p99Runs": [11, 11, 11]
         },
         "errors": 0,
-        "bootTimeMs": 213,
-        "shutdownTimeMs": 2,
+        "bootTimeMs": 204,
+        "shutdownTimeMs": 8,
         "rss": {
-          "avgKb": 539731,
-          "peakKb": 215980
+          "avgKb": 357389,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 248.5,
-          "timeMs": 34790
+          "avgPercent": 147.4,
+          "timeMs": 178390
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1633": 40,
-            "1634": 28,
-            "1635": 32
+            "1829": 31,
+            "1830": 18,
+            "1836": 51
           }
         }
       },
       "native-cluster-reuseport-3": {
         "rps": {
-          "median": 44487,
-          "min": 44487,
-          "max": 44487,
-          "stddev": 0,
-          "runs": [44487]
+          "median": 37127,
+          "min": 36374,
+          "max": 37490,
+          "stddev": 465,
+          "runs": [36374, 37127, 37490]
         },
         "latency": {
           "p50": 3,
-          "p95": 6,
-          "p99": 7,
-          "p50Runs": [3],
-          "p95Runs": [6],
-          "p99Runs": [7]
+          "p97_5": 9,
+          "p99": 11,
+          "p50Runs": [3, 3, 3],
+          "p97_5Runs": [9, 9, 9],
+          "p99Runs": [11, 11, 11]
         },
         "errors": 0,
-        "bootTimeMs": 215,
-        "shutdownTimeMs": 1,
+        "bootTimeMs": 210,
+        "shutdownTimeMs": 3,
         "rss": {
-          "avgKb": 407434,
-          "peakKb": 215980
+          "avgKb": 359531,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 153.6,
-          "timeMs": 23040
+          "avgPercent": 148.2,
+          "timeMs": 179370
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1661": 30,
-            "1662": 22,
-            "1663": 48
+            "1857": 45,
+            "1858": 34,
+            "1865": 21
           }
         }
       },
       "throng-3": {
         "rps": {
-          "median": 44112,
-          "min": 44112,
-          "max": 44112,
-          "stddev": 0,
-          "runs": [44112]
+          "median": 37383,
+          "min": 36759,
+          "max": 38323,
+          "stddev": 643,
+          "runs": [36759, 37383, 38323]
         },
         "latency": {
           "p50": 3,
-          "p95": 6,
-          "p99": 8,
-          "p50Runs": [3],
-          "p95Runs": [6],
-          "p99Runs": [8]
+          "p97_5": 9,
+          "p99": 12,
+          "p50Runs": [3, 3, 3],
+          "p97_5Runs": [9, 9, 9],
+          "p99Runs": [11, 12, 12]
         },
         "errors": 0,
-        "bootTimeMs": 3,
-        "shutdownTimeMs": 14,
+        "bootTimeMs": 8,
+        "shutdownTimeMs": 29,
         "rss": {
-          "avgKb": 395905,
-          "peakKb": 215980
+          "avgKb": 371981,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 2459.4,
-          "timeMs": 344310
+          "avgPercent": 2615.4,
+          "timeMs": 3164670
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1689": 44,
-            "1690": 25,
-            "1691": 31
+            "1885": 26,
+            "1886": 22,
+            "1892": 52
           }
         }
       },
       "pm2-3": {
         "rps": {
-          "median": 42099,
-          "min": 42099,
-          "max": 42099,
-          "stddev": 0,
-          "runs": [42099]
+          "median": 31033,
+          "min": 23406,
+          "max": 34725,
+          "stddev": 4713,
+          "runs": [23406, 31033, 34725]
         },
         "latency": {
           "p50": 3,
-          "p95": 7,
-          "p99": 8,
-          "p50Runs": [3],
-          "p95Runs": [7],
-          "p99Runs": [8]
+          "p97_5": 13,
+          "p99": 20,
+          "p50Runs": [3, 3, 3],
+          "p97_5Runs": [10, 13, 32],
+          "p99Runs": [12, 20, 53]
         },
         "errors": 0,
-        "bootTimeMs": 411,
-        "shutdownTimeMs": 231,
+        "bootTimeMs": 409,
+        "shutdownTimeMs": 237,
         "rss": {
-          "avgKb": 485211,
-          "peakKb": 215980
+          "avgKb": 427744,
+          "peakKb": 224156
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 142,
-          "timeMs": 19880
+          "avgPercent": 131.9,
+          "timeMs": 159630
         },
         "pids": {
           "active": 3,
           "expected": 3,
           "distribution": {
-            "1729": 40,
-            "1736": 12,
-            "1743": 48
+            "1925": 43,
+            "1932": 48,
+            "1939": 9
           }
         }
       },
       "pm2-reload-3": {
         "rps": {
-          "median": 14520,
-          "min": 14520,
-          "max": 14520,
-          "stddev": 0,
-          "runs": [14520]
+          "median": 33625,
+          "min": 33226,
+          "max": 35233,
+          "stddev": 867,
+          "runs": [33226, 33625, 35233]
         },
         "latency": {
-          "p50": 10,
-          "p95": 13,
+          "p50": 3,
+          "p97_5": 11,
           "p99": 14,
-          "p50Runs": [10],
-          "p95Runs": [13],
-          "p99Runs": [14]
+          "p50Runs": [3, 3, 3],
+          "p97_5Runs": [10, 11, 11],
+          "p99Runs": [12, 14, 15]
         },
         "errors": 0,
-        "bootTimeMs": 416,
-        "shutdownTimeMs": 237,
+        "bootTimeMs": 405,
+        "shutdownTimeMs": 232,
         "rss": {
-          "avgKb": 275007,
-          "peakKb": 158428
+          "avgKb": 273192,
+          "peakKb": 156292
         },
         "heap": null,
         "cpu": {
-          "avgPercent": 93,
-          "timeMs": 13950
+          "avgPercent": 82.8,
+          "timeMs": 100190
         },
         "pids": {
-          "active": 2,
+          "active": 3,
           "expected": 3,
           "distribution": {
-            "1788": 19,
-            "1799": 81
+            "1992": 62,
+            "2004": 24,
+            "2016": 14
           }
         }
       }
