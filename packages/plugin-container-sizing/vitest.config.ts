@@ -8,11 +8,15 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "lcov", "html"],
       exclude: ["node_modules/**", "dist/**", "**/*.d.ts", "**/*.config.ts", "test/**"],
+      // AUDIT-033: per-file floors pinned ~2 points below measured coverage so
+      // newly uncovered code in any file fails CI. Globals below still gate totals.
       thresholds: {
         lines: 85,
         functions: 85,
         branches: 75,
         statements: 85,
+        "src/calculator.ts": { lines: 98, branches: 98 },
+        "src/index.ts": { lines: 94, branches: 87 },
       },
     },
     testTimeout: 10000,
