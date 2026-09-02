@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { Orchestrator } from "@goopil/clusterkit";
 import { createFileWatcherPlugin } from "@goopil/clusterkit-file-watcher";
 import { createSignalRestartPlugin } from "@goopil/clusterkit-signal-restart";
@@ -11,14 +12,18 @@ import express from "express";
   console.log("Platform:", capabilities.platform);
   console.log("SO_REUSEPORT:", capabilities.reusePort);
 
+  // Anchor watch paths to this file's location instead of the current working
+  // directory, so watching also works in the Docker harness (cwd = /app).
+  const here = fileURLToPath(new URL(".", import.meta.url));
+
   orchestrator
     .use(createContainerSizingPlugin())
     .use(createSignalRestartPlugin()) // SIGHUP → rolling restart
     .use(
       createFileWatcherPlugin({
         // File changes → rolling restart
-        watch: ["./src"],
-        envFile: "./.env",
+        watch: [here],
+        envFile: fileURLToPath(new URL("../.env", import.meta.url)),
         debounceMs: 300,
       }),
     )
@@ -45,4 +50,7 @@ import express from "express";
 
       console.log(`Worker ${process.pid} listening on port ${process.env.PORT || 3010}`);
     });
-})();
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

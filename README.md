@@ -22,7 +22,7 @@ shutdown so you don't have to.
   SIGKILL` escalation, tuned to fit inside a Kubernetes `terminationGracePeriodSeconds` budget.
 - **Crash resilient** — exponential backoff with a sliding-window circuit breaker prevents infinite crash loops
   from exhausting resources.
-- **Framework-agnostic** — works with Express, Fastify, Hono, Koa, NestJS, and more (8 ready-to-run examples).
+- **Framework-agnostic** — works with Express, Fastify, Hono, Koa, NestJS, and more (10 ready-to-run examples).
 - **Zero runtime dependencies** — the core package ships only TypeScript types and ESM/CJS bundles.
 
 **What this provides:**
@@ -213,7 +213,7 @@ The orchestrator intercepts `SIGTERM` and `SIGINT` on the primary process and co
 6. Calls `plugin.uninstall()` on all registered plugins
 7. Exits the primary with code `0`
 
-`SIGHUP` is logged but ignored. If you need rolling restart functionality (e.g. for zero-downtime deployments on bare metal), use a dedicated plugin instead.
+`SIGHUP` is a silent no-op (the handler is registered so Node's default behavior — terminating the process — does not apply). If you need rolling restart functionality (e.g. for zero-downtime deployments on bare metal), use a dedicated plugin instead.
 
 ACK is the preferred cooperative signal, but a worker that terminates before sending ACK is also treated as complete for
 that ACK wait. This keeps container shutdown predictable when an application closes quickly or the process exits during
@@ -569,7 +569,7 @@ fleet. They throw if called after workers have been forked.
 
 ## Examples
 
-Nine ready-to-run examples live in [`examples/`](./examples/).
+Ten ready-to-run examples live in [`examples/`](./examples/).
 
 | Example                      | Port  | Metrics port | Description |
 |------------------------------|-------|--------------|-------------|
@@ -708,7 +708,7 @@ the full test suite on a real Linux kernel:
 pnpm test:linux
 ```
 
-This builds a `node:25-slim` image, installs dependencies, builds all packages, and runs the complete test suite.
+This builds a `node:22-slim` image, installs dependencies, builds all packages, and runs the complete test suite.
 
 ```bash
 # Manual equivalents
@@ -723,7 +723,7 @@ pnpm examples:start
 # Equivalent to: docker compose up examples --build
 ```
 
-All 6 example servers start inside a single container with their ports mapped to the host (3000–3001, 3005–3008 for
+All 8 example servers start inside a single container with their ports mapped to the host (3000–3001 and 3005–3010 for
 apps; 9090–9093 for metrics).
 
 ### Benchmarks

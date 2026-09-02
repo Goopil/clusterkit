@@ -47,4 +47,7 @@ import fastify from "fastify";
         await metricsServer.close();
       });
     });
-})();
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

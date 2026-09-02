@@ -47,4 +47,7 @@ import express from "express";
         metricsServer.close();
       });
     });
-})();
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -53,4 +53,7 @@ import Koa from "koa";
         metricsServer.close();
       });
     });
-})();
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
