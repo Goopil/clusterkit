@@ -19,6 +19,15 @@ coverage:
       sizing:
         flags: [sizing]
         target: 85%
+      otlp-meter:
+        flags: [otlp-meter]
+        target: 85%
+      signal-restart:
+        flags: [signal-restart]
+        target: 85%
+      file-watcher:
+        flags: [file-watcher]
+        target: 85%
     patch:
       default:
         informational: true
@@ -32,6 +41,15 @@ flags:
     carryforward: true
   sizing:
     paths: [packages/plugin-container-sizing/src/]
+    carryforward: true
+  otlp-meter:
+    paths: [packages/plugin-otlp-meter/src/]
+    carryforward: true
+  signal-restart:
+    paths: [packages/plugin-signal-restart/src/]
+    carryforward: true
+  file-watcher:
+    paths: [packages/plugin-file-watcher/src/]
     carryforward: true
 
 github_checks:

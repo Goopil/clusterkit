@@ -83,6 +83,9 @@ jobs:
             packages/worker-manager/coverage/lcov.info
             packages/plugin-prometheus/coverage/lcov.info
             packages/plugin-container-sizing/coverage/lcov.info
+            packages/plugin-otlp-meter/coverage/lcov.info
+            packages/plugin-signal-restart/coverage/lcov.info
+            packages/plugin-file-watcher/coverage/lcov.info
           fail_ci_if_error: false
       - name: Upload coverage report
         if: always()
