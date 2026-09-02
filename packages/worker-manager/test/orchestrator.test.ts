@@ -1000,6 +1000,45 @@ describe("Orchestrator", () => {
       expect(orch.getMetrics().workerRestarts).toBe(2);
     });
 
+    // AUDIT-033 item 7: removing the `stabilityWindowMs === 0` branch in
+    // scheduleBackoffReset() passed CI — with a zero stability window the
+    // backoff must reset at the instant a worker comes online (the window has
+    // already elapsed), not on a pending 0ms timer that the next crash's
+    // clearBackoffResetTimer() cancels before it fires.
+    it("resets restart backoff immediately when stabilityWindowMs is 0", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: {
+          backoffMs: 1_000,
+          backoffMultiplier: 2,
+          stabilityWindowMs: 0,
+        },
+      });
+
+      const first = Object.values(mockCluster.workers)[0];
+      mockCluster.emit("exit", first, 1, null);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(orch.getMetrics().workerRestarts).toBe(1); // restarted after backoffMs
+
+      // Replacement comes online: stabilityWindowMs: 0 → backoff resets NOW,
+      // before any timer is advanced.
+      const replacement = Object.values(mockCluster.workers).at(-1);
+      expect(replacement).toBeDefined();
+      mockCluster.emit("online", replacement);
+
+      // Crash again with NO timer advancement: the pending 0ms reset timer
+      // (if the branch is missing) gets cancelled by the crash handler, so
+      // the next restart delay distinguishes the two behaviors.
+      mockCluster.emit("exit", replacement, 1, null);
+
+      // Backoff was reset to the base backoffMs (1000), not the elevated 2000
+      await vi.advanceTimersByTimeAsync(999);
+      expect(orch.getMetrics().workerRestarts).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(orch.getMetrics().workerRestarts).toBe(2);
+    });
+
     it("should skip stale queued restarts when workers is auto and capacity is already met", async () => {
       const prevWebConcurrency = process.env.WEB_CONCURRENCY;
       process.env.WEB_CONCURRENCY = "2";
