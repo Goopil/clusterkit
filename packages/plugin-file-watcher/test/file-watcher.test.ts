@@ -420,7 +420,8 @@ describe("file-watcher plugin", () => {
 
     const plugin = createFileWatcherPlugin({
       watch: [tempDir],
-      debounceMs: 50,
+      // default 300ms debounce: chokidar/FSEvents can split one write into two
+      // change events under CI load, a tight debounce would fire twice
       staggerMs: 0,
     });
     const orch = mockOrchestrator();
@@ -432,7 +433,7 @@ describe("file-watcher plugin", () => {
     orch.restartWorkers.mockRejectedValueOnce(new Error("restart failed"));
 
     writeFileSync(tempFile, "changed");
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 700));
 
     expect(orch.restartWorkers).toHaveBeenCalledTimes(1);
 
