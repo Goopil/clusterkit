@@ -35,6 +35,7 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
     exportIntervalMs = 60_000,
     serviceName = "clusterkit",
     endpoint,
+    headers,
   } = options;
 
   if (!Number.isFinite(exportIntervalMs) || exportIntervalMs < 1_000) {
@@ -55,6 +56,7 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
 
   let meterProvider: MeterProvider | undefined;
   let isShutdown = false;
+  let pluginSetGlobalProvider = false;
   let pluginLog: Logger | null = null;
   let primaryOrchestrator: Orchestrator | undefined;
   const primaryListeners: Array<{ event: PrimaryEvent; listener: () => void }> = [];
@@ -72,9 +74,18 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
     const exporterModuleName =
       protocol === "grpc" ? "@opentelemetry/exporter-metrics-otlp-grpc" : "@opentelemetry/exporter-metrics-otlp-http";
 
+    // The gRPC exporter config omits `headers` (gRPC uses `metadata` instead):
+    // forwarding them would be silently dropped, leaving exports unauthenticated.
+    if (protocol === "grpc" && headers && Object.keys(headers).length > 0) {
+      pluginLog?.warn(
+        "headers are not supported by the gRPC exporter — configure metadata via the exporter's own options or use protocol: 'http'",
+      );
+    }
+
     try {
       const mod = await import(exporterModuleName);
-      return new mod.OTLPMetricExporter({ url: resolvedEndpoint }) as PushMetricExporter;
+      const config = protocol === "grpc" ? { url: resolvedEndpoint } : { url: resolvedEndpoint, headers };
+      return new mod.OTLPMetricExporter(config) as PushMetricExporter;
     } catch (err) {
       if (isMissingModuleError(err)) {
         throw new Error(
@@ -145,7 +156,9 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
 
       // setGlobalMeterProvider() refuses to override an existing registration
       // and returns false — never clobber the app's own OTel setup.
-      if (!metrics.setGlobalMeterProvider(meterProvider)) {
+      if (metrics.setGlobalMeterProvider(meterProvider)) {
+        pluginSetGlobalProvider = true;
+      } else {
         log?.warn(
           "A global OpenTelemetry meter provider is already registered — leaving it untouched; clusterkit meters use the plugin's own provider",
         );
@@ -209,6 +222,15 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
 
     async uninstall(): Promise<void> {
       clearPrimaryListeners();
+      // If the plugin's provider became the global one, release the slot:
+      // metrics.disable() is the API's public unregister and restores the exact
+      // pre-install state (getMeterProvider() falls back to the noop provider).
+      // Restoring the captured noop prior via setGlobalMeterProvider() instead
+      // would leave the slot occupied and block the app from registering later.
+      if (pluginSetGlobalProvider) {
+        metrics.disable();
+        pluginSetGlobalProvider = false;
+      }
       await shutdownProvider();
     },
 

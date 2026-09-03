@@ -6,8 +6,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockHostMetricsStart = vi.fn();
 
+// Captures the config each mocked exporter constructor receives, so tests can
+// assert which options the plugin forwards.
+const exporterCtorArgs = vi.hoisted(() => ({
+  http: [] as unknown[],
+  grpc: [] as unknown[],
+}));
+
 vi.mock("@opentelemetry/exporter-metrics-otlp-http", () => ({
   OTLPMetricExporter: class {
+    constructor(config: unknown) {
+      exporterCtorArgs.http.push(config);
+    }
     async export(_metrics: unknown, cb: (r: { status: number }) => void) {
       cb({ status: 0 });
     }
@@ -18,6 +28,9 @@ vi.mock("@opentelemetry/exporter-metrics-otlp-http", () => ({
 
 vi.mock("@opentelemetry/exporter-metrics-otlp-grpc", () => ({
   OTLPMetricExporter: class {
+    constructor(config: unknown) {
+      exporterCtorArgs.grpc.push(config);
+    }
     async export(_metrics: unknown, cb: (r: { status: number }) => void) {
       cb({ status: 0 });
     }
@@ -36,6 +49,8 @@ vi.mock("@opentelemetry/host-metrics", () => ({
 
 beforeEach(() => {
   mockHostMetricsStart.mockClear();
+  exporterCtorArgs.http.length = 0;
+  exporterCtorArgs.grpc.length = 0;
 });
 
 // Helpers (reused by later tasks) ===========================================
@@ -438,6 +453,47 @@ describe("custom prefix", () => {
   });
 });
 
+// Exporter headers forwarding ===============================================
+
+describe("exporter headers option", () => {
+  it("forwards headers to the http exporter constructor", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({
+      instrumentation: false,
+      exportIntervalMs: 1000,
+      headers: { Authorization: "Bearer test-token" },
+    });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    expect(exporterCtorArgs.http).toEqual([
+      { url: "http://localhost:4318/v1/metrics", headers: { Authorization: "Bearer test-token" } },
+    ]);
+    await plugin.shutdown();
+  });
+
+  it("warns and omits headers for the grpc exporter (unsupported)", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const logger = mockLogger();
+    const plugin = createOtlpMeterPlugin({
+      instrumentation: false,
+      protocol: "grpc",
+      exportIntervalMs: 1000,
+      headers: { Authorization: "Bearer test-token" },
+    });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, logger, singleWorkerConfig());
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("headers are not supported by the gRPC exporter"),
+      undefined,
+    );
+    // The gRPC exporter config has no `headers` support: constructed without them.
+    expect(exporterCtorArgs.grpc).toEqual([{ url: "localhost:4317" }]);
+    await plugin.shutdown();
+  });
+});
+
 // Dynamic import errors ======================================================
 
 // Simulates what `await import()` of a genuinely missing/broken package surfaces:
@@ -618,5 +674,41 @@ describe("global meter provider preservation", () => {
     expect(metrics.getMeterProvider()).toBe(plugin.meterProvider);
     expect(logger.warn).not.toHaveBeenCalled();
     await plugin.shutdown();
+  });
+
+  it("releases the global registration on uninstall so app code no longer hits the shut-down provider", async () => {
+    const { metrics } = await import("@opentelemetry/api");
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, logger, singleWorkerConfig());
+    expect(metrics.getMeterProvider()).toBe(plugin.meterProvider);
+
+    await plugin.uninstall?.(orch);
+
+    // The global no longer points at the (now shut-down) plugin provider…
+    expect(metrics.getMeterProvider()).not.toBe(plugin.meterProvider);
+    // …a fresh meter from app code is still usable…
+    expect(() => metrics.getMeter("app-check").createCounter("app.checks")).not.toThrow();
+    // …and the global slot is genuinely free: the app can register its own provider again.
+    const { MeterProvider } = await import("@opentelemetry/sdk-metrics");
+    expect(metrics.setGlobalMeterProvider(new MeterProvider())).toBe(true);
+  });
+
+  it("leaves a pre-existing global provider registered after uninstall", async () => {
+    const { metrics } = await import("@opentelemetry/api");
+    const { MeterProvider } = await import("@opentelemetry/sdk-metrics");
+    const appProvider = new MeterProvider();
+    expect(metrics.setGlobalMeterProvider(appProvider)).toBe(true);
+
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, logger, singleWorkerConfig());
+    expect(metrics.getMeterProvider()).toBe(appProvider);
+
+    await plugin.uninstall?.(orch);
+
+    expect(metrics.getMeterProvider()).toBe(appProvider);
   });
 });
