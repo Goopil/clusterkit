@@ -164,7 +164,7 @@ container or process supervisor kills the primary process.
 | `worker:restart` | A replacement worker is forked after restart backoff. |
 | `worker:recycle` | A worker is replaced because `workers.maxAgeMs` is enabled and reached. |
 | `shutdown:start` | Primary shutdown coordination starts for `SIGTERM` or `SIGINT`. |
-| `shutdown:complete` | Primary shutdown coordination has finished. |
+| `shutdown:complete` | Primary shutdown has finished — emitted after user shutdown callbacks and plugin `uninstall()`, in every mode. Plugins doing final work must do it in `uninstall()`: their `shutdown:complete` listener is removed before the event fires. |
 | `circuit-breaker:tripped` | Crash count reached `restart.crashThreshold` inside `restart.crashWindowMs`. |
 | `restart:start` | A hot restart cycle begins via `restartWorkers()`. |
 | `restart:complete` | A hot restart cycle finishes — all targeted workers replaced. |

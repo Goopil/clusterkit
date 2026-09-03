@@ -439,6 +439,34 @@ describe("Orchestrator", () => {
       expect(order).toEqual(["cb-1", "cb-2", "uninstall"]);
       expect(completeEvents).toHaveLength(1);
     });
+
+    // #144: multi-worker shutdownPrimary awaited user callbacks with no
+    // failsafe — one callback that never resolves would hang the primary
+    // after SIGTERM forever (single-worker mode and worker children already
+    // force-exit on timeout).
+    it("force-exits when a multi-worker shutdown callback never resolves", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 2,
+          shutdown: { timeoutMs: 4_000, ackTimeoutMs: 1_000, sigtermDelayMs: 300, sigintDelayMs: 200 },
+        }),
+      );
+      await orch.run(() => {});
+      orch.registerOnShutdown(() => new Promise<void>(() => {})); // never resolves
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+
+      const exitSpy = vi.mocked(process.exit);
+      void orch.shutdownPrimary("SIGTERM");
+
+      // The failsafe wraps the callbacks+uninstall phase: it arms only after
+      // the coordinator phase (~1s of ACK budget) and fires one timeoutMs later.
+      await vi.advanceTimersByTimeAsync(6_000);
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -870,7 +898,12 @@ describe("Orchestrator", () => {
 
       const restartSpy = vi.spyOn(
         orch as unknown as {
-          restartWorkerWithBackoff: (workerId: number, code: number | null, signal: string | null) => Promise<void>;
+          restartWorkerWithBackoff: (entry: {
+            kind: "crash";
+            workerId: number;
+            code: number | null;
+            signal: string | null;
+          }) => Promise<void>;
         },
         "restartWorkerWithBackoff",
       );
@@ -883,7 +916,11 @@ describe("Orchestrator", () => {
       await vi.advanceTimersByTimeAsync(0); // flush replacements' "online" setImmediates
 
       expect(orch.getMetrics().workerRestarts).toBe(3);
-      expect(restartSpy.mock.calls.map((call) => call[0])).toEqual([w1.id, w2.id, w3.id]);
+      expect(restartSpy.mock.calls.map((call) => (call[0] as { workerId: number }).workerId)).toEqual([
+        w1.id,
+        w2.id,
+        w3.id,
+      ]);
     });
 
     it("should not double-increment restart backoff after a crash", async () => {
@@ -1050,9 +1087,10 @@ describe("Orchestrator", () => {
 
         (
           orch as unknown as {
-            pendingRestartQueue: Array<{ workerId: number; code: number | null; signal: string | null }>;
+            pendingRestartQueue: Array<{ kind: "crash"; workerId: number; code: number | null; signal: string | null }>;
           }
         ).pendingRestartQueue.push({
+          kind: "crash",
           workerId: 999,
           code: 1,
           signal: null,
@@ -1191,6 +1229,102 @@ describe("Orchestrator", () => {
       for (const w of Object.values(mockCluster.workers)) {
         expect(w.isDead()).toBe(true);
       }
+    });
+
+    // ------------------------------------------------------------------
+    // Fork-failure resilience: a throwing forkWorker() (EMFILE/ENOMEM) must
+    // not permanently shrink the fleet — the entry is re-queued and retried
+    // through the existing backoff, and the environment is declared
+    // unrecoverable after too many consecutive failures.
+    // ------------------------------------------------------------------
+    describe("fork failure resilience", () => {
+      let savedExitCode: typeof process.exitCode;
+      beforeEach(() => {
+        savedExitCode = process.exitCode;
+      });
+      afterEach(() => {
+        process.exitCode = savedExitCode;
+      });
+
+      it("re-queues a restart when forkWorker throws and restores capacity on the retry", async () => {
+        vi.useFakeTimers();
+        const orch = await setupPrimary(2, { restart: { backoffMs: 1_000 } });
+        await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+        const forkSpy = vi.spyOn(mockCluster, "fork");
+        // The first restart fork fails (resource exhaustion), the retry succeeds
+        forkSpy.mockImplementationOnce(() => {
+          throw new Error("EMFILE: too many open files");
+        });
+
+        const crashed = Object.values(mockCluster.workers)[0]!;
+        mockCluster.emit("exit", crashed, 1, null);
+
+        // First attempt fails after its backoff — the fleet stays short...
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(orch.getMetrics().workerRestarts).toBe(0);
+
+        // ...but the entry was re-queued: the retry forks after the next backoff
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(orch.getMetrics().workerRestarts).toBe(1);
+
+        await vi.advanceTimersByTimeAsync(0); // flush the replacement's "online"
+        expect(orch.getMetrics().activeWorkers).toBe(2);
+        expect(forkSpy).toHaveBeenCalledTimes(2); // 1 failed attempt + 1 retried (initial forks predate the spy)
+      });
+
+      it("gives up after 3 consecutive fork failures and flags exit code 1", async () => {
+        vi.useFakeTimers();
+        const orch = await setupPrimary(2, { restart: { backoffMs: 1_000 } });
+        await vi.advanceTimersByTimeAsync(0);
+
+        const forkSpy = vi.spyOn(mockCluster, "fork");
+        forkSpy.mockImplementation(() => {
+          throw new Error("ENOMEM: Cannot allocate memory");
+        });
+
+        const crashed = Object.values(mockCluster.workers)[0]!;
+        mockCluster.emit("exit", crashed, 1, null);
+
+        // Bounded advance: exactly the 3 backoff waits, then the queue is
+        // abandoned — no infinite retry (runAllTimersAsync would spin on the
+        // crash-cleanup interval anyway).
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(forkSpy).toHaveBeenCalledTimes(3); // 3 failed attempts (initial forks predate the spy)
+        expect(orch.getMetrics().workerRestarts).toBe(0);
+        expect(process.exitCode).toBe(1);
+      });
+
+      it("refill entries log a capacity refill instead of a fake crash report", async () => {
+        const logInfo = vi.fn();
+        const logWarn = vi.fn();
+        const orch = new Orchestrator(
+          cfg({
+            workers: 2,
+            restart: { backoffMs: 0, crashThreshold: 2, crashWindowMs: 60_000 },
+            logger: { debug: vi.fn(), info: logInfo, warn: logWarn, error: vi.fn() },
+          }),
+        );
+        await orch.run(() => {});
+
+        // Trip the breaker (2 crashes): the first crash still restarts in time,
+        // the second trips — nothing further is queued while tripped.
+        for (let i = 0; i < 2; i++) {
+          const all = Object.values(mockCluster.workers);
+          mockCluster.emit("exit", all[all.length - 1], 1, null);
+        }
+
+        // Operator reset: missing capacity is refilled
+        orch.resetCircuitBreaker();
+        await new Promise((r) => setImmediate(r));
+
+        expect(orch.getMetrics().activeWorkers).toBe(2);
+        expect(logInfo.mock.calls.map((c) => String(c[0])).join("\n")).toContain("Refilling capacity");
+        const fakeCrash = logWarn.mock.calls.find(
+          (c) => String(c[0]).includes("Worker crashed, restarting") && (c[1] as { workerId?: number }).workerId === 0,
+        );
+        expect(fakeCrash).toBeUndefined();
+      });
     });
   });
 
@@ -1375,6 +1509,54 @@ describe("Orchestrator", () => {
 
       await vi.runAllTimersAsync();
       await shutdownPromise;
+    });
+
+    // #144: the drain trigger fires only on the replacement's "online" or
+    // "exit" event — a replacement that is forked but stuck before "online"
+    // (boot hang) and never exits would leave the old worker undrained
+    // forever. A bounded failsafe drains it anyway.
+    it("drains the old worker when the replacement never comes online", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+      vi.setSystemTime(new Date("2026-04-12T00:00:00.000Z"));
+
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: { count: 2, maxAgeMs: 10_000 },
+          shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, sigtermDelayMs: 300, sigintDelayMs: 200 },
+        }),
+      );
+      await orch.run(() => {});
+      await new Promise<void>((r) => setImmediate(r)); // deliver initial workers' "online"
+
+      const [oldWorker] = Object.values(mockCluster.workers);
+      oldWorker.autoExitOnDisconnect = false; // stay alive to observe the drain
+      const disconnectSpy = vi.spyOn(oldWorker, "disconnect");
+
+      // Replacement that never reaches "online" and never exits (boot hang):
+      // bypass the mock's automatic "online" emission entirely.
+      vi.spyOn(mockCluster, "fork").mockImplementation(() => {
+        const stuck = new MockWorker(999);
+        mockCluster.workers[stuck.id] = stuck;
+        return stuck;
+      });
+
+      // Trigger age-based recycling: the sweep forks the stuck replacement
+      await vi.advanceTimersByTimeAsync(60_001);
+      expect(disconnectSpy).not.toHaveBeenCalled(); // not drained before the budget
+
+      // Failsafe budget = timeoutMs + sigtermDelayMs + sigintDelayMs + 5s,
+      // armed when the recycle stagger lands (virtual 60_001) → fires at 66.5s.
+      await vi.advanceTimersByTimeAsync(6_500);
+      expect(oldWorker.isConnected()).toBe(false); // drained (shutdown message + disconnect)
+      expect(disconnectSpy).toHaveBeenCalledTimes(1); // exactly once — no double drain
+
+      // The drain escalation still arms relative to the drain, not the budget:
+      // SIGTERM after shutdown.timeoutMs (at 67.5s).
+      await vi.advanceTimersByTimeAsync(999);
+      expect(oldWorker.process.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2);
+      expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGTERM");
     });
   });
 
@@ -1629,10 +1811,15 @@ describe("Orchestrator", () => {
       expect(await settleWithinBudget(restartPromise, 30_000)).toBe("resolved");
 
       expect(oldWorker.process.kill).toHaveBeenCalledWith("SIGKILL");
-      // Kill comes from the restart bounded wait, not the recycle escalation
-      // (which never arms because the replacement never came online).
+      // Worker 1 is killed by the restart bounded wait alone (its drain
+      // escalation is cleared when the SIGKILL lands): SIGKILL without a
+      // prior SIGTERM.
       expect(oldWorker.process.kill).not.toHaveBeenCalledWith("SIGTERM");
-      expect(orchestrator.getMetrics().forcedKills).toBe(2);
+      // Worker 1: bounded-wait SIGKILL. Worker 2 ignores signals entirely, so
+      // after its bounded-wait SIGKILL the drain escalation armed by the
+      // recycle failsafe (#144 — previously it never armed when the
+      // replacement never came online) runs to completion: SIGTERM, SIGKILL.
+      expect(orchestrator.getMetrics().forcedKills).toBe(3);
     });
 
     it("does not emit restart:complete when shutdown aborts the roll", async () => {
@@ -1815,6 +2002,136 @@ describe("Orchestrator", () => {
         expect(w!.isDead()).toBe(true); // ← mid-roll forks would survive shutdown
       }
     });
+
+    // ------------------------------------------------------------------
+    // Fork-failure resilience for the hot-restart roll: a worker that dies
+    // between the snapshot and its turn must be skipped (no stale recycling
+    // mark, no full drain-budget stall), and a throwing forkWorker() must
+    // leave the old worker running instead of aborting the process.
+    // ------------------------------------------------------------------
+    describe("fork failure resilience (roll)", () => {
+      let savedExitCode: typeof process.exitCode;
+      beforeEach(() => {
+        savedExitCode = process.exitCode;
+      });
+      afterEach(() => {
+        process.exitCode = savedExitCode;
+      });
+
+      /**
+       * Setup for roll tests: worker exits also fire the cluster-level "exit"
+       * event that drives the restart bookkeeping (mirrors real cluster, where
+       * both the worker and the cluster emit).
+       */
+      async function setupRollTest(workerCount = 2) {
+        const orchestrator = await setupPrimary(workerCount, FAST_SHUTDOWN);
+        await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+        for (const w of Object.values(mockCluster.workers)) {
+          w!.autoExitOnDisconnect = true;
+          w!.on("exit", (code, signal) => mockCluster.emit("exit", w!, code, signal));
+        }
+        return orchestrator;
+      }
+
+      /**
+       * Roll worker 1 while worker 2 crashes mid-roll (before its turn): the
+       * snapshot still contains worker 2, which is dead by the time the roll
+       * reaches it.
+       */
+      async function rollWithMidRollCrash() {
+        const orchestrator = await setupRollTest();
+
+        const [, second] = Object.values(mockCluster.workers);
+        // Worker 2 crashes while the roll is parked on worker 1's stagger window
+        setTimeout(() => second!.simulateCrash(1, null), 50);
+
+        return orchestrator;
+      }
+
+      it("skips a worker that died mid-roll — no stale recycling mark", async () => {
+        vi.useFakeTimers();
+        const orchestrator = await rollWithMidRollCrash();
+
+        const completeEvents: Array<{ restartedWorkerIds: number[] }> = [];
+        orchestrator.on("restart:complete", (d) => completeEvents.push(d));
+
+        const rollPromise = orchestrator.restartWorkers({ staggerMs: 1_000, reason: "stale-skip" });
+        await vi.advanceTimersByTimeAsync(2_000); // drain w1, stagger park (crash at 50), skip dead w2
+        await rollPromise;
+        await vi.advanceTimersByTimeAsync(0); // flush the crash-restart replacement's "online"
+
+        const internals = orchestrator as unknown as { workerManager: { getRecyclingCount(): number } };
+        expect(internals.workerManager.getRecyclingCount()).toBe(0);
+        expect(completeEvents).toHaveLength(1);
+        expect(completeEvents[0].restartedWorkerIds).toEqual([1]); // only worker 1 was rolled
+        // Capacity was restored by the crash-restart path, not the roll
+        expect(orchestrator.getMetrics().activeWorkers).toBe(2);
+      });
+
+      it("does not stall the roll on a worker that died mid-roll", async () => {
+        vi.useFakeTimers();
+        const orchestrator = await rollWithMidRollCrash();
+
+        const rollPromise = orchestrator.restartWorkers({ staggerMs: 1_000, reason: "no-stall" });
+        // exitWaitMs under FAST_SHUTDOWN is 6.2s: a dead worker must be
+        // skipped, not parked on for the full drain budget
+        expect(await settleWithinBudget(rollPromise, 6_000)).toBe("resolved");
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      it("leaves the old worker running and continues the roll when a fork throws", async () => {
+        vi.useFakeTimers();
+        const orchestrator = await setupRollTest();
+
+        const forkSpy = vi.spyOn(mockCluster, "fork");
+        // The first roll fork fails (resource exhaustion), the second succeeds
+        forkSpy.mockImplementationOnce(() => {
+          throw new Error("EMFILE: too many open files");
+        });
+
+        const completeEvents: Array<{ restartedWorkerIds: number[] }> = [];
+        orchestrator.on("restart:complete", (d) => completeEvents.push(d));
+
+        const rollPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "fork-fail" });
+        expect(await settleWithinBudget(rollPromise, 6_000)).toBe("resolved");
+
+        const internals = orchestrator as unknown as { workerManager: { getRecyclingCount(): number } };
+        // The failed worker was never marked for recycling and keeps serving
+        expect(internals.workerManager.getRecyclingCount()).toBe(0);
+        expect(completeEvents).toHaveLength(1);
+        expect(completeEvents[0].restartedWorkerIds).toEqual([2]); // only worker 2 was rolled
+        expect(mockCluster.workers[1]!.isDead()).toBe(false);
+        expect(mockCluster.workers[2]!.isDead()).toBe(true);
+      });
+
+      it("abandons the roll and flags exit code 1 after 3 consecutive fork failures", async () => {
+        vi.useFakeTimers();
+        const orchestrator = await setupRollTest(3);
+
+        vi.spyOn(mockCluster, "fork").mockImplementation(() => {
+          throw new Error("ENOMEM: Cannot allocate memory");
+        });
+
+        const startEvents: Array<{ reason: string }> = [];
+        const completeEvents: unknown[] = [];
+        orchestrator.on("restart:start", (d) => startEvents.push(d));
+        orchestrator.on("restart:complete", (d) => completeEvents.push(d));
+
+        const rollPromise = orchestrator.restartWorkers({ staggerMs: 0, reason: "bail" });
+        expect(await settleWithinBudget(rollPromise, 6_000)).toBe("resolved");
+
+        // 3 consecutive failures → the fork environment is unrecoverable
+        expect(process.exitCode).toBe(1);
+        // A partial roll is not a complete roll
+        expect(startEvents).toHaveLength(1);
+        expect(completeEvents).toHaveLength(0);
+        // The old workers keep serving
+        for (const w of Object.values(mockCluster.workers)) {
+          expect(w!.isDead()).toBe(false);
+        }
+      });
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -1853,18 +2170,21 @@ describe("Orchestrator", () => {
       expect(tripEvents).toHaveLength(0);
     });
 
-    it("should stop forking new workers after tripping", async () => {
+    // The fork-time breaker check drops queued entries: no fork may leak past
+    // a trip — capacity is refilled by resetCircuitBreaker() instead.
+    it("should not fork queued restarts once the breaker has tripped", async () => {
       vi.useFakeTimers();
 
       const { orch } = await setupAndCrash(2, 3);
 
-      // One restart may already be queued from the first crash before the breaker trips.
+      // The restart queued by the crash that preceded the trip is dropped,
+      // not forked past the tripped breaker.
       await vi.advanceTimersByTimeAsync(1_000);
-      expect(orch.getMetrics().workerRestarts).toBe(1);
+      expect(orch.getMetrics().workerRestarts).toBe(0);
 
       // After tripping, no additional forks should happen.
       await vi.advanceTimersByTimeAsync(10_000);
-      expect(orch.getMetrics().workerRestarts).toBe(1);
+      expect(orch.getMetrics().workerRestarts).toBe(0);
     });
 
     it("should emit circuit-breaker:tripped with windowMs", async () => {
@@ -1993,6 +2313,116 @@ describe("Orchestrator", () => {
   });
 
   // --------------------------------------------------------------------------
+  // Exit-code protocol: the primary must not report success (exit 0) when the
+  // fleet is unrecoverable. All restart/backoff timers are unref'd, so an
+  // empty fleet drains the event loop and the process would otherwise exit
+  // with code 0, masking a total crash from supervisors/K8s.
+  // --------------------------------------------------------------------------
+  describe("exit code protocol", () => {
+    // workers must be >= 2 to enter cluster primary mode (workers=1 → single-worker mode)
+    async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
+      await orch.run(() => {});
+      return orch;
+    }
+
+    let savedExitCode: typeof process.exitCode;
+    beforeEach(() => {
+      savedExitCode = process.exitCode;
+    });
+    afterEach(() => {
+      process.exitCode = savedExitCode;
+    });
+
+    it("flags exit code 1 when the fleet crashes to empty below the breaker threshold", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 5_000, crashThreshold: 10, crashWindowMs: 60_000 },
+      });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Both workers crash below the threshold: restarts queue behind the
+      // unref'd backoff timer, the event loop drains — the process must not
+      // report success.
+      const fleet = Object.values(mockCluster.workers);
+      for (const w of fleet) {
+        mockCluster.emit("exit", w, 1, null);
+      }
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(orch.getMetrics().activeWorkers).toBe(0);
+      expect(orch.getMetrics().workerRestarts).toBe(0); // restarts never forked: the loop drains first
+      expect(process.exitCode).toBe(1);
+    });
+
+    it("sets exit code 1 on breaker trip and resets it to 0 via resetCircuitBreaker()", async () => {
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 0, crashThreshold: 2, crashWindowMs: 60_000 },
+      });
+
+      for (let i = 0; i < 2; i++) {
+        const all = Object.values(mockCluster.workers);
+        mockCluster.emit("exit", all[all.length - 1], 1, null);
+      }
+      expect(orch.getHealth().ready).toBe(false);
+      expect(process.exitCode).toBe(1);
+
+      orch.resetCircuitBreaker();
+      expect(orch.getHealth().ready).toBe(true);
+      expect(process.exitCode).toBe(0);
+
+      // Missing capacity is refilled once the breaker is reset
+      await new Promise((r) => setImmediate(r));
+      expect(orch.getMetrics().activeWorkers).toBe(2);
+    });
+
+    it("clears the exit code once the fleet recovers to full capacity", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 100, crashThreshold: 10, crashWindowMs: 60_000 },
+      });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Both workers crash below the threshold — the fleet is down
+      const fleet = Object.values(mockCluster.workers);
+      for (const w of fleet) {
+        mockCluster.emit("exit", w, 1, null);
+      }
+      expect(process.exitCode).toBe(1);
+
+      // Queued restarts fork replacements, which come online: capacity restored
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(orch.getMetrics().activeWorkers).toBe(2);
+      expect(process.exitCode).toBe(0);
+    });
+
+    it("keeps a graceful shutdown at exit code 0 even after a breaker trip", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 0, crashThreshold: 2, crashWindowMs: 60_000 },
+      });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Trip the breaker: the fleet is unrecoverable
+      for (let i = 0; i < 2; i++) {
+        const all = Object.values(mockCluster.workers);
+        mockCluster.emit("exit", all[all.length - 1], 1, null);
+      }
+      expect(process.exitCode).toBe(1);
+
+      // An operator-triggered graceful shutdown still exits cleanly
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+      expect(process.exitCode).toBe(0);
+    });
+  });
+
+  // --------------------------------------------------------------------------
   describe("plugin system", () => {
     it("use() returns this for chaining", () => {
       const orch = new Orchestrator(cfg());
@@ -2052,7 +2482,11 @@ describe("Orchestrator", () => {
       expect(order).toEqual(["a", "b"]);
     });
 
-    it("uninstall() is called after shutdown:complete", async () => {
+    // #144: the ordering is unified on the single-worker contract — user
+    // callbacks and plugin uninstall run BEFORE shutdown:complete, so a
+    // plugin's shutdown:complete listener is not removed by its own
+    // uninstall() before the event fires.
+    it("emits shutdown:complete after plugin uninstall", async () => {
       vi.useFakeTimers();
       mockCluster.isPrimary = true;
       const orch = new Orchestrator(
@@ -2066,15 +2500,22 @@ describe("Orchestrator", () => {
           },
         }),
       );
-      const uninstall = vi.fn().mockResolvedValue(undefined);
-      orch.use({ name: "test", install: vi.fn().mockResolvedValue(undefined), uninstall });
+      const order: string[] = [];
+      orch.use({
+        name: "test",
+        install: vi.fn().mockResolvedValue(undefined),
+        uninstall: async () => {
+          order.push("uninstall");
+        },
+      });
       await orch.run(() => {});
+      orch.on("shutdown:complete", () => order.push("shutdown:complete"));
 
       const shutdownPromise = orch.shutdownPrimary("SIGTERM");
       await vi.runAllTimersAsync();
       await shutdownPromise;
 
-      expect(uninstall).toHaveBeenCalledOnce();
+      expect(order).toEqual(["uninstall", "shutdown:complete"]);
       vi.useRealTimers();
     });
 
