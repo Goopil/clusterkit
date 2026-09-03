@@ -13,7 +13,7 @@
 
 ### Workload: Hello World (JSON trivial)
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 37,334 ± 0 | 1 ms | 2 ms | 2 ms | 0 | 2 ms | 5001 ms | N/A | N/A | N/A | N/A | 3/1 |
 | clusterkit-3 | 3 | 50,006 ± 0 | 2 ms | 6 ms | 8 ms | 0 | 1 ms | 2361 ms | N/A | N/A | N/A | N/A | 3/3 |
@@ -24,7 +24,7 @@
 
 ### Workload: Latency 10ms
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 67,126 ± 0 | 0 ms | 1 ms | 2 ms | 0 | 1 ms | 5001 ms | N/A | N/A | N/A | N/A | 4/1 |
 | clusterkit-3 | 3 | 51,610 ± 0 | 2 ms | 5 ms | 7 ms | 0 | 1 ms | 2354 ms | N/A | N/A | N/A | N/A | 3/3 |
@@ -35,7 +35,7 @@
 
 ### Workload: CPU-IO Mix
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p95 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 4,362 ± 0 | 11 ms | 12 ms | 12 ms | 0 | 2 ms | 5000 ms | N/A | N/A | N/A | N/A | 4/1 |
 | clusterkit-3 | 3 | 12,721 ± 0 | 11 ms | 13 ms | 14 ms | 0 | 1 ms | 2170 ms | N/A | N/A | N/A | N/A | 3/3 |
@@ -65,7 +65,7 @@
 
 ### Workload: Hello World (JSON trivial)
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 15,790 ± 40 | 9 ms | 13 ms | 16 ms | 0 | 216 ms | 16 ms | 149 MB | 152 MB | 107.3% | 131,970 ms | 1/1 |
 | clusterkit-3 | 3 | 43,954 ± 177 | 2 ms | 8 ms | 10 ms | 0 | 204 ms | 35 ms | 193 MB | 138 MB | 88.7% | 107,320 ms | 3/3 |
@@ -77,7 +77,7 @@
 
 ### Workload: Latency 10ms
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 10,579 ± 313 | 13 ms | 19 ms | 22 ms | 0 | 105 ms | 13 ms | 134 MB | 138 MB | 73.1% | 88,430 ms | 1/1 |
 | clusterkit-3 | 3 | 12,669 ± 427 | 11 ms | 14 ms | 16 ms | 0 | 204 ms | 27 ms | 185 MB | 127 MB | 31.8% | 38,510 ms | 3/3 |
@@ -89,7 +89,7 @@
 
 ### Workload: CPU-IO Mix
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 901 ± 4 | 158 ms | 182 ms | 322 ms | 96 | 113 ms | 13 ms | 123 MB | 127 MB | 101.1% | 122,280 ms | 1/1 |
 | clusterkit-3 | 3 | 2,326 ± 111 | 54 ms | 146 ms | 183 ms | 0 | 204 ms | 24 ms | 179 MB | 126 MB | 91.8% | 111,030 ms | 3/3 |
@@ -101,7 +101,7 @@
 
 ### Workload: List 100 (filter + paginate JSON dataset)
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 9,062 ± 374 | 15 ms | 25 ms | 32 ms | 0 | 340 ms | 13 ms | 153 MB | 156 MB | 103% | 126,630 ms | 1/1 |
 | clusterkit-3 | 3 | 23,361 ± 252 | 5 ms | 16 ms | 20 ms | 0 | 207 ms | 42 ms | 201 MB | 145 MB | 83.2% | 100,660 ms | 3/3 |
@@ -113,7 +113,7 @@
 
 ### Workload: Aggregate (group-by + sort over dataset)
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 5,542 ± 105 | 26 ms | 33 ms | 37 ms | 0 | 207 ms | 10 ms | 150 MB | 151 MB | 102.9% | 126,560 ms | 1/1 |
 | clusterkit-3 | 3 | 16,545 ± 238 | 8 ms | 16 ms | 20 ms | 0 | 205 ms | 16 ms | 197 MB | 141 MB | 95.1% | 116,990 ms | 3/3 |
@@ -125,7 +125,7 @@
 
 ### Workload: Auth Verify (JWT decode + verify)
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 14,316 ± 99 | 9 ms | 16 ms | 19 ms | 0 | 107 ms | 13 ms | 139 MB | 140 MB | 107.6% | 133,370 ms | 1/1 |
 | clusterkit-3 | 3 | 39,976 ± 288 | 3 ms | 9 ms | 11 ms | 0 | 204 ms | 32 ms | 355 MB | 219 MB | 150.3% | 183,400 ms | 3/3 |
@@ -137,7 +137,7 @@
 
 ### Workload: Error Rate (10% intentional 500s)
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 17,572 ± 1122 | 8 ms | 11 ms | 14 ms | 0 | 205 ms | 14 ms | 140 MB | 142 MB | 108.1% | 131,890 ms | 1/1 |
 | clusterkit-3 | 3 | 44,239 ± 844 | 2 ms | 8 ms | 11 ms | 0 | 204 ms | 24 ms | 501 MB | 219 MB | 241.9% | 292,710 ms | 3/3 |
@@ -149,7 +149,7 @@
 
 ### Workload: Upload Echo (POST + JSON body echo)
 
-| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Avg | RSS Peak | CPU % | CPU Time | PIDs Active |
+| Orchestrator | Workers | Req/sec | Lat p50 | Lat p97.5 | Lat p99 | Errors | Boot | Shutdown | RSS Tree Avg (all PIDs) | RSS Peak (per-proc) | CPU % | CPU Time | PIDs Active |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | single | 1 | 13,130 ± 523 | 10 ms | 15 ms | 19 ms | 0 | 105 ms | 14 ms | 145 MB | 146 MB | 108.1% | 132,930 ms | 1/1 |
 | clusterkit-3 | 3 | 35,539 ± 1086 | 3 ms | 9 ms | 12 ms | 0 | 206 ms | 30 ms | 357 MB | 219 MB | 148.5% | 179,730 ms | 3/3 |
@@ -210,15 +210,15 @@ hello (-1.5%) and auth-verify (-1.0%) sit within run-to-run variance (native-clu
 
 SO_REUSEPORT is ahead on 5/8 workloads (up to +4.2% on latency-10ms); IPC round-robin keeps the edge on
 aggregate (-1.8%) and upload-echo (-1.0%). At 150 connections the two dispatch strategies remain close; the
-inflated RSS/CPU on some reuseport rows (e.g. aggregate: 129% CPU, 353 MB RSS Avg) are sampler artifacts
+inflated RSS/CPU on some reuseport rows (e.g. aggregate: 129% CPU, 353 MB RSS Tree Avg (all PIDs)) are sampler artifacts
 (see Notes).
 
 ### pm2 overhead vs clusterkit (Linux, hello workload)
 
 | Metric | clusterkit-3 | pm2-3 | pm2 overhead |
 |---|---|---|---|
-| RSS Avg | 193 MB | 406 MB | **+110%** |
-| RSS Peak | 138 MB | 173 MB | **+25%** |
+| RSS Tree Avg (all PIDs) | 193 MB | 406 MB | **+110%** |
+| RSS Peak (per-proc) | 138 MB | 173 MB | **+25%** |
 | CPU % | 88.7% | 142.1% | **+60%** |
 | Boot time | 204 ms | 508 ms | **+149%** |
 | Shutdown | 35 ms | 228 ms | **+551%** |
@@ -257,6 +257,10 @@ performer on multi-worker workloads.
 ### Notes
 
 - macOS RSS/CPU = N/A (no `/proc` filesystem). Use Linux Docker for memory/CPU metrics.
+- RSS columns measure different things: `RSS Tree Avg (all PIDs)` is the time-averaged **sum** of VmRSS across every
+  PID in the target's process tree (primary + workers + daemons); `RSS Peak (per-proc)` is the highest single-process
+  VmHWM. The tree average can therefore exceed the per-process peak (e.g. clusterkit-3 on hello: 193 MB tree avg vs
+  138 MB per-process peak).
 - Full reference mode: 3 repetitions per scenario (10s warmup + 30s measure each); tables report median ± stddev.
 - Full reference run executed in Docker with a `cpus: "4"` cap; wall time ~3.3h (single-rep quick run ≈ 12 min
   locally, full mode longer).

@@ -183,6 +183,8 @@ orchestrator.overrideWorkerCount(n);    // change worker count when configured a
 ```ts
 orchestrator.on('worker:online', ({workerId, pid}) => {
 });
+orchestrator.on('worker:exit', ({workerId, pid, code, signal, graceful}) => {
+});
 orchestrator.on('worker:crash', ({workerId, pid, code, signal}) => {
 });
 orchestrator.on('worker:restart', ({newWorkerId, newPid}) => {
@@ -589,7 +591,7 @@ fleet. They throw if called after workers have been forked.
 
 Ten ready-to-run examples live in [`examples/`](./examples/).
 
-| Example                      | Port  | Metrics port | Description |
+| Example                      | Port  | Metrics port (worker-side) | Description |
 |------------------------------|-------|--------------|-------------|
 | `examples/express`           | 3000  | 9090         | Express HTTP server |
 | `examples/express-otlp`      | 3009  | —            | Express + OTLP metrics (push to collector) |
@@ -602,13 +604,17 @@ Ten ready-to-run examples live in [`examples/`](./examples/).
 | `examples/inertia-ssr-react` | 13715 | —            | Inertia + React 18 SSR renderer |
 | `examples/hot-reload`        | 3010  | —            | Signal-based + file watcher hot restart demo |
 
+> The metrics port is bound **inside each worker** (the metrics server is mounted in the `run()` callback, which runs
+> in every worker process) — how examples should expose metrics in multi-worker mode is an open decision tracked in
+> issue #95.
+
 **Run all examples at once (Docker):**
 
 ```bash
 pnpm examples:start
 # All servers start inside a single container.
 # curl http://localhost:3000      → Express app
-# curl http://localhost:9090/metrics → Prometheus metrics (binds METRICS_HOST, default 0.0.0.0)
+# curl http://localhost:9090/metrics → Prometheus metrics (per-worker bind — see note above; binds METRICS_HOST, default 0.0.0.0)
 ```
 
 **Run a single example locally:**
@@ -741,8 +747,9 @@ pnpm examples:start
 # Equivalent to: docker compose up examples --build
 ```
 
-All 8 example servers start inside a single container with their ports mapped to the host (3000–3001 and 3005–3010 for
-apps; 9090–9093 for metrics).
+8 of the 10 example servers start inside a single container with their ports mapped to the host (3000–3001 and 3005–3010
+for apps; 9090–9093 for metrics). The two inertia SSR examples (ports 13714–13715) are not part of the Docker setup —
+run them standalone from their `examples/` directory.
 
 ### Benchmarks
 
@@ -751,7 +758,7 @@ on 3 HTTP workloads. Results are written to `benchmarks/results/` (`latest.json`
 `BENCHMARKS.md` at the repo root is hand-maintained.
 
 ```bash
-pnpm bench:docker                                                      # full suite, Docker (~36 min)
+pnpm bench:docker                                                      # full suite, Docker (~3.3h)
 pnpm bench                                                             # full suite, local
 pnpm --filter benchmarks exec node runner.mjs --quick                  # quick mode (~8 min)
 pnpm --filter benchmarks exec node runner.mjs --target clusterkit-3   # single target
@@ -759,6 +766,13 @@ pnpm --filter benchmarks smoke                                         # boot ch
 ```
 
 See [`benchmarks/README.md`](./benchmarks/README.md) for the target/workload contract and CLI flags.
+
+---
+
+## External audit
+
+A point-in-time external audit of clusterkit v1.1.x is archived in [`docs/audit/README.md`](./docs/audit/README.md) —
+findings may be stale; remediation is tracked in #101 and #140.
 
 ---
 

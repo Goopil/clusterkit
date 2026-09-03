@@ -1,3 +1,5 @@
+> **⚠️ Archive — point-in-time external audit of v1.1.x.** Findings may be stale; remediation is tracked in #101 and #140. Content is kept as-is (original language) for reference.
+
 # Audit technique — clusterkit monorepo
 
 **Date:** 2026-08-31 · **Auditeur:** externe indépendant · **Périmètre:** tout le repository (code, plugins, tests, CI/CD, Docker, scripts, docs, exemples, benchmarks)
