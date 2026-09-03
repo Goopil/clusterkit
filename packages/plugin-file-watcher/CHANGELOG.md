@@ -1,5 +1,11 @@
 # @goopil/clusterkit-file-watcher
 
+## 1.1.4
+
+### Patch Changes
+
+- [#152](https://github.com/Goopil/clusterkit/pull/152) [`b0cec25`](https://github.com/Goopil/clusterkit/commit/b0cec25ef94753990f7e42d68d68eeb956db9f29) Thanks [@Goopil](https://github.com/Goopil)! - Fix plugin reinstall after uninstall/shutdown (watchers now re-arm instead of staying dead), ignore `node_modules` directories by default to prevent restart storms on package installs (`watchOptions.ignored` overrides entirely, `ignore` patterns merge with the default), and widen the chokidar peer range to `^4.0.0 || ^5.0.0`.
+
 ## 1.1.3
 
 ### Patch Changes
