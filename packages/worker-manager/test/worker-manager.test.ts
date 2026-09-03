@@ -28,6 +28,10 @@ function makeMetrics(): WorkerMetrics {
   return { workerRestarts: 0, activeWorkers: 0, crashLoopBackoffs: 0, gracefulShutdowns: 0, forcedKills: 0 };
 }
 
+function makeLogger() {
+  return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+}
+
 describe("WorkerManager", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -84,12 +88,18 @@ describe("WorkerManager", () => {
   // listener it would escape as an uncaught exception and kill the primary.
   it("attaches an error listener to freshly forked workers", () => {
     const cluster = new MockCluster();
-    const manager = new WorkerManager(cluster as never, config, null, makeMetrics(), []);
+    const logger = makeLogger();
+    const manager = new WorkerManager(cluster as never, config, logger, makeMetrics(), []);
 
     const worker = manager.forkWorker();
 
     expect(worker.listenerCount("error")).toBeGreaterThan(0);
-    expect(() => worker.emit("error", new Error("Resource temporarily unavailable"))).not.toThrow();
+    const err = new Error("Resource temporarily unavailable");
+    expect(() => worker.emit("error", err)).not.toThrow();
+    expect(logger.error).toHaveBeenCalledWith(
+      "Worker error event",
+      expect.objectContaining({ workerId: worker.id, error: err.message }),
+    );
   });
 
   it("cleans worker state when the cluster reports an exit", () => {
@@ -285,8 +295,9 @@ describe("WorkerManager", () => {
     // recycling mark: the worker stays eligible for the next sweep.
     it("unmarks the worker and skips the recycle when the replacement fork throws", () => {
       const cluster = new MockCluster();
+      const logger = makeLogger();
       const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
-      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      const manager = new WorkerManager(cluster as never, cfg, logger, makeMetrics(), []);
       manager.setupEventHandlers(vi.fn(), vi.fn());
       manager.forkWorker(); // id=1
 
@@ -301,12 +312,114 @@ describe("WorkerManager", () => {
 
       expect(onRecycle).not.toHaveBeenCalled();
       expect(manager.getRecyclingCount()).toBe(0);
+      expect(logger.error).toHaveBeenCalledWith(
+        "Aged-worker recycle fork failed — worker left running",
+        expect.objectContaining({ workerId: 1, error: "EMFILE: too many open files" }),
+      );
 
       // The worker is eligible again: the next sweep retries the recycle
       forkSpy.mockRestore();
       vi.advanceTimersByTime(60_001);
       vi.advanceTimersByTime(1);
       expect(onRecycle).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * Harness for the stagger-window guards: two aged workers are swept at
+     * 60s; the first stagger fires immediately (idx 0), the second stays
+     * pending for 30s (idx 1) — a deterministic window to interfere in.
+     */
+    function setupStaggerWindow() {
+      const cluster = new MockCluster();
+      const logInfo = vi.fn();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
+      const manager = new WorkerManager(
+        cluster as never,
+        cfg,
+        { debug: vi.fn(), info: logInfo, warn: vi.fn(), error: vi.fn() },
+        makeMetrics(),
+        [],
+      );
+      manager.setupEventHandlers(vi.fn(), vi.fn());
+      manager.forkWorker(); // id=1
+      manager.forkWorker(); // id=2
+
+      let shuttingDown = false;
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => shuttingDown, onRecycle);
+
+      // Sweep: both workers marked; idx 0's stagger (0ms) fires, idx 1's (30s) stays pending
+      vi.advanceTimersByTime(60_001);
+      vi.advanceTimersByTime(1);
+
+      return {
+        cluster,
+        logInfo,
+        manager,
+        onRecycle,
+        setShuttingDown: (value: boolean): void => {
+          shuttingDown = value;
+        },
+      };
+    }
+
+    const recycleLogCount = (logInfo: ReturnType<typeof vi.fn>): number =>
+      logInfo.mock.calls.filter((c) => String(c[0]).includes("Recycling aged worker")).length;
+
+    // Shutdown starting between the sweep and a stagger fire must not fork a
+    // replacement: the worker is unmarked instead of recycled into a shutdown.
+    it("unmarks a worker whose stagger fires after shutdown started", () => {
+      const { logInfo, manager, onRecycle, setShuttingDown } = setupStaggerWindow();
+
+      expect(onRecycle).toHaveBeenCalledTimes(1); // worker 1's stagger fired in the sweep
+      expect(manager.getRecyclingCount()).toBe(2); // worker 1 (replacement forked) + worker 2 (pending)
+
+      setShuttingDown(true);
+      vi.advanceTimersByTime(31_000); // worker 2's stagger fires under shutdown
+
+      expect(manager.getRecyclingCount()).toBe(1); // worker 2 unmarked; worker 1's mark is legitimate
+      expect(onRecycle).toHaveBeenCalledTimes(1); // no recycle for worker 2
+      expect(recycleLogCount(logInfo)).toBe(1);
+    });
+
+    // A worker that exits while its stagger timer is still pending must not
+    // have that timer fire later: cleanupWorker clears it.
+    it("clears a pending stagger timer when the worker exits before it fires", () => {
+      const { cluster, logInfo, manager, onRecycle } = setupStaggerWindow();
+
+      expect(onRecycle).toHaveBeenCalledTimes(1); // worker 1's stagger fired in the sweep
+
+      // Worker 2 exits before its stagger fires — the cluster 'exit' routes
+      // through cleanupWorker, which must clear the pending timer
+      cluster.simulateExit(cluster.workers[2]!, 1, null);
+
+      vi.advanceTimersByTime(30_001); // worker 2's stagger would have fired
+
+      expect(onRecycle).toHaveBeenCalledTimes(1); // no recycle for worker 2
+      expect(cluster.fork).toHaveBeenCalledTimes(3); // 2 initial + worker 1's replacement only
+      expect(recycleLogCount(logInfo)).toBe(1);
+      expect(manager.getRecyclingCount()).toBe(1); // worker 2 unmarked; worker 1's mark is legitimate
+    });
+
+    // A worker killed without its exit event reaching the cluster handler is
+    // still marked when its stagger fires: the fire must unmark it instead of
+    // forking a replacement for a dead worker.
+    it("unmarks a dead worker at stagger fire instead of recycling it", () => {
+      const { cluster, logInfo, manager, onRecycle } = setupStaggerWindow();
+
+      expect(onRecycle).toHaveBeenCalledTimes(1); // worker 1's stagger fired in the sweep
+
+      // Worker 2 dies hard without the cluster 'exit' event reaching the
+      // handler: no cleanupWorker runs, so it is still marked when the
+      // stagger timer fires
+      cluster.workers[2]!.exit(1);
+
+      vi.advanceTimersByTime(30_001); // worker 2's stagger fires
+
+      expect(manager.getRecyclingCount()).toBe(1); // worker 2 unmarked; worker 1's mark is legitimate
+      expect(onRecycle).toHaveBeenCalledTimes(1);
+      expect(cluster.fork).toHaveBeenCalledTimes(3); // no replacement forked for the dead worker
+      expect(recycleLogCount(logInfo)).toBe(1);
     });
   });
 
