@@ -18,6 +18,21 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["packages/*/src/**", "examples/*/src/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "error"
+          },
+          "style": {
+            "noNonNullAssertion": "error"
+          }
+        }
+      }
+    }
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

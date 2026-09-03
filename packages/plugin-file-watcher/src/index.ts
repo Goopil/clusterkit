@@ -90,7 +90,6 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
   let pendingReason: string | undefined;
   let pendingEnv: NodeJS.ProcessEnv | undefined;
   let lastRestartAt = 0;
-  let envSnapshot: Map<string, string> | undefined;
   let watching = false;
 
   return {
@@ -233,18 +232,18 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
 
         // process.env polling
         if (pollEnv) {
-          envSnapshot = new Map(Object.entries(process.env));
+          let snapshot = new Map(Object.entries(process.env));
           envPollInterval = setInterval(() => {
             const current = new Map(Object.entries(process.env));
             let changed = false;
             for (const [key, value] of current) {
-              if (envSnapshot!.get(key) !== value) {
+              if (snapshot.get(key) !== value) {
                 changed = true;
                 break;
               }
             }
             if (!changed) {
-              for (const [key] of envSnapshot!) {
+              for (const [key] of snapshot) {
                 if (!current.has(key)) {
                   changed = true;
                   break;
@@ -253,7 +252,7 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
             }
             if (changed) {
               log?.debug("process.env changed, triggering restart");
-              envSnapshot = current;
+              snapshot = current;
               triggerRestart(defaultReason ?? "env-change", { ...process.env });
             }
           }, pollEnvIntervalMs).unref();
