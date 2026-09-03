@@ -5,13 +5,7 @@ import type { PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
 
 export type { PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
 
-type PrimaryEvent =
-  | "worker:online"
-  | "worker:exit"
-  | "worker:crash"
-  | "worker:restart"
-  | "circuit-breaker:tripped"
-  | "shutdown:complete";
+type PrimaryEvent = "worker:online" | "worker:exit" | "worker:crash" | "worker:restart" | "circuit-breaker:tripped";
 
 // ============================================================================
 // Factory
@@ -65,10 +59,16 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
   let mergedMetricsCache: { value: string; expiresAt: number } | undefined;
   let inflightMetrics: Promise<string> | undefined;
   let defaultMetricsInstalled = false;
+  let installedDefaultMetricNames: string[] = [];
 
   const clearMergedMetricsCache = (): void => {
     mergedMetricsCache = undefined;
     inflightMetrics = undefined;
+  };
+
+  const syncActiveWorkers = (): void => {
+    if (!primaryOrchestrator) return;
+    activeWorkers.set(primaryOrchestrator.getMetrics().activeWorkers);
   };
 
   const clearPrimaryListeners = (): void => {
@@ -141,10 +141,6 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
         primaryOrchestrator = orchestrator;
         log?.debug("Plugin installed on primary process");
 
-        const syncActiveWorkers = () => {
-          activeWorkers.set(orchestrator.getMetrics().activeWorkers);
-        };
-
         const bind = (event: PrimaryEvent, listener: () => void): void => {
           orchestrator.on(event, listener);
           primaryListeners.push({ event, listener });
@@ -170,10 +166,6 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
           circuitBreakerTrips.inc();
           clearMergedMetricsCache();
         });
-        bind("shutdown:complete", () => {
-          syncActiveWorkers();
-          clearMergedMetricsCache();
-        });
 
         registry.setDefaultLabels({ pid: process.pid, ...labels });
 
@@ -194,12 +186,17 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
 
         // Single-worker mode: collect default process metrics here since
         // there are no worker processes to collect them via AggregatorRegistry.
-        // collectDefaultMetrics registers fixed metric names into the shared
-        // registry — reinstalling the plugin must not register them twice
-        // (prom-client throws on duplicate metric names).
+        // Default metrics use fixed metric names, so a double install without
+        // an uninstall in between would make prom-client throw on duplicate
+        // registration — the latch guards that. uninstall() removes the
+        // metrics again, so a reinstall re-collects them into a fresh registry.
         if (defaultMetrics && singleWorker && !defaultMetricsInstalled) {
-          defaultMetricsInstalled = true;
+          const known = new Set((await registry.getMetricsAsJSON()).map((metric) => metric.name));
           collectDefaultMetrics({ register: registry });
+          installedDefaultMetricNames = (await registry.getMetricsAsJSON())
+            .map((metric) => metric.name)
+            .filter((name) => !known.has(name));
+          defaultMetricsInstalled = true;
         }
       } else {
         log?.debug("Plugin installed on worker process");
@@ -218,8 +215,19 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     },
 
     async uninstall(): Promise<void> {
+      // shutdown:complete fires after uninstallPlugins() in both shutdown
+      // modes, so the final active_workers sync and cache reset happen here.
+      syncActiveWorkers();
       clearPrimaryListeners();
       clearMergedMetricsCache();
+
+      if (defaultMetricsInstalled) {
+        defaultMetricsInstalled = false;
+        for (const name of installedDefaultMetricNames) {
+          registry.removeSingleMetric(name);
+        }
+        installedDefaultMetricNames = [];
+      }
     },
 
     async getMetrics(): Promise<string> {
