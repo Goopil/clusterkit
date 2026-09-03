@@ -16,7 +16,7 @@ interface LogEntry {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const WORKER_FIXTURE_PATH = resolve(__dirname, "fixtures/process-worker.cjs");
+const WORKER_FIXTURE_PATH = resolve(__dirname, "../../../test-support/fixtures/process-worker.cjs");
 
 const SIGNAL_TIMEOUT_MS = 8_000;
 
@@ -218,7 +218,12 @@ describe("Orchestrator process-level integration", () => {
         },
       },
       restart: {
-        crashThreshold: 3,
+        // Threshold 5 (not 3): the breaker can only trip on the 5th crash, and
+        // reaching 5 crashes requires a third forked replacement. At the time
+        // the second restart is forked at most 3 crashes exist, so two
+        // escalating restarts (500ms then 1000ms) are guaranteed before the
+        // trip — the assertions below hold on every run, even on slow CI.
+        crashThreshold: 5,
         crashWindowMs: 5_000,
         backoffMs: 500,
         maxBackoffMs: 1_000,
@@ -243,19 +248,14 @@ describe("Orchestrator process-level integration", () => {
     await orchestrator.run();
     await withTimeout(circuitBreakerTripped, SIGNAL_TIMEOUT_MS, "Timed out waiting for circuit breaker to trip");
 
-    expect(restartTimestamps.length).toBeGreaterThanOrEqual(1);
-
-    if (restartTimestamps.length >= 2) {
-      const restartDelta = restartTimestamps[1] - restartTimestamps[0];
-      expect(restartDelta).toBeGreaterThanOrEqual(900);
-    }
+    expect(restartTimestamps.length).toBeGreaterThanOrEqual(2);
+    const restartDelta = restartTimestamps[1] - restartTimestamps[0];
+    expect(restartDelta).toBeGreaterThanOrEqual(900);
 
     const backoffLogs = entries.filter((entry) => hasMessage(entry, "Waiting before restart"));
-    expect(backoffLogs.length).toBeGreaterThanOrEqual(1);
+    expect(backoffLogs.length).toBeGreaterThanOrEqual(2);
     expect(backoffLogs[0]?.data?.delayMs).toBe(500);
-    if (backoffLogs.length >= 2) {
-      expect(backoffLogs[1]?.data?.delayMs).toBe(1_000);
-    }
+    expect(backoffLogs[1]?.data?.delayMs).toBe(1_000);
 
     const metrics = await triggerSigtermAndWaitForShutdown(orchestrator);
     expect(metrics.crashLoopBackoffs).toBeGreaterThanOrEqual(1);

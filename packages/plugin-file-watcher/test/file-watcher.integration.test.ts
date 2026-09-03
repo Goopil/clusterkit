@@ -10,7 +10,7 @@ import { createFileWatcherPlugin } from "../src/index";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const WORKER_FIXTURE_PATH = resolve(__dirname, "../../worker-manager/test/fixtures/process-worker.cjs");
+const WORKER_FIXTURE_PATH = resolve(__dirname, "../../../test-support/fixtures/process-worker.cjs");
 const PREFIX = "__fw_it";
 
 async function killRemainingWorkers(): Promise<void> {

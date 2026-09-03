@@ -7,7 +7,7 @@ import { Orchestrator } from "../src/orchestrator";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const WORKER_FIXTURE_PATH = resolve(__dirname, "fixtures/process-worker.cjs");
+const WORKER_FIXTURE_PATH = resolve(__dirname, "../../../test-support/fixtures/process-worker.cjs");
 
 async function killRemainingWorkers(): Promise<void> {
   const workers = Object.values(cluster.workers ?? {}).filter((w): w is cluster.Worker => w !== undefined);

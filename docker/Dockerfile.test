@@ -38,6 +38,7 @@ RUN pnpm install --frozen-lockfile
 
 # ---- source + turbo config ----------------------------------------------
 COPY packages/ packages/
+COPY test-support/ test-support/
 COPY turbo.json ./
 
 # Build only the publishable packages (this harness runs package tests only;
