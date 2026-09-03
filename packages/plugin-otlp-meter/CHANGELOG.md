@@ -1,5 +1,11 @@
 # @goopil/clusterkit-otlp-meter
 
+## 1.2.0
+
+### Minor Changes
+
+- [#153](https://github.com/Goopil/clusterkit/pull/153) [`9ff2d16`](https://github.com/Goopil/clusterkit/commit/9ff2d16653471b67edb5e1c6407ab2698394844a) Thanks [@Goopil](https://github.com/Goopil)! - Add a `headers` option forwarded to the OTLP/HTTP exporter (e.g. `Authorization` for authenticated collectors). Headers apply to `protocol: 'http'` only — with `protocol: 'grpc'` the gRPC exporter does not support them, so they are ignored and a warning is logged (configure exporter `metadata` or switch to HTTP). Also release the global meter provider registration on `uninstall()` when the plugin set it, so application code no longer resolves meters from a shut-down provider.
+
 ## 1.1.3
 
 ### Patch Changes

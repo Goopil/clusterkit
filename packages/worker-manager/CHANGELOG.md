@@ -1,5 +1,30 @@
 # @goopil/clusterkit
 
+## 1.2.6
+
+### Patch Changes
+
+- [#151](https://github.com/Goopil/clusterkit/pull/151) [`0a2530d`](https://github.com/Goopil/clusterkit/commit/0a2530df762239b84e8c2b5f002aeaa15cdfc970) Thanks [@Goopil](https://github.com/Goopil)! - Exit non-zero when the fleet is unrecoverable: the primary now sets `process.exitCode = 1` when the circuit breaker trips or the last worker crashes outside of a graceful shutdown, and clears it back to `0` when full capacity is restored or `resetCircuitBreaker()` succeeds — previously the primary drained with exit code 0, masking a total crash from supervisors and Kubernetes.
+
+- [#151](https://github.com/Goopil/clusterkit/pull/151) [`0a2530d`](https://github.com/Goopil/clusterkit/commit/0a2530df762239b84e8c2b5f002aeaa15cdfc970) Thanks [@Goopil](https://github.com/Goopil)! - Fix fork failures permanently shrinking the fleet and restart queue leaks. A throwing `forkWorker()` (EMFILE/ENOMEM)
+  now re-queues the restart (retried through the normal backoff) instead of losing it, and after 3 consecutive fork
+  failures the environment is declared unrecoverable (`process.exitCode = 1`) instead of retrying forever. The
+  crash-restart queue drops queued entries once the circuit breaker is tripped (no fork leaks past a trip), and
+  `resetCircuitBreaker()` refills capacity with a proper "refilling capacity" log instead of a fake crash report for a
+  never-crashed worker 0. `restartWorkers()` now skips workers that died mid-roll (previously leaving a stale
+  recycling mark that skewed crash-restart capacity math, and stalling the roll for the full drain budget), leaves the
+  old worker running when a roll fork fails, and freshly forked workers carry an `'error'` listener so async fork
+  errors cannot crash the primary as an uncaught exception.
+
+- [#151](https://github.com/Goopil/clusterkit/pull/151) [`0a2530d`](https://github.com/Goopil/clusterkit/commit/0a2530df762239b84e8c2b5f002aeaa15cdfc970) Thanks [@Goopil](https://github.com/Goopil)! - Harden shutdown. **Behavior change for plugin authors:** `shutdown:complete` is now emitted **after** user shutdown
+  callbacks and plugin `uninstall()` in every mode — it used to fire before them in multi-worker mode, so a plugin's
+  `shutdown:complete` listener was already removed by its own `uninstall()` in single-worker mode and ran too early in
+  multi-worker mode. Plugins doing final work must do it in `uninstall()`. Also: the multi-worker primary now arms a
+  failsafe timer (`shutdown.timeoutMs`) around the callbacks + uninstall phase, force-exiting with code 1 if a callback
+  never resolves (single-worker mode and worker children already had this), and a recycled worker is drained even when
+  its replacement is forked but never comes online and never exits (boot hang) — within the same bounded budget as the
+  hot-restart exit wait.
+
 ## 1.2.5
 
 ### Patch Changes
