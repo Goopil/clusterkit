@@ -284,4 +284,42 @@ describe("validation", () => {
       expect(() => validateConfig({ messagePrefix: "myapp" } as any)).toThrow(WorkerManagerValidationError);
     });
   });
+
+  describe("health options", () => {
+    it("defaults everything off", () => {
+      const resolved = validateConfig({});
+      expect(resolved.health).toEqual({ heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 10_000 });
+      expect(resolved.workers.maxRssMb).toBe(0);
+      expect(resolved.restart.bootFailQuarantine).toBe(0);
+    });
+
+    it("accepts a valid health config and rss/quarantine options", () => {
+      expect(() =>
+        validateConfig({
+          health: { heartbeatMs: 5_000, wedgedTimeoutMs: 15_000, degradedAfterMs: 2_000 },
+          workers: { maxRssMb: 512 },
+          restart: { bootFailQuarantine: 3 },
+        }),
+      ).not.toThrow();
+    });
+
+    it("rejects wedgedTimeoutMs without heartbeatMs", () => {
+      expect(() => validateConfig({ health: { wedgedTimeoutMs: 15_000 } })).toThrow(WorkerManagerValidationError);
+    });
+
+    it("rejects wedgedTimeoutMs < 2 × heartbeatMs", () => {
+      expect(() => validateConfig({ health: { heartbeatMs: 5_000, wedgedTimeoutMs: 9_000 } })).toThrow(
+        WorkerManagerValidationError,
+      );
+    });
+
+    it("rejects non-positive or tiny heartbeatMs", () => {
+      expect(() => validateConfig({ health: { heartbeatMs: 50 } })).toThrow(WorkerManagerValidationError);
+    });
+
+    it("rejects negative maxRssMb and bootFailQuarantine", () => {
+      expect(() => validateConfig({ workers: { maxRssMb: -1 } })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ restart: { bootFailQuarantine: -1 } })).toThrow(WorkerManagerValidationError);
+    });
+  });
 });

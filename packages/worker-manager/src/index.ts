@@ -11,14 +11,18 @@ export { detectReusePortSupport, getPlatformCapabilities } from "./platform";
 export { getCPUCount } from "./sizing";
 // Public config & types (including plugin interface)
 export type {
+  FleetHealth,
+  HealthConfig,
   HealthStatus,
   Logger,
   OrchestratorConfig,
   OrchestratorEvents,
   OrchestratorPlugin,
+  RecycleReason,
   ResolvedConfig,
   RestartConfig,
   ShutdownConfig,
+  WorkerHealthReport,
   WorkerMetrics,
   WorkersConfig,
 } from "./types";
