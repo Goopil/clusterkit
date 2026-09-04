@@ -18,7 +18,9 @@ export interface MockWorkerOptions {
  */
 export class MockWorker extends EventEmitter {
   readonly id: number;
-  readonly process: { pid: number; kill: ReturnType<typeof vi.fn> };
+  // The real worker.process is a ChildProcess (an EventEmitter): the drain
+  // path attaches a no-op 'error' listener to it, so the mock mirrors that.
+  readonly process: EventEmitter & { pid: number; kill: ReturnType<typeof vi.fn> };
   readonly send = vi.fn((message: { type: string }) => {
     if (this.autoAck) {
       queueMicrotask(() => this.emit("message", { type: message.type.replace(":shutdown", ":shutdown-ack") }));
@@ -50,7 +52,7 @@ export class MockWorker extends EventEmitter {
     this.id = id;
     this.autoAck = options.autoAck ?? false;
     this.deadOnDisconnect = options.deadOnDisconnect ?? true;
-    this.process = {
+    this.process = Object.assign(new EventEmitter(), {
       pid: options.pid ?? 1000 + id,
       kill: vi.fn((signal?: string) => {
         if (signal === "SIGKILL") {
@@ -60,6 +62,6 @@ export class MockWorker extends EventEmitter {
         }
         return true;
       }),
-    };
+    });
   }
 }
