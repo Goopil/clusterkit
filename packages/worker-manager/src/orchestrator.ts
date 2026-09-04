@@ -2,6 +2,7 @@ import cluster, { type Worker } from "node:cluster";
 import { EventEmitter } from "node:events";
 import { CrashTracker } from "./crash-tracker";
 import { DrainCoordinator } from "./drain-coordinator";
+import { HealthMonitor } from "./health-monitor";
 import { withLoggerPrefix } from "./logger";
 import { detectReusePortSupport, getPlatformCapabilities, type PlatformCapabilities } from "./platform";
 import { MAX_CONSECUTIVE_FORK_FAILURES, RestartCoordinator } from "./restart-coordinator";
@@ -40,6 +41,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   private readonly shutdownCoordinator: ShutdownCoordinator;
   private readonly restartCoordinator: RestartCoordinator;
   private readonly drainCoordinator: DrainCoordinator;
+  private healthMonitor!: HealthMonitor;
 
   // IPC message types
   private readonly shutdownType: string;
@@ -112,6 +114,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     this.workerManager.setupEventHandlers(
       (worker) => this.handleWorkerOnline(worker),
       (worker, code, signal) => this.handleWorkerExit(worker, code, signal),
+      (worker, msg) => this.healthMonitor.onWorkerMessage(worker.id, worker.process.pid ?? 0, msg),
     );
 
     this.shutdownCoordinator.setupCallbacks(
@@ -146,6 +149,13 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       this.metrics,
       { isShuttingDown: () => this.shutdownCoordinator.isShutdownInProgress() },
     );
+
+    this.healthMonitor = new HealthMonitor(this.cfg, withLoggerPrefix(this.baseLog, "clusterkit:health-monitor"), {
+      isShuttingDown: () => this.shutdownCoordinator.isShutdownInProgress(),
+      recycleWorker: (workerId, reason) => this.triggerWorkerRecycle(workerId, reason),
+      onHealthReport: (report) => this.safeEmit("worker:health", report),
+      onWedged: (info) => this.safeEmit("worker:wedged", info),
+    });
   }
 
   // ============================================================================
@@ -695,6 +705,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     this.drainCoordinator.recycle(oldWorker, newWorker);
   }
 
+  private triggerWorkerRecycle(_workerId: number, _reason: "rss" | "wedged"): void {}
+
   // ============================================================================
   // Shutdown coordination
   // ============================================================================
@@ -706,6 +718,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     clearInterval(this.crashCleanupInterval);
     this.restartCoordinator.cancelBackoffReset();
     this.workerManager.stopRecycling();
+    this.healthMonitor.stop();
 
     // Remove signal handlers
     this.unregisterSignalHandlers();
@@ -768,6 +781,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
   private async startWorker(start?: () => Promise<void> | void): Promise<void> {
     const handleShutdown = async (signal: string): Promise<void> => {
+      this.healthMonitor.stopWorkerReporting();
       // A POSIX signal (e.g. Ctrl+C delivered to the process group) and the
       // primary's IPC shutdown message can arrive concurrently — run the
       // shutdown sequence only once.
@@ -815,6 +829,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       }
     });
 
+    this.healthMonitor.startWorkerReporting();
     await start?.();
   }
 

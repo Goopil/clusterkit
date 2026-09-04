@@ -26,6 +26,7 @@ export class WorkerManager {
   // Event callback (injected from Orchestrator)
   private onWorkerOnlineCallback?: (worker: Worker) => void;
   private onWorkerExitCallback?: (worker: Worker, code: number | null, signal: string | null) => void;
+  private onWorkerMessageCallback?: (worker: Worker, msg: unknown) => void;
   private clusterOnlineListener?: (worker: Worker) => void;
   private clusterExitListener?: (worker: Worker, code: number | null, signal: string | null) => void;
 
@@ -50,9 +51,11 @@ export class WorkerManager {
   setupEventHandlers(
     onOnline: (worker: Worker) => void,
     onExit: (worker: Worker, code: number | null, signal: string | null) => void,
+    onMessage: (worker: Worker, msg: unknown) => void,
   ): void {
     this.onWorkerOnlineCallback = onOnline;
     this.onWorkerExitCallback = onExit;
+    this.onWorkerMessageCallback = onMessage;
 
     this.clusterExitListener = (worker, code, signal) => this.handleWorkerExit(worker, code, signal);
     this.clusterOnlineListener = (worker) => this.handleWorkerOnline(worker);
@@ -91,6 +94,8 @@ export class WorkerManager {
         error: err instanceof Error ? err.message : String(err),
       });
     });
+
+    worker.on("message", (msg) => this.onWorkerMessageCallback?.(worker, msg));
 
     this.workerStartTimes.set(worker.id, Date.now());
     this.metrics.activeWorkers++;
