@@ -109,8 +109,8 @@ export class RestartCoordinator {
           "ClusterKitCrashLoop",
         );
       }
-      this.metrics.crashLoopBackoffs++;
       this.deps.onBreakerTripped({ crashCount: this.crashTracker.count, windowMs: this.cfg.restart.crashWindowMs });
+      this.metrics.crashLoopBackoffs++;
       return;
     }
 
