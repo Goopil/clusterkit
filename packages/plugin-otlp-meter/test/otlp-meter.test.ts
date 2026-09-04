@@ -298,6 +298,18 @@ describe("metrics — event to counter mapping", () => {
 // Shutdown safety ===========================================================
 
 describe("shutdown safety", () => {
+  it("flushes and closes the provider when shutdown() is called manually", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+    expect(plugin.meterProvider).toBeDefined();
+
+    await plugin.shutdown();
+
+    expect(plugin.meterProvider).toBeUndefined();
+  });
+
   it("does not throw when uninstall() is called twice", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });

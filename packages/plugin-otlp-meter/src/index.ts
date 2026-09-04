@@ -233,5 +233,9 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
       }
       await shutdownProvider();
     },
+
+    async shutdown(): Promise<void> {
+      await shutdownProvider();
+    },
   };
 }
