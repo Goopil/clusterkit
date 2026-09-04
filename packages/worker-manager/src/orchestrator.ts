@@ -1,8 +1,10 @@
 import cluster, { type Worker } from "node:cluster";
 import { EventEmitter } from "node:events";
 import { CrashTracker } from "./crash-tracker";
+import { DrainCoordinator } from "./drain-coordinator";
 import { withLoggerPrefix } from "./logger";
 import { detectReusePortSupport, getPlatformCapabilities, type PlatformCapabilities } from "./platform";
+import { MAX_CONSECUTIVE_FORK_FAILURES, RestartCoordinator } from "./restart-coordinator";
 import { ShutdownCoordinator } from "./shutdown-coordinator";
 import { getCPUCount } from "./sizing";
 import {
@@ -22,20 +24,6 @@ import { WorkerManager } from "./worker-manager";
 const MAX_AUTO_WORKERS = 256;
 
 /**
- * Consecutive fork failures (EMFILE/ENOMEM...) tolerated before the restart
- * machinery declares the environment unrecoverable and stops retrying.
- */
-const MAX_CONSECUTIVE_FORK_FAILURES = 3;
-
-/**
- * A pending restart: either the restart of a crashed worker, or a capacity
- * refill queued by resetCircuitBreaker() (no worker actually crashed).
- */
-type RestartQueueEntry =
-  | { kind: "refill" }
-  | { kind: "crash"; workerId: number; code: number | null; signal: string | null };
-
-/**
  * Main orchestrator that coordinates worker lifecycle, shutdown, and health.
  * Delegates specific concerns to specialized services:
  * - WorkerManager: fork, tracking, recycling
@@ -50,6 +38,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // Services
   private readonly workerManager: WorkerManager;
   private readonly shutdownCoordinator: ShutdownCoordinator;
+  private readonly restartCoordinator: RestartCoordinator;
+  private readonly drainCoordinator: DrainCoordinator;
 
   // IPC message types
   private readonly shutdownType: string;
@@ -82,21 +72,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
   // Circuit breaker
   private readonly crashTracker: CrashTracker;
-  private breakerWarningEmitted = false;
 
   // Intervals
   private crashCleanupInterval?: NodeJS.Timeout;
-  private backoffResetTimer?: NodeJS.Timeout;
-
-  // Restart queue state
-  private restartLoopRunning = false;
-  private pendingRestartQueue: RestartQueueEntry[] = [];
-
-  // Exponential backoff for worker restarts
-  private restartBackoffDelay = 0;
-
-  // Consecutive forkWorker() failures — reset on any successful fork
-  private consecutiveForkFailures = 0;
 
   // Hot restart guard — prevents concurrent restartWorkers() calls
   private restartInProgress = false;
@@ -139,6 +117,34 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     this.shutdownCoordinator.setupCallbacks(
       (signal) => this.handleShutdownStart(signal),
       (metrics) => this.handleShutdownComplete(metrics),
+    );
+
+    this.restartCoordinator = new RestartCoordinator(
+      this.cfg,
+      withLoggerPrefix(this.baseLog, "clusterkit:restart-coordinator"),
+      this.metrics,
+      this.crashTracker,
+      {
+        forkWorker: () => this.workerManager.forkWorker(),
+        isShuttingDown: () => this.shutdownCoordinator.isShutdownInProgress(),
+        targetWorkerCount: () => this.resolveWorkerCount(),
+        recyclingCount: () => this.workerManager.getRecyclingCount(),
+        onRestarted: (worker) =>
+          this.safeEmit("worker:restart", { newWorkerId: worker.id, newPid: worker.process.pid ?? 0 }),
+        onBreakerTripped: (info) => {
+          // A tripped breaker means the cluster can no longer maintain capacity:
+          // flip readiness so load balancers / probes stop routing traffic here.
+          this.health.ready = false;
+          this.safeEmit("circuit-breaker:tripped", info);
+        },
+      },
+    );
+
+    this.drainCoordinator = new DrainCoordinator(
+      this.cfg,
+      withLoggerPrefix(this.baseLog, "clusterkit:drain-coordinator"),
+      this.metrics,
+      { isShuttingDown: () => this.shutdownCoordinator.isShutdownInProgress() },
     );
   }
 
@@ -336,9 +342,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    * allow crashed workers to be restarted again; missing capacity is refilled.
    */
   resetCircuitBreaker(): this {
-    this.crashTracker.reset();
-    this.restartBackoffDelay = 0;
-    this.consecutiveForkFailures = 0;
+    this.restartCoordinator.reset();
 
     if (!this.shutdownCoordinator.isShutdownInProgress()) {
       this.health.ready = true;
@@ -351,12 +355,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       // Refill any capacity lost while the breaker was tripped
       if (this.hasForked) {
         const missing = Math.max(0, this.resolveWorkerCount() - this.metrics.activeWorkers);
-        for (let i = 0; i < missing; i++) {
-          this.pendingRestartQueue.push({ kind: "refill" });
-        }
-        if (missing > 0) {
-          this.kickRestartQueue();
-        }
+        this.restartCoordinator.requestCapacityRefill(missing);
       }
     }
 
@@ -458,20 +457,20 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
           // A fork failure (EMFILE/ENOMEM...) leaves the old worker running
           // (still serving) — better than an unhandled exception killing the
           // primary. The worker is NOT marked for recycling.
-          this.consecutiveForkFailures++;
+          const attempt = this.restartCoordinator.noteForkFailure();
           this.log?.error("Hot restart fork failed — old worker left running", {
             workerId: oldWorker.id,
-            attempt: this.consecutiveForkFailures,
+            attempt,
             maxAttempts: MAX_CONSECUTIVE_FORK_FAILURES,
             error: err instanceof Error ? err.message : String(err),
           });
-          if (this.consecutiveForkFailures >= MAX_CONSECUTIVE_FORK_FAILURES) {
+          if (this.restartCoordinator.isForkEnvUnrecoverable()) {
             forkFailureBailout = true;
             break;
           }
           continue;
         }
-        this.consecutiveForkFailures = 0;
+        this.restartCoordinator.noteForkSuccess();
 
         // Mark only once the replacement exists, so a failed fork never leaks
         // a recycling mark for a worker that is still alive and serving.
@@ -479,7 +478,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
         this.handleWorkerRecycle(oldWorker, newWorker);
 
-        await this.awaitBoundedWorkerExit(oldWorker);
+        await this.drainCoordinator.awaitBoundedWorkerExit(oldWorker);
 
         restartedWorkerIds.push(oldWorker.id);
 
@@ -505,68 +504,6 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     } finally {
       this.restartInProgress = false;
     }
-  }
-
-  /**
-   * Wait for a recycled worker to exit during a hot restart, with a bounded
-   * wait: if the worker outlives the total shutdown budget (graceful timeout
-   * + signal delays) plus a margin, force-kill it so the rolling restart
-   * cannot deadlock on an "exit" event that never arrives (e.g. replacement
-   * never came online and the drain escalation in `handleWorkerRecycle`
-   * never armed).
-   *
-   * Implemented with an explicit setTimeout race instead of
-   * `once(worker, "exit", { signal: AbortSignal.timeout(ms) })` because
-   * AbortSignal.timeout is backed by native timers that never fire under
-   * vitest fake timers.
-   */
-  private async awaitBoundedWorkerExit(worker: Worker): Promise<void> {
-    // The worker may have died between the snapshot and this call: its "exit"
-    // event already fired, so waiting for it would stall for the full budget.
-    if (worker.isDead()) return;
-
-    const exitWaitMs = this.workerDrainBudgetMs;
-
-    await new Promise<void>((resolve) => {
-      let settled = false;
-      let graceTimer: NodeJS.Timeout | undefined;
-
-      const settle = () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(waitTimer);
-        if (graceTimer) clearTimeout(graceTimer);
-        worker.removeListener("exit", onExit);
-        worker.removeListener("exit", onGracePeriodExit);
-        resolve();
-      };
-
-      const onExit = () => settle();
-      const onGracePeriodExit = () => settle();
-
-      const waitTimer = setTimeout(() => {
-        this.log?.warn("Old worker did not exit in time during restart, forcing kill", {
-          workerId: worker.id,
-          pid: worker.process.pid ?? 0,
-        });
-        try {
-          if (!worker.isDead()) {
-            worker.process.kill("SIGKILL");
-            this.metrics.forcedKills++;
-          }
-        } catch {
-          /* already dead */
-        }
-        // Best-effort: give the force-killed worker a short grace period to
-        // emit "exit" before moving on to the next worker in the roll.
-        graceTimer = setTimeout(settle, 2_000);
-        graceTimer.unref();
-        worker.once("exit", onGracePeriodExit);
-      }, exitWaitMs);
-      waitTimer.unref();
-
-      worker.once("exit", onExit);
-    });
   }
 
   /**
@@ -697,10 +634,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // ============================================================================
 
   private handleWorkerOnline(worker: Worker): void {
-    // Reset backoff only after a sustained crash-free window
-    if (this.restartBackoffDelay > 0) {
-      this.scheduleBackoffReset(worker.id);
-    }
+    this.restartCoordinator.onWorkerOnline(worker.id);
 
     // Fleet back at target capacity: a failure exit code flagged while the
     // fleet was down (see handleWorkerExit) is resolved.
@@ -709,37 +643,6 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     }
 
     this.safeEmit("worker:online", { workerId: worker.id, pid: worker.process.pid ?? 0 });
-  }
-
-  private scheduleBackoffReset(workerId: number): void {
-    if (this.cfg.restart.stabilityWindowMs === 0) {
-      this.restartBackoffDelay = 0;
-      this.log?.info("Worker start successful, reset restart backoff", {
-        workerId,
-        stabilityWindowMs: 0,
-      });
-      return;
-    }
-
-    clearTimeout(this.backoffResetTimer);
-
-    this.backoffResetTimer = setTimeout(() => {
-      this.backoffResetTimer = undefined;
-
-      if (this.shutdownCoordinator.isShutdownInProgress() || this.restartBackoffDelay === 0) {
-        return;
-      }
-
-      this.restartBackoffDelay = 0;
-      this.log?.info("Cluster remained stable, reset restart backoff", {
-        stabilityWindowMs: this.cfg.restart.stabilityWindowMs,
-      });
-    }, this.cfg.restart.stabilityWindowMs).unref();
-  }
-
-  private clearBackoffResetTimer(): void {
-    clearTimeout(this.backoffResetTimer);
-    this.backoffResetTimer = undefined;
   }
 
   private handleWorkerExit(worker: Worker, code: number | null, signal: string | null): void {
@@ -762,7 +665,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
     // Any crash breaks stability and cancels pending backoff reset
     if (!worker.exitedAfterDisconnect) {
-      this.clearBackoffResetTimer();
+      this.restartCoordinator.cancelBackoffReset();
     }
 
     // Clean exit
@@ -772,177 +675,14 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       return;
     }
 
-    // Crash - record for circuit breaker (ALWAYS record, even if restart is locked)
+    // Crash - record for circuit breaker and decide restart/breaker fate
     this.safeEmit("worker:crash", {
       workerId: worker.id,
       pid: worker.process.pid ?? 0,
       code,
       signal,
     });
-    this.crashTracker.record();
-
-    // An empty fleet cannot recover on its own once the event loop drains
-    // (all restart/backoff timers are unref'd): flag a failure exit code so
-    // supervisors do not read the death of the primary as a clean stop.
-    // Cleared when capacity is restored (see handleWorkerOnline).
-    if (this.metrics.activeWorkers === 0) {
-      process.exitCode = 1;
-    }
-
-    if (this.crashTracker.isTripped()) {
-      this.log?.error("Crash loop detected — stopping restarts", {
-        crashCount: this.crashTracker.count,
-        windowMs: this.cfg.restart.crashWindowMs,
-      });
-      // A tripped breaker means the cluster can no longer maintain capacity:
-      // flip readiness so load balancers / probes stop routing traffic here.
-      this.health.ready = false;
-      // ... and flag a failure exit code: a tripped breaker self-terminates
-      // the primary once the fleet drains, and exit 0 would mask the crash.
-      // Cleared by resetCircuitBreaker() or restored capacity.
-      process.exitCode = 1;
-      // The default logger is null: without this, a minimal setup loses
-      // restart capacity with zero output. One warning per trip.
-      if (!this.breakerWarningEmitted) {
-        this.breakerWarningEmitted = true;
-        process.emitWarning(
-          "Crash loop detected — stopping worker restarts. Fix the cause, then call resetCircuitBreaker() to re-arm.",
-          "ClusterKitCrashLoop",
-        );
-      }
-      this.safeEmit("circuit-breaker:tripped", {
-        crashCount: this.crashTracker.count,
-        windowMs: this.cfg.restart.crashWindowMs,
-      });
-      this.metrics.crashLoopBackoffs++;
-      return;
-    }
-
-    // Breaker no longer tripped (reset or window slid) — a future trip warns again
-    this.breakerWarningEmitted = false;
-
-    // Queue restart and process asynchronously
-    this.pendingRestartQueue.push({ kind: "crash", workerId: worker.id, code, signal });
-    this.kickRestartQueue();
-  }
-
-  private kickRestartQueue(): void {
-    this.processRestartQueue().catch((err) => {
-      this.log?.error("Restart queue processing failed", {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
-  }
-
-  private async processRestartQueue(): Promise<void> {
-    if (this.restartLoopRunning) return;
-    this.restartLoopRunning = true;
-
-    try {
-      while (this.pendingRestartQueue.length > 0) {
-        if (this.shutdownCoordinator.isShutdownInProgress()) {
-          this.pendingRestartQueue = [];
-          return;
-        }
-
-        // A tripped breaker stops all forks: queued entries are dropped —
-        // resetCircuitBreaker() refills the missing capacity after the reset.
-        if (this.crashTracker.isTripped()) {
-          this.pendingRestartQueue = [];
-          return;
-        }
-
-        const entry = this.pendingRestartQueue.shift();
-        if (!entry) return;
-
-        // Workers being recycled are still alive but already have a replacement
-        // (or are about to exit) — exclude them so a crash overlapping a recycle
-        // is not silently dropped, leaving the cluster under capacity.
-        const targetWorkers = this.resolveWorkerCount();
-        const settledWorkers = this.metrics.activeWorkers - this.workerManager.getRecyclingCount();
-        const missingWorkers = Math.max(0, targetWorkers - settledWorkers);
-        if (missingWorkers === 0) {
-          continue;
-        }
-
-        await this.restartWorkerWithBackoff(entry);
-      }
-    } finally {
-      this.restartLoopRunning = false;
-
-      if (this.pendingRestartQueue.length > 0 && !this.shutdownCoordinator.isShutdownInProgress()) {
-        this.kickRestartQueue();
-      }
-    }
-  }
-
-  private async restartWorkerWithBackoff(entry: RestartQueueEntry): Promise<void> {
-    const crashedWorkerId = entry.kind === "crash" ? entry.workerId : undefined;
-
-    const delayMs = this.restartBackoffDelay > 0 ? this.restartBackoffDelay : this.cfg.restart.backoffMs;
-
-    if (delayMs > 0) {
-      this.log?.info("Waiting before restart", { delayMs, workerId: crashedWorkerId });
-      await new Promise((resolve) => setTimeout(resolve, delayMs).unref());
-
-      // Double check shutdown hasn't started during wait
-      if (this.shutdownCoordinator.isShutdownInProgress()) {
-        this.log?.info("Shutdown started during backoff, aborting restart", { workerId: crashedWorkerId });
-        return;
-      }
-    }
-
-    // Fork-time breaker check: a trip between queueing and forking must not
-    // leak a fork past the breaker. resetCircuitBreaker() refills the missing
-    // capacity after the operator reset.
-    if (this.crashTracker.isTripped()) {
-      return;
-    }
-
-    if (entry.kind === "crash") {
-      this.log?.warn("Worker crashed, restarting", {
-        workerId: entry.workerId,
-        code: entry.code,
-        signal: entry.signal,
-      });
-    } else {
-      this.log?.info("Refilling capacity after circuit breaker reset");
-    }
-
-    let newWorker: Worker;
-    try {
-      newWorker = this.workerManager.forkWorker();
-    } catch (err) {
-      // A fork failure (EMFILE/ENOMEM...) must not permanently shrink the
-      // fleet: re-queue the entry so it is retried through the normal backoff.
-      this.consecutiveForkFailures++;
-      this.log?.error("Worker fork failed — restart re-queued", {
-        attempt: this.consecutiveForkFailures,
-        maxAttempts: MAX_CONSECUTIVE_FORK_FAILURES,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      if (this.consecutiveForkFailures >= MAX_CONSECUTIVE_FORK_FAILURES) {
-        // Unrecoverable fork environment: flag a failure exit code (same
-        // protocol as a breaker trip) and stop retrying.
-        this.log?.error("Fork failing repeatedly — giving up on pending restarts", {
-          maxAttempts: MAX_CONSECUTIVE_FORK_FAILURES,
-        });
-        process.exitCode = 1;
-        this.pendingRestartQueue.length = 0;
-        return;
-      }
-      this.pendingRestartQueue.push(entry);
-      return;
-    }
-    this.consecutiveForkFailures = 0;
-
-    this.metrics.workerRestarts++;
-    this.safeEmit("worker:restart", { newWorkerId: newWorker.id, newPid: newWorker.process.pid ?? 0 });
-
-    // Increase backoff for next restart
-    // First restart: use initial delay, others: multiply by factor
-    const nextDelay = delayMs > 0 ? delayMs * this.cfg.restart.backoffMultiplier : this.cfg.restart.backoffMs;
-    this.restartBackoffDelay = Math.min(nextDelay, this.cfg.restart.maxBackoffMs);
+    this.restartCoordinator.onWorkerCrash(worker.id, code, signal);
   }
 
   private handleWorkerRecycle(oldWorker: Worker, newWorker: Worker): void {
@@ -952,111 +692,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       pid: oldWorker.process.pid ?? 0,
       ageMs,
     });
-
-    // If the replacement dies before coming online (OOM at boot, invalid
-    // flag...), the online handler below never runs and the old worker would
-    // linger undrained — drain it instead so the recycle still completes.
-    let replacementOnline = false;
-    let drained = false;
-    const drainOldWorker = (): void => {
-      if (drained) return;
-      drained = true;
-      clearTimeout(drainFailsafeTimer);
-      this.drainRecycledWorker(oldWorker);
-    };
-
-    newWorker.once("exit", () => {
-      if (drained || replacementOnline || this.shutdownCoordinator.isShutdownInProgress()) return;
-      this.log?.warn("Replacement died before online, draining old worker", { workerId: oldWorker.id });
-      drainOldWorker();
-    });
-
-    // Disconnect old worker after new one is online
-    newWorker.once("online", () => {
-      replacementOnline = true;
-      if (this.shutdownCoordinator.isShutdownInProgress()) return;
-      drainOldWorker();
-    });
-
-    // Failsafe: the drain trigger fires only on the replacement's "online" or
-    // "exit" event — a replacement that is forked but stuck before "online"
-    // (boot hang) and never exits would leave the old worker undrained
-    // forever. Drain it anyway once the same bounded budget as
-    // awaitBoundedWorkerExit expires.
-    const drainFailsafeTimer = setTimeout(() => {
-      if (replacementOnline || this.shutdownCoordinator.isShutdownInProgress() || oldWorker.isDead()) return;
-      this.log?.warn("Replacement did not come online in time, draining old worker anyway", {
-        workerId: oldWorker.id,
-        newWorkerId: newWorker.id,
-      });
-      drainOldWorker();
-    }, this.workerDrainBudgetMs);
-    drainFailsafeTimer.unref();
-  }
-
-  /**
-   * Drain a recycled worker: request shutdown, disconnect, then escalate to
-   * SIGTERM and SIGKILL if the worker does not exit on its own.
-   */
-  private drainRecycledWorker(oldWorker: Worker): void {
-    // A worker can exit concurrently with the drain: its IPC write then fails
-    // with 'write EPIPE'/'channel closed', which Node surfaces as an ASYNC
-    // 'error' event on worker.process (child_process._send) — after the sync
-    // try/catch below has passed, and fatal to the primary without a
-    // listener. Route send errors to a no-op callback (Worker.send delegates
-    // to process.send, which routes send errors to a callback when given)
-    // and keep a no-op 'error' listener on the process for the worker's
-    // remaining lifetime: disconnect()'s internal send accepts no callback,
-    // so its failure can only be absorbed by the listener (same pattern as
-    // ShutdownCoordinator.initiateShutdown).
-    const swallowError = (): void => {};
-    oldWorker.process.on("error", swallowError);
-
-    try {
-      oldWorker.send({ type: this.shutdownType }, swallowError);
-      if (!oldWorker.isDead()) oldWorker.disconnect();
-    } catch {
-      /* worker already dead */
-    }
-
-    if (oldWorker.isDead()) return;
-
-    // Escalate on the same budget as a coordinated shutdown: the worker keeps
-    // its full graceful window (shutdown.timeoutMs) before SIGTERM, then the
-    // same SIGTERM→SIGINT→SIGKILL escalation window (sigtermDelayMs +
-    // sigintDelayMs) before SIGKILL — matching what
-    // ShutdownCoordinator.killWorkerGradually would spend on it.
-    // Calling disconnect() again is a no-op on an already-disconnected
-    // worker, so we must escalate to signals to prevent a stuck worker
-    // from leaking.
-    //
-    // The sigkillTimer's exit listener is registered inside the
-    // forceKillTimer callback — so if the worker exits after SIGTERM
-    // (before the SIGKILL window), the timer is cleared. Both
-    // listeners use once(), so no listener accumulation across recycles.
-    const forceKillTimer = setTimeout(() => {
-      if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
-        try {
-          oldWorker.process.kill("SIGTERM");
-        } catch {
-          /* already dead */
-        }
-        const sigkillTimer = setTimeout(() => {
-          if (!oldWorker.isDead() && !this.shutdownCoordinator.isShutdownInProgress()) {
-            try {
-              oldWorker.process.kill("SIGKILL");
-              this.metrics.forcedKills++;
-            } catch {
-              /* already dead */
-            }
-          }
-        }, this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs);
-        sigkillTimer.unref();
-        oldWorker.once("exit", () => clearTimeout(sigkillTimer));
-      }
-    }, this.cfg.shutdown.timeoutMs);
-    forceKillTimer.unref();
-    oldWorker.once("exit", () => clearTimeout(forceKillTimer));
+    this.drainCoordinator.recycle(oldWorker, newWorker);
   }
 
   // ============================================================================
@@ -1068,7 +704,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
     // Stop intervals
     clearInterval(this.crashCleanupInterval);
-    this.clearBackoffResetTimer();
+    this.restartCoordinator.cancelBackoffReset();
     this.workerManager.stopRecycling();
 
     // Remove signal handlers
@@ -1201,15 +837,6 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // ============================================================================
   // Helpers
   // ============================================================================
-
-  /**
-   * Budget for a recycled/replaced worker to exit on its own: the full
-   * shutdown escalation window (graceful timeout + signal delays) plus a
-   * margin, after which it is force-killed.
-   */
-  private get workerDrainBudgetMs(): number {
-    return this.cfg.shutdown.timeoutMs + this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs + 5_000;
-  }
 
   private registerSignalHandlers(handlers: Partial<Record<NodeJS.Signals, () => void>>): void {
     for (const [signal, handler] of Object.entries(handlers)) {
