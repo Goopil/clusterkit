@@ -57,6 +57,11 @@ Related support modules:
   bind is a false positive on Node < 22.12)
 - `sizing.ts` / `cgroup.ts` — CPU detection and cgroup v1/v2 limits for `workers: 'auto'`
 - `crash-tracker.ts` — sliding-window crash counter / circuit-breaker logic
+- `restart-coordinator.ts` — `RestartCoordinator`: crash-restart machinery (restart queue,
+  exponential backoff, fork-failure accounting, breaker reactions). Owns failure exit codes;
+  the Orchestrator owns recovery (`exitCode = 0`, `health.ready = true`).
+- `drain-coordinator.ts` — bounded drain of replaced workers (IPC shutdown → disconnect →
+  SIGTERM → SIGKILL), shared by age-based recycling and hot restarts.
 - `validation.ts` — config validation and defaulting → `ResolvedConfig` (`workers.env`, `workers.execArgv`, and
   `clusterModule` stay `| undefined` — no meaningful default)
 - `logger.ts` — logger facade
