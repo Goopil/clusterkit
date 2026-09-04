@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Orchestrator } from "../src/orchestrator";
+import type { RestartCoordinator, RestartQueueEntry } from "../src/restart-coordinator";
 import { getCPUCount } from "../src/sizing";
 import { WorkerManagerValidationError } from "../src/validation";
 
@@ -898,13 +899,8 @@ describe("Orchestrator", () => {
       await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
 
       const restartSpy = vi.spyOn(
-        orch as unknown as {
-          restartWorkerWithBackoff: (entry: {
-            kind: "crash";
-            workerId: number;
-            code: number | null;
-            signal: string | null;
-          }) => Promise<void>;
+        (orch as unknown as { restartCoordinator: RestartCoordinator }).restartCoordinator as unknown as {
+          restartWorkerWithBackoff: (entry: RestartQueueEntry) => Promise<void>;
         },
         "restartWorkerWithBackoff",
       );
@@ -1086,22 +1082,15 @@ describe("Orchestrator", () => {
         const restartEvents: unknown[] = [];
         orch.on("worker:restart", (d) => restartEvents.push(d));
 
-        (
-          orch as unknown as {
-            pendingRestartQueue: Array<{ kind: "crash"; workerId: number; code: number | null; signal: string | null }>;
-          }
-        ).pendingRestartQueue.push({
+        const coordinator = (orch as unknown as { restartCoordinator: RestartCoordinator }).restartCoordinator;
+        (coordinator as unknown as { pendingRestartQueue: RestartQueueEntry[] }).pendingRestartQueue.push({
           kind: "crash",
           workerId: 999,
           code: 1,
           signal: null,
         });
 
-        await (
-          orch as unknown as {
-            processRestartQueue: () => Promise<void>;
-          }
-        ).processRestartQueue();
+        await (coordinator as unknown as { processRestartQueue: () => Promise<void> }).processRestartQueue();
 
         expect(restartEvents).toHaveLength(0);
       } finally {
@@ -1140,7 +1129,10 @@ describe("Orchestrator", () => {
       const crashed = Object.values(mockCluster.workers)[0];
       mockCluster.emit("exit", crashed, 1, null);
       expect(orch.getMetrics().activeWorkers).toBe(1);
-      expect((orch as unknown as { restartLoopRunning: boolean }).restartLoopRunning).toBe(true);
+      expect(
+        (orch as unknown as { restartCoordinator: { restartLoopRunning: boolean } }).restartCoordinator
+          .restartLoopRunning,
+      ).toBe(true);
 
       // Shutdown begins while the backoff is still pending
       for (const w of Object.values(mockCluster.workers)) {
