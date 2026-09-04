@@ -8,7 +8,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "lcov", "html"],
       exclude: ["node_modules/**", "dist/**", "**/*.d.ts", "**/*.config.ts", "test/**"],
-      // AUDIT-033: per-file floors pinned ~2 points below measured coverage so
+      // Per-file floors pinned ~2 points below measured coverage so
       // newly uncovered code in any file fails CI. Globals below still gate totals.
       thresholds: {
         lines: 85,
@@ -21,7 +21,6 @@ export default defineConfig({
         "src/orchestrator.ts": { lines: 93, branches: 76 },
         "src/platform.ts": { lines: 74, branches: 49 },
         "src/shutdown-coordinator.ts": { lines: 93, branches: 76 },
-        "src/signal-handler.ts": { lines: 98, branches: 98 },
         "src/sizing.ts": { lines: 78, branches: 48 },
         "src/types.ts": { lines: 98, branches: 98 },
         "src/validation.ts": { lines: 96, branches: 97 },

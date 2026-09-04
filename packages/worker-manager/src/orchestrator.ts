@@ -4,7 +4,6 @@ import { CrashTracker } from "./crash-tracker";
 import { withLoggerPrefix } from "./logger";
 import { detectReusePortSupport, getPlatformCapabilities, type PlatformCapabilities } from "./platform";
 import { ShutdownCoordinator } from "./shutdown-coordinator";
-import { SignalHandler } from "./signal-handler";
 import { getCPUCount } from "./sizing";
 import {
   type HealthStatus,
@@ -41,7 +40,6 @@ type RestartQueueEntry =
  * Delegates specific concerns to specialized services:
  * - WorkerManager: fork, tracking, recycling
  * - ShutdownCoordinator: graceful shutdown sequence
- * - SignalHandler: POSIX signal management
  */
 export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   private readonly cfg: ResolvedConfig;
@@ -52,7 +50,6 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // Services
   private readonly workerManager: WorkerManager;
   private readonly shutdownCoordinator: ShutdownCoordinator;
-  private readonly signalHandler: SignalHandler;
 
   // IPC message types
   private readonly shutdownType: string;
@@ -104,6 +101,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // Hot restart guard — prevents concurrent restartWorkers() calls
   private restartInProgress = false;
 
+  // Registered POSIX signal handlers, tracked for symmetric cleanup
+  private readonly signalHandlers: Array<[NodeJS.Signals, () => void]> = [];
+
   constructor(config: OrchestratorConfig = {}) {
     super();
     this.cfg = validateConfig(config);
@@ -129,8 +129,6 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       this.metrics,
       this.cfg.shutdown.messagePrefix,
     );
-
-    this.signalHandler = new SignalHandler();
 
     // Wire up service callbacks
     this.workerManager.setupEventHandlers(
@@ -527,8 +525,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // event already fired, so waiting for it would stall for the full budget.
     if (worker.isDead()) return;
 
-    const exitWaitMs =
-      this.cfg.shutdown.timeoutMs + this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs + 5_000;
+    const exitWaitMs = this.workerDrainBudgetMs;
 
     await new Promise<void>((resolve) => {
       let settled = false;
@@ -603,7 +600,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // arriving in the boot window must trigger a graceful shutdown (which
     // no-ops safely on an empty fleet) instead of Node's default handler
     // killing the primary and orphaning the workers (#93).
-    this.signalHandler.register({
+    this.registerSignalHandlers({
       SIGTERM: () => this.handleShutdownSignal("SIGTERM"),
       SIGINT: () => this.handleShutdownSignal("SIGINT"),
       SIGHUP: () => {
@@ -654,7 +651,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   private startSingleWorkerPrimary(): void {
     // Without these handlers a PID 1 process ignores SIGTERM entirely and
     // `docker stop` escalates to SIGKILL without ever draining the app.
-    this.signalHandler.register({
+    this.registerSignalHandlers({
       SIGTERM: () => void this.shutdownSingleWorker("SIGTERM"),
       SIGINT: () => void this.shutdownSingleWorker("SIGINT"),
       SIGHUP: () => {
@@ -673,7 +670,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     this.safeEmit("shutdown:start", { signal });
     this.log?.info("Single-worker shutdown initiated", { signal });
 
-    this.signalHandler.unregister();
+    this.unregisterSignalHandlers();
 
     let shutdownTimedOut = false;
     const exitTimer = setTimeout(() => {
@@ -986,17 +983,14 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // (boot hang) and never exits would leave the old worker undrained
     // forever. Drain it anyway once the same bounded budget as
     // awaitBoundedWorkerExit expires.
-    const drainFailsafeTimer = setTimeout(
-      () => {
-        if (replacementOnline || this.shutdownCoordinator.isShutdownInProgress() || oldWorker.isDead()) return;
-        this.log?.warn("Replacement did not come online in time, draining old worker anyway", {
-          workerId: oldWorker.id,
-          newWorkerId: newWorker.id,
-        });
-        drainOldWorker();
-      },
-      this.cfg.shutdown.timeoutMs + this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs + 5_000,
-    );
+    const drainFailsafeTimer = setTimeout(() => {
+      if (replacementOnline || this.shutdownCoordinator.isShutdownInProgress() || oldWorker.isDead()) return;
+      this.log?.warn("Replacement did not come online in time, draining old worker anyway", {
+        workerId: oldWorker.id,
+        newWorkerId: newWorker.id,
+      });
+      drainOldWorker();
+    }, this.workerDrainBudgetMs);
     drainFailsafeTimer.unref();
   }
 
@@ -1078,7 +1072,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     this.workerManager.stopRecycling();
 
     // Remove signal handlers
-    this.signalHandler.unregister();
+    this.unregisterSignalHandlers();
 
     // Mark not ready
     this.health.ready = false;
@@ -1207,6 +1201,30 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // ============================================================================
   // Helpers
   // ============================================================================
+
+  /**
+   * Budget for a recycled/replaced worker to exit on its own: the full
+   * shutdown escalation window (graceful timeout + signal delays) plus a
+   * margin, after which it is force-killed.
+   */
+  private get workerDrainBudgetMs(): number {
+    return this.cfg.shutdown.timeoutMs + this.cfg.shutdown.sigtermDelayMs + this.cfg.shutdown.sigintDelayMs + 5_000;
+  }
+
+  private registerSignalHandlers(handlers: Partial<Record<NodeJS.Signals, () => void>>): void {
+    for (const [signal, handler] of Object.entries(handlers)) {
+      if (!handler) continue;
+      process.on(signal as NodeJS.Signals, handler);
+      this.signalHandlers.push([signal as NodeJS.Signals, handler]);
+    }
+  }
+
+  private unregisterSignalHandlers(): void {
+    for (const [signal, handler] of this.signalHandlers) {
+      process.off(signal, handler);
+    }
+    this.signalHandlers.length = 0;
+  }
 
   /**
    * Emit without letting a throwing listener propagate into internal control

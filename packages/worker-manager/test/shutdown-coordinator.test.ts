@@ -192,7 +192,7 @@ describe("ShutdownCoordinator", () => {
   });
 
   // ── waitForWorkersToExit must wait for ALL workers ────────────────────────
-  // AUDIT-033 item 6: swapping every() → some() passed CI — the exit wait
+  // swapping every() → some() passed CI — the exit wait
   // resolved as soon as ONE worker was dead, declaring shutdown successful
   // while another worker was still alive.
 
