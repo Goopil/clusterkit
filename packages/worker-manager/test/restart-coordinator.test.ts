@@ -244,6 +244,30 @@ describe("RestartCoordinator", () => {
       expect(h.fork).toHaveBeenCalledTimes(2);
     });
 
+    it("does not reset backoff when the fleet is not stable during the window", async () => {
+      vi.useFakeTimers();
+      const h = makeCoordinator({ restart: { backoffMs: 1_000, backoffMultiplier: 4, stabilityWindowMs: 5_000 } });
+      h.metrics.activeWorkers = 2;
+
+      crash(h, 1);
+      await vi.advanceTimersByTimeAsync(1_000); // first restart (backoff → 4s)
+      const restarted = h.restarts[0];
+
+      // Replacement comes online → schedules the backoff reset
+      h.coordinator.onWorkerOnline(restarted.id);
+      await vi.advanceTimersByTimeAsync(4_999); // 1ms before the window elapses
+
+      // A crash before the window elapses breaks stability — mirrors
+      // Orchestrator.handleWorkerExit's unclean-exit path.
+      h.coordinator.cancelBackoffReset();
+      crash(h, restarted.id);
+
+      await vi.advanceTimersByTimeAsync(3_999); // elevated 4s backoff, not the 1s base
+      expect(h.fork).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(h.fork).toHaveBeenCalledTimes(2);
+    });
+
     it("resets restart backoff immediately when stabilityWindowMs is 0", async () => {
       vi.useFakeTimers();
       const h = makeCoordinator({ restart: { backoffMs: 1_000, backoffMultiplier: 4, stabilityWindowMs: 0 } });
