@@ -321,5 +321,15 @@ describe("validation", () => {
       expect(() => validateConfig({ workers: { maxRssMb: -1 } })).toThrow(WorkerManagerValidationError);
       expect(() => validateConfig({ restart: { bootFailQuarantine: -1 } })).toThrow(WorkerManagerValidationError);
     });
+
+    it.each([
+      ["health.heartbeatMs", { health: { heartbeatMs: 2.5 } }],
+      ["health.wedgedTimeoutMs", { health: { wedgedTimeoutMs: 2.5 } }],
+      ["health.degradedAfterMs", { health: { degradedAfterMs: 2.5 } }],
+      ["workers.maxRssMb", { workers: { maxRssMb: 1.5 } }],
+      ["restart.bootFailQuarantine", { restart: { bootFailQuarantine: 1.5 } }],
+    ])("rejects non-integer %s", (_field, config) => {
+      expect(() => validateConfig(config)).toThrow(WorkerManagerValidationError);
+    });
   });
 });
