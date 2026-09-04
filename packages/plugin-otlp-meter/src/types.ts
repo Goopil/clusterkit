@@ -44,10 +44,4 @@ export interface OtlpMeterPlugin extends OrchestratorPlugin {
    * undefined before install).
    */
   readonly meterProvider: MeterProvider | undefined;
-
-  /**
-   * Gracefully shut down the provider and flush pending exports.
-   * Also registered via orchestrator.registerOnShutdown() during install.
-   */
-  shutdown(): Promise<void>;
 }

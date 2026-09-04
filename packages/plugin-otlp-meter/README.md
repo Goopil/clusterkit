@@ -73,8 +73,10 @@ orchestrator.use(otlp).run(async () => {
 
 ```ts
 otlp.meterProvider; // MeterProvider | undefined
-await otlp.shutdown(); // flush and close
 ```
+
+The meter provider is flushed and closed automatically during the orchestrator's
+graceful shutdown. To release it manually, call `plugin.uninstall()`.
 
 ## Custom metrics
 

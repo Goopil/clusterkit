@@ -95,11 +95,12 @@ function bodyContains(body: Buffer, needle: string): boolean {
   return body.toString("utf8").includes(needle);
 }
 
-async function gracefulShutdown(orch: Orchestrator, plugin: { shutdown(): Promise<void> }): Promise<void> {
+async function gracefulShutdown(orch: Orchestrator): Promise<void> {
+  // The flush itself happens inside the orchestrator shutdown flow, via the
+  // registerOnShutdown callback the plugin registered during install().
   const shutdownDone = once(orch, "shutdown:complete");
   process.emit("SIGTERM");
   await shutdownDone;
-  await plugin.shutdown();
 }
 
 describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
@@ -134,7 +135,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     expect(collectedContentTypes[0]).toContain("application/");
     expect(bodyContains(body, "clusterkit.active_workers")).toBe(true);
 
-    await gracefulShutdown(orch, plugin);
+    await gracefulShutdown(orch);
   }, 15_000);
 
   it("exports worker.crashes counter after a real worker crash", async () => {
@@ -183,7 +184,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     const body = await waitForFirstExport();
     expect(bodyContains(body, "clusterkit.worker.crashes")).toBe(true);
 
-    await gracefulShutdown(orch, plugin);
+    await gracefulShutdown(orch);
   }, 15_000);
 
   it("exports custom metrics created via global metrics.getMeter()", async () => {
@@ -226,7 +227,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     expect(bodyContains(body, "e2e.custom.requests")).toBe(true);
     expect(bodyContains(body, "clusterkit.active_workers")).toBe(true);
 
-    await gracefulShutdown(orch, plugin);
+    await gracefulShutdown(orch);
   }, 15_000);
 
   it("sends payloads with correct OTLP/HTTP content type", async () => {
@@ -261,7 +262,7 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     expect(collectedContentTypes[0]).toBe("application/json");
     expect(collectedBodies[0].length).toBeGreaterThan(0);
 
-    await gracefulShutdown(orch, plugin);
+    await gracefulShutdown(orch);
   }, 15_000);
 
   it("exports all 4 orchestration metric names in a single payload", async () => {
@@ -313,6 +314,6 @@ describe("OTLP meter plugin e2e — full orchestrator + mock collector", () => {
     expect(bodyContains(body, "e2e.active_workers")).toBe(true);
     expect(bodyContains(body, "e2e.worker.crashes")).toBe(true);
 
-    await gracefulShutdown(orch, plugin);
+    await gracefulShutdown(orch);
   }, 15_000);
 });

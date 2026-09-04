@@ -155,7 +155,6 @@ describe("OtlpMeterPlugin interface", () => {
     expect(plugin.name).toBe("otlp-meter");
     expect(typeof plugin.install).toBe("function");
     expect(typeof plugin.uninstall).toBe("function");
-    expect(typeof plugin.shutdown).toBe("function");
   });
 
   it("exposes meterProvider as undefined before install", async () => {
@@ -199,7 +198,7 @@ describe("options validation", () => {
     await plugin.install(orch, null, singleWorkerConfig());
 
     expect(plugin.meterProvider).toBeDefined();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("accepts exportIntervalMs above the floor (1500)", async () => {
@@ -209,7 +208,7 @@ describe("options validation", () => {
     await plugin.install(orch, null, singleWorkerConfig());
 
     expect(plugin.meterProvider).toBeDefined();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 });
 
@@ -228,7 +227,7 @@ describe("metrics — event to counter mapping", () => {
     expect(spies["clusterkit.worker.crashes"]).toHaveBeenCalledTimes(1);
     expect(spies["clusterkit.worker.crashes"]).toHaveBeenCalledWith(1);
     restore();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("worker:restart increments worker.restarts counter", async () => {
@@ -243,7 +242,7 @@ describe("metrics — event to counter mapping", () => {
     expect(spies["clusterkit.worker.restarts"]).toHaveBeenCalledTimes(1);
     expect(spies["clusterkit.worker.restarts"]).toHaveBeenCalledWith(1);
     restore();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("circuit-breaker:tripped increments circuit_breaker.trips counter", async () => {
@@ -258,7 +257,7 @@ describe("metrics — event to counter mapping", () => {
     expect(spies["clusterkit.circuit_breaker.trips"]).toHaveBeenCalledTimes(1);
     expect(spies["clusterkit.circuit_breaker.trips"]).toHaveBeenCalledWith(1);
     restore();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("counters accumulate across multiple events", async () => {
@@ -274,7 +273,7 @@ describe("metrics — event to counter mapping", () => {
 
     expect(spies["clusterkit.worker.restarts"]).toHaveBeenCalledTimes(3);
     restore();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("does not duplicate event listeners after uninstall and reinstall", async () => {
@@ -292,24 +291,24 @@ describe("metrics — event to counter mapping", () => {
 
     expect(spies["clusterkit.worker.restarts"]).toHaveBeenCalledTimes(1);
     restore();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 });
 
-// Double shutdown guard =====================================================
+// Shutdown safety ===========================================================
 
 describe("shutdown safety", () => {
-  it("does not throw when shutdown() is called twice", async () => {
+  it("does not throw when uninstall() is called twice", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
     const orch = mockOrchestrator();
     await plugin.install(orch, null, singleWorkerConfig());
 
-    await plugin.shutdown();
-    await expect(plugin.shutdown()).resolves.not.toThrow();
+    await plugin.uninstall?.(orch);
+    await expect(plugin.uninstall?.(orch)).resolves.not.toThrow();
   });
 
-  it("does not throw when shutdown callback and shutdown() both fire", async () => {
+  it("does not throw when the shutdown callback and uninstall() both fire", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     let shutdownCb: (() => void | Promise<void>) | undefined;
     const orch = mockOrchestrator();
@@ -320,7 +319,7 @@ describe("shutdown safety", () => {
     await plugin.install(orch, null, singleWorkerConfig());
 
     await shutdownCb?.();
-    await expect(plugin.shutdown()).resolves.not.toThrow();
+    await expect(plugin.uninstall?.(orch)).resolves.not.toThrow();
   });
 
   it("resets the shutdown latch on reinstall so the new provider can be shut down", async () => {
@@ -330,7 +329,7 @@ describe("shutdown safety", () => {
 
     await plugin.install(orch, null, singleWorkerConfig());
     const first = plugin.meterProvider;
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
     expect(plugin.meterProvider).toBeUndefined();
 
     // Reinstall the same instance after shutdown: the new provider must be usable
@@ -339,8 +338,8 @@ describe("shutdown safety", () => {
     expect(second).toBeDefined();
     expect(second).not.toBe(first);
 
-    // The latch was reset: shutdown() must actually shut down the new provider
-    await plugin.shutdown();
+    // The latch was reset: uninstall() must actually shut down the new provider
+    await plugin.uninstall?.(orch);
     expect(plugin.meterProvider).toBeUndefined();
   });
 });
@@ -356,7 +355,7 @@ describe("plugin lifecycle", () => {
     await plugin.install(orch, logger, singleWorkerConfig());
 
     expect(logger.debug).toHaveBeenCalledWith("[clusterkit:otlp-meter] Plugin installed on primary process", undefined);
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("clears listeners on uninstall", async () => {
@@ -370,7 +369,7 @@ describe("plugin lifecycle", () => {
     await plugin.uninstall?.(orch);
 
     expect((orch as unknown as EventEmitter).listenerCount("worker:crash")).toBe(0);
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("flushes the meter provider on uninstall", async () => {
@@ -397,7 +396,7 @@ describe("single-worker mode", () => {
     await plugin.install(orch, null, singleWorkerConfig());
 
     expect(plugin.meterProvider).toBeDefined();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("creates meter provider when workers is 'auto' and resolves to 1", async () => {
@@ -407,7 +406,7 @@ describe("single-worker mode", () => {
     await plugin.install(orch, null, autoWorkerConfig());
 
     expect(plugin.meterProvider).toBeDefined();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 });
 
@@ -421,7 +420,7 @@ describe("instrumentation", () => {
     await plugin.install(orch, null, singleWorkerConfig());
 
     expect(mockHostMetricsStart).toHaveBeenCalledTimes(1);
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("does not start host metrics when instrumentation is false", async () => {
@@ -431,7 +430,7 @@ describe("instrumentation", () => {
     await plugin.install(orch, null, singleWorkerConfig());
 
     expect(mockHostMetricsStart).not.toHaveBeenCalled();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 });
 
@@ -449,7 +448,7 @@ describe("custom prefix", () => {
 
     expect(spies["myapp.worker.crashes"]).toHaveBeenCalledTimes(1);
     restore();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 });
 
@@ -469,7 +468,7 @@ describe("exporter headers option", () => {
     expect(exporterCtorArgs.http).toEqual([
       { url: "http://localhost:4318/v1/metrics", headers: { Authorization: "Bearer test-token" } },
     ]);
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("warns and omits headers for the grpc exporter (unsupported)", async () => {
@@ -490,7 +489,7 @@ describe("exporter headers option", () => {
     );
     // The gRPC exporter config has no `headers` support: constructed without them.
     expect(exporterCtorArgs.grpc).toEqual([{ url: "localhost:4317" }]);
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 });
 
@@ -627,7 +626,7 @@ describe("meter version constant", () => {
       expect(getMeterCalls).toContainEqual(["@goopil/clusterkit", pkg.version]);
     } finally {
       MeterProvider.prototype.getMeter = origGetMeter;
-      await plugin.shutdown();
+      await plugin.uninstall?.(orch);
     }
   });
 });
@@ -658,22 +657,24 @@ describe("global meter provider preservation", () => {
 
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
-    await plugin.install(mockOrchestrator(), logger, singleWorkerConfig());
+    const orch = mockOrchestrator();
+    await plugin.install(orch, logger, singleWorkerConfig());
 
     expect(metrics.getMeterProvider()).toBe(appProvider);
     expect(logger.warn).toHaveBeenCalled();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("registers its own provider globally when no global provider exists", async () => {
     const { metrics } = await import("@opentelemetry/api");
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
-    await plugin.install(mockOrchestrator(), logger, singleWorkerConfig());
+    const orch = mockOrchestrator();
+    await plugin.install(orch, logger, singleWorkerConfig());
 
     expect(metrics.getMeterProvider()).toBe(plugin.meterProvider);
     expect(logger.warn).not.toHaveBeenCalled();
-    await plugin.shutdown();
+    await plugin.uninstall?.(orch);
   });
 
   it("releases the global registration on uninstall so app code no longer hits the shut-down provider", async () => {
