@@ -61,7 +61,7 @@ exit timer window, before the worker exits.
   overlap with the drain.
 - Callbacks always run **before** `uninstallPlugins()`, so plugins are still
   installed and can service the orchestrator while app callbacks run.
-- Plugin `uninstall()` must be idempotent (see the AUDIT-018 fix): uninstall is
+- Plugin `uninstall()` must be idempotent: uninstall is
   invoked from `shutdownPrimary()` and from install-rollback paths, and
   `uninstallPlugins()` swallows per-plugin errors, so a non-idempotent
   uninstall would silently corrupt cleanup.

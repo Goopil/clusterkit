@@ -116,7 +116,5 @@ describe("OTLP meter plugin integration with real orchestrator", () => {
     const shutdownDone = once(orchestrator, "shutdown:complete");
     process.emit("SIGTERM");
     await shutdownDone;
-
-    await plugin.shutdown();
   }, 15_000);
 });

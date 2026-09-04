@@ -72,21 +72,15 @@ function tryReadFirstSync(paths: string[]): string | null {
   return null;
 }
 
-function parseCgroupV2Cpu(raw: string, floorToAtLeastOne: boolean): number | null {
-  const [quotaStr, periodStr] = raw.split(" ");
-  if (quotaStr === "max") return null;
-
-  const quota = Number.parseInt(quotaStr, 10);
-  const period = Number.parseInt(periodStr, 10);
-  if (Number.isNaN(quota) || Number.isNaN(period) || period === 0) return null;
-
-  const cpuLimit = quota / period;
-  return floorToAtLeastOne ? Math.max(1, Math.floor(cpuLimit)) : cpuLimit;
-}
-
-function parseCgroupV1Cpu(quotaRaw: string, periodRaw: string, floorToAtLeastOne: boolean): number | null {
+/**
+ * Parses a CPU quota/period pair (v1: cpu.cfs_quota_us + cpu.cfs_period_us,
+ * v2: the two fields of cpu.max). Returns the CPU limit, or `null` when no
+ * limit applies (v2 "max", v1 quota -1, or malformed values).
+ */
+function parseCpuLimit(quotaRaw: string, periodRaw: string, floorToAtLeastOne: boolean): number | null {
+  if (quotaRaw === "max") return null; // v2 unlimited
   const quota = Number.parseInt(quotaRaw, 10);
-  if (quota === -1) return null; // unlimited
+  if (quota === -1) return null; // v1 unlimited
 
   const period = Number.parseInt(periodRaw, 10);
   if (Number.isNaN(quota) || Number.isNaN(period) || period === 0) return null;
@@ -152,7 +146,8 @@ function readCgroupV2Sync(): number | null {
   );
   if (!raw) return null;
 
-  return parseCgroupV2Cpu(raw, true);
+  const [quotaStr, periodStr] = raw.split(" ");
+  return parseCpuLimit(quotaStr, periodStr, true);
 }
 
 function readCgroupV1Sync(): number | null {
@@ -168,7 +163,7 @@ function readCgroupV1Sync(): number | null {
   );
   if (!periodRaw) return null;
 
-  return parseCgroupV1Cpu(quotaRaw, periodRaw, true);
+  return parseCpuLimit(quotaRaw, periodRaw, true);
 }
 
 // ============================================================================
@@ -210,7 +205,8 @@ async function readV2Cpu(): Promise<number | null> {
   );
   if (!raw) return null;
 
-  return parseCgroupV2Cpu(raw, false);
+  const [quotaStr, periodStr] = raw.split(" ");
+  return parseCpuLimit(quotaStr, periodStr, false);
 }
 
 async function readV2Memory(): Promise<number | null> {
@@ -236,7 +232,7 @@ async function readV1Cpu(): Promise<number | null> {
   );
   if (!periodRaw) return null;
 
-  return parseCgroupV1Cpu(quotaRaw, periodRaw, false);
+  return parseCpuLimit(quotaRaw, periodRaw, false);
 }
 
 async function readV1Memory(): Promise<number | null> {

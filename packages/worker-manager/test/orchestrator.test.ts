@@ -1,7 +1,6 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Orchestrator } from "../src/orchestrator";
-import { SignalHandler } from "../src/signal-handler";
 import { getCPUCount } from "../src/sizing";
 import { WorkerManagerValidationError } from "../src/validation";
 
@@ -227,7 +226,7 @@ describe("Orchestrator", () => {
   });
 
   // --------------------------------------------------------------------------
-  // AUDIT-033 item 1: the gracefulShutdowns counter was never asserted —
+  // the gracefulShutdowns counter was never asserted —
   // deleting both increment sites passed CI. Each site gets its own test.
   describe("gracefulShutdowns metric", () => {
     it("increments when a worker exits gracefully during shutdown", async () => {
@@ -311,7 +310,7 @@ describe("Orchestrator", () => {
   });
 
   // --------------------------------------------------------------------------
-  // AUDIT-033 item 8: the shutdown guard in setReady() had zero coverage —
+  // the shutdown guard in setReady() had zero coverage —
   // removing it would flip readiness back to true during a shutdown.
   describe("setReady", () => {
     it("is a no-op while a shutdown is in progress", async () => {
@@ -397,7 +396,7 @@ describe("Orchestrator", () => {
       expect(onShutdown).toHaveBeenCalledWith("SIGTERM");
     });
 
-    // AUDIT-033 item 9: removing the per-callback try/catch passed CI — a
+    // removing the per-callback try/catch passed CI — a
     // throwing callback aborted runShutdownCallbacks, skipping every later
     // callback, the plugin uninstall, and the shutdown:complete emission.
     it("a throwing shutdown callback must not break the drain chain", async () => {
@@ -512,17 +511,19 @@ describe("Orchestrator", () => {
 
     it("should register signal handlers before forking the first worker", async () => {
       mockCluster.isPrimary = true;
-      const registerSpy = vi.spyOn(SignalHandler.prototype, "register");
+      const onSpy = vi.spyOn(process, "on");
       const forkSpy = vi.spyOn(mockCluster, "fork");
 
       const orch = new Orchestrator(cfg({ workers: 2 }));
       await orch.run(() => {});
 
-      expect(registerSpy).toHaveBeenCalledTimes(1);
+      const sigtermRegistrations = onSpy.mock.calls.filter(([signal]) => signal === "SIGTERM");
+      expect(sigtermRegistrations).toHaveLength(1);
       expect(forkSpy).toHaveBeenCalledTimes(2);
       // A SIGTERM arriving between fork and register would kill the primary
       // with Node's default handler and orphan the fleet (#93).
-      expect(registerSpy.mock.invocationCallOrder[0]).toBeLessThan(forkSpy.mock.invocationCallOrder[0]);
+      const sigtermIdx = onSpy.mock.invocationCallOrder[onSpy.mock.calls.findIndex(([signal]) => signal === "SIGTERM")];
+      expect(sigtermIdx).toBeLessThan(forkSpy.mock.invocationCallOrder[0]);
     });
 
     it("should track activeWorkers", async () => {
@@ -887,7 +888,7 @@ describe("Orchestrator", () => {
       expect(orch.getMetrics().activeWorkers).toBe(3);
     });
 
-    // AUDIT-033 item 5: swapping shift() → pop() (FIFO → LIFO) passed CI —
+    // swapping shift() → pop() (FIFO → LIFO) passed CI —
     // restart order was never asserted by workerId. All three workers crash
     // synchronously so no replacement restores capacity between queue entries;
     // the roll must then process them in crash order.
@@ -1037,7 +1038,7 @@ describe("Orchestrator", () => {
       expect(orch.getMetrics().workerRestarts).toBe(2);
     });
 
-    // AUDIT-033 item 7: removing the `stabilityWindowMs === 0` branch in
+    // removing the `stabilityWindowMs === 0` branch in
     // scheduleBackoffReset() passed CI — with a zero stability window the
     // backoff must reset at the instant a worker comes online (the window has
     // already elapsed), not on a pending 0ms timer that the next crash's
@@ -1164,7 +1165,7 @@ describe("Orchestrator", () => {
       }
     });
 
-    // Audit AUDIT-004: the crash-restart backoff timer must not keep the
+    // the crash-restart backoff timer must not keep the
     // event loop alive — if shutdown starts during a backoff window the
     // primary would otherwise hang until the timer expires and `docker stop`
     // escalates to SIGKILL.
@@ -1420,7 +1421,7 @@ describe("Orchestrator", () => {
       expect(orch.getMetrics().forcedKills).toBe(1);
     });
 
-    // AUDIT-033 item 2: the isShutdownInProgress() guards inside the drain
+    // the isShutdownInProgress() guards inside the drain
     // escalation timers had zero coverage — removing them sends SIGTERM/SIGKILL
     // to a recycled worker DURING shutdown (recycle × shutdown race). The
     // shutdown coordinator owns the kill sequence from that point on.
@@ -1962,7 +1963,7 @@ describe("Orchestrator", () => {
       });
     });
 
-    // AUDIT-033 item 3: removing the mid-roll shutdown guard (`break`) passed
+    // removing the mid-roll shutdown guard (`break`) passed
     // CI — the roll kept forking replacements after shutdown started, which
     // orphans them (the shutdown kill list is captured at initiation).
     it("aborts the roll when shutdown starts mid-roll — no further forks, no orphans", async () => {
@@ -2641,7 +2642,7 @@ describe("Orchestrator", () => {
       }
     });
 
-    // AUDIT-033 item 10: any variation of the WEB_CONCURRENCY grammar passed
+    // any variation of the WEB_CONCURRENCY grammar passed
     // CI. These cases pin the observable parse semantics: parseInt-style
     // prefixing (NOT scientific notation), positivity requirement with CPU
     // fallback, and whitespace tolerance.

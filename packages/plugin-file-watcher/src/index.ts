@@ -96,6 +96,33 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
   let lastRestartAt = 0;
   let watching = false;
 
+  const teardown = async (): Promise<void> => {
+    closed = true;
+    if (startDelayTimer) {
+      clearTimeout(startDelayTimer);
+      startDelayTimer = undefined;
+    }
+    await Promise.all(watchers.map((w) => w.close()));
+    watchers = [];
+    if (envPollInterval) {
+      clearInterval(envPollInterval);
+      envPollInterval = undefined;
+    }
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = undefined;
+    }
+    if (maxWaitTimer) {
+      clearTimeout(maxWaitTimer);
+      maxWaitTimer = undefined;
+    }
+    if (trailingTimer) {
+      clearTimeout(trailingTimer);
+      trailingTimer = undefined;
+    }
+    watching = false;
+  };
+
   return {
     name: "file-watcher",
     get isWatching() {
@@ -290,58 +317,12 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
       start();
 
       orchestrator.registerOnShutdown(async () => {
-        closed = true;
-        if (startDelayTimer) {
-          clearTimeout(startDelayTimer);
-          startDelayTimer = undefined;
-        }
-        await Promise.all(watchers.map((w) => w.close()));
-        watchers = [];
-        if (envPollInterval) {
-          clearInterval(envPollInterval);
-          envPollInterval = undefined;
-        }
-        if (debounceTimer) {
-          clearTimeout(debounceTimer);
-          debounceTimer = undefined;
-        }
-        if (maxWaitTimer) {
-          clearTimeout(maxWaitTimer);
-          maxWaitTimer = undefined;
-        }
-        if (trailingTimer) {
-          clearTimeout(trailingTimer);
-          trailingTimer = undefined;
-        }
-        watching = false;
+        await teardown();
       });
     },
 
     async uninstall(): Promise<void> {
-      closed = true;
-      if (startDelayTimer) {
-        clearTimeout(startDelayTimer);
-        startDelayTimer = undefined;
-      }
-      await Promise.all(watchers.map((w) => w.close()));
-      watchers = [];
-      if (envPollInterval) {
-        clearInterval(envPollInterval);
-        envPollInterval = undefined;
-      }
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = undefined;
-      }
-      if (maxWaitTimer) {
-        clearTimeout(maxWaitTimer);
-        maxWaitTimer = undefined;
-      }
-      if (trailingTimer) {
-        clearTimeout(trailingTimer);
-        trailingTimer = undefined;
-      }
-      watching = false;
+      await teardown();
     },
   };
 }

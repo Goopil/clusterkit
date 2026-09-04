@@ -8,7 +8,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "lcov", "html"],
       exclude: ["node_modules/**", "dist/**", "**/*.d.ts", "**/*.config.ts", "test/**"],
-      // AUDIT-033: per-file floors pinned ~2 points below measured coverage so
+      // Per-file floors pinned ~2 points below measured coverage so
       // newly uncovered code in any file fails CI. Globals below still gate totals.
       thresholds: {
         lines: 85,
