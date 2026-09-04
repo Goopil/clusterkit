@@ -92,10 +92,8 @@ export class RestartCoordinator {
     }
 
     if (this.crashTracker.isTripped()) {
-      this.log?.error("Crash loop detected — stopping restarts", {
-        crashCount: this.crashTracker.count,
-        windowMs: this.cfg.restart.crashWindowMs,
-      });
+      const tripInfo = { crashCount: this.crashTracker.count, windowMs: this.cfg.restart.crashWindowMs };
+      this.log?.error("Crash loop detected — stopping restarts", tripInfo);
       // A tripped breaker self-terminates the primary once the fleet drains,
       // and exit 0 would mask the crash. Cleared by resetCircuitBreaker() or
       // restored capacity (Orchestrator.handleWorkerOnline).
@@ -109,7 +107,7 @@ export class RestartCoordinator {
           "ClusterKitCrashLoop",
         );
       }
-      this.deps.onBreakerTripped({ crashCount: this.crashTracker.count, windowMs: this.cfg.restart.crashWindowMs });
+      this.deps.onBreakerTripped(tripInfo);
       this.metrics.crashLoopBackoffs++;
       return;
     }
@@ -151,9 +149,7 @@ export class RestartCoordinator {
     for (let i = 0; i < count; i++) {
       this.pendingRestartQueue.push({ kind: "refill" });
     }
-    if (count > 0) {
-      this.kickRestartQueue();
-    }
+    this.kickRestartQueue();
   }
 
   /** Record a fork failure (EMFILE/ENOMEM...). Returns the consecutive failure count. */

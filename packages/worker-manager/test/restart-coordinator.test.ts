@@ -39,7 +39,6 @@ interface Harness {
   restarts: MockWorker[];
   breakerTrips: Array<{ crashCount: number; windowMs: number }>;
   isShuttingDown: ReturnType<typeof vi.fn>;
-  nextWorkerId: { value: number };
 }
 
 /**
@@ -85,7 +84,7 @@ function makeCoordinator(
       onBreakerTripped: (info) => breakerTrips.push(info),
     },
   );
-  return { coordinator, metrics, crashTracker, fork, restarts, breakerTrips, isShuttingDown, nextWorkerId };
+  return { coordinator, metrics, crashTracker, fork, restarts, breakerTrips, isShuttingDown };
 }
 
 /** Simulate an unclean crash: WorkerManager already removed the worker. */

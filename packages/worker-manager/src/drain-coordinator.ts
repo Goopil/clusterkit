@@ -1,11 +1,6 @@
 import type { Worker } from "node:cluster";
 import type { Logger, ResolvedConfig, WorkerMetrics } from "./types";
 
-/** Dependencies injected by the Orchestrator. */
-export interface DrainCoordinatorDeps {
-  isShuttingDown: () => boolean;
-}
-
 /**
  * Drains replaced workers in a bounded way: notify via IPC, disconnect, then
  * escalate SIGTERM → SIGKILL if the worker does not exit on its own.
@@ -19,7 +14,12 @@ export class DrainCoordinator {
   private readonly isShuttingDown: () => boolean;
   private readonly shutdownType: string;
 
-  constructor(cfg: ResolvedConfig, log: Logger | null, metrics: WorkerMetrics, deps: DrainCoordinatorDeps) {
+  constructor(
+    cfg: ResolvedConfig,
+    log: Logger | null,
+    metrics: WorkerMetrics,
+    deps: { isShuttingDown: () => boolean },
+  ) {
     this.cfg = cfg;
     this.log = log;
     this.metrics = metrics;

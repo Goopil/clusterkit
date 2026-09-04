@@ -67,7 +67,7 @@ describe("DrainCoordinator", () => {
   it("drains the old worker when the replacement dies before coming online", () => {
     const { drainer } = makeDrainer();
     const oldWorker = stuckWorker(1);
-    const newWorker = new MockWorker(2, { deadOnDisconnect: false });
+    const newWorker = new MockWorker(2);
 
     drainer.recycle(oldWorker, newWorker);
     newWorker.emit("exit", 1, null);
@@ -144,7 +144,7 @@ describe("DrainCoordinator", () => {
   it("drains the old worker when the replacement never comes online (failsafe)", async () => {
     const { drainer } = makeDrainer();
     const oldWorker = stuckWorker(1);
-    const newWorker = new MockWorker(2, { deadOnDisconnect: false }); // never online, never exits
+    const newWorker = new MockWorker(2); // never online, never exits
 
     drainer.recycle(oldWorker, newWorker);
 
@@ -160,7 +160,7 @@ describe("DrainCoordinator", () => {
   it("skips the failsafe when shutdown is in progress", async () => {
     const { drainer } = makeDrainer({ isShuttingDown: () => true });
     const oldWorker = stuckWorker(1);
-    const newWorker = new MockWorker(2, { deadOnDisconnect: false });
+    const newWorker = new MockWorker(2);
 
     drainer.recycle(oldWorker, newWorker);
     await vi.advanceTimersByTimeAsync(10_000);
