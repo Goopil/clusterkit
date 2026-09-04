@@ -85,7 +85,7 @@ export interface HealthConfig {
   /** Recycle a worker whose heartbeat has been silent this long. Requires heartbeatMs > 0
    * and >= 2 × heartbeatMs. 0 = disabled. @default 0 */
   wedgedTimeoutMs?: number;
-  /** Duration `active < target` must persist before `fleet:degraded` fires. @default 10_000 */
+  /** Duration `active < target` must persist before `fleet:degraded` fires. 0 = disabled. @default 0 */
   degradedAfterMs?: number;
 }
 

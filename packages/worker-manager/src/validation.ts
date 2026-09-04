@@ -188,8 +188,8 @@ function validateHealthOptions(health: HealthConfig): void {
     }
   }
   if (health.degradedAfterMs !== undefined) {
-    if (!Number.isInteger(health.degradedAfterMs) || health.degradedAfterMs <= 0) {
-      throw new WorkerManagerValidationError("health.degradedAfterMs", "must be a positive integer");
+    if (!Number.isInteger(health.degradedAfterMs) || health.degradedAfterMs < 0) {
+      throw new WorkerManagerValidationError("health.degradedAfterMs", "must be a non-negative integer");
     }
   }
 }
@@ -259,7 +259,7 @@ const DEFAULTS = {
   health: {
     heartbeatMs: 0,
     wedgedTimeoutMs: 0,
-    degradedAfterMs: 10_000,
+    degradedAfterMs: 0,
   },
   clusterModule: undefined,
 } satisfies ResolvedConfig;

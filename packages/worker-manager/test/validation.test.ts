@@ -288,7 +288,7 @@ describe("validation", () => {
   describe("health options", () => {
     it("defaults everything off", () => {
       const resolved = validateConfig({});
-      expect(resolved.health).toEqual({ heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 10_000 });
+      expect(resolved.health).toEqual({ heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 0 });
       expect(resolved.workers.maxRssMb).toBe(0);
       expect(resolved.restart.bootFailQuarantine).toBe(0);
     });
@@ -330,6 +330,11 @@ describe("validation", () => {
       ["restart.bootFailQuarantine", { restart: { bootFailQuarantine: 1.5 } }],
     ])("rejects non-integer %s", (_field, config) => {
       expect(() => validateConfig(config)).toThrow(WorkerManagerValidationError);
+    });
+
+    it("accepts degradedAfterMs 0 (disabled) but rejects negative values", () => {
+      expect(() => validateConfig({ health: { degradedAfterMs: 0 } })).not.toThrow();
+      expect(() => validateConfig({ health: { degradedAfterMs: -1 } })).toThrow(WorkerManagerValidationError);
     });
   });
 });

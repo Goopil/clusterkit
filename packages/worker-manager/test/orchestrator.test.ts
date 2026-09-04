@@ -2413,5 +2413,27 @@ describe("Orchestrator", () => {
 
       expect(degraded).toHaveLength(0);
     });
+
+    it("emits no degraded by default — degradation is opt-in (0 = disabled)", async () => {
+      vi.useFakeTimers();
+      const degraded: unknown[] = [];
+      const o = await setupPrimary(2); // degradedAfterMs unset → 0 (disabled)
+      o.on("fleet:degraded", (d) => degraded.push(d));
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Sustained drop below target with no replacement: the default config
+      // must never arm the hysteresis, no matter how far time advances.
+      const workers = Object.values(mockCluster.workers);
+      workers[0].exitedAfterDisconnect = true;
+      mockCluster.emit("exit", workers[0], 0, null);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(degraded).toHaveLength(0);
+      expect(o.getFleetHealth()).toMatchObject({ target: 2, active: 1 }); // drop is real and sustained
+
+      const shutdownPromise = o.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
   });
 });

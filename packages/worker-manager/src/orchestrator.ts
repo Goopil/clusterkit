@@ -728,11 +728,13 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   /**
    * Re-evaluate fleet health after a capacity change: arm the degradation
    * hysteresis when below target, clear it and emit `fleet:recovered` when
-   * capacity is restored. No-op during shutdown (and skipped entirely on the
-   * shutdown path of handleWorkerExit).
+   * capacity is restored. No-op during shutdown, and disabled entirely when
+   * `health.degradedAfterMs` is 0 (default) — config is immutable at runtime,
+   * so a disabled config can never have an armed timer or degraded state.
+   * Also skipped on the shutdown path of handleWorkerExit.
    */
   private recomputeFleetHealth(): void {
-    if (this.shutdownCoordinator.isShutdownInProgress()) return;
+    if (this.shutdownCoordinator.isShutdownInProgress() || this.cfg.health.degradedAfterMs <= 0) return;
     const target = this.resolveWorkerCount();
     if (this.metrics.activeWorkers >= target) {
       if (this.degradedTimer) {
