@@ -9,6 +9,7 @@ import { MAX_CONSECUTIVE_FORK_FAILURES, RestartCoordinator } from "./restart-coo
 import { ShutdownCoordinator } from "./shutdown-coordinator";
 import { getCPUCount } from "./sizing";
 import {
+  type FleetHealth,
   type HealthStatus,
   isTypedMessage,
   type Logger,
@@ -80,6 +81,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
   // Hot restart guard — prevents concurrent restartWorkers() calls
   private restartInProgress = false;
+
+  // Fleet health degradation state (hysteresis before fleet:degraded)
+  private fleetDegraded = false;
+  private degradedSince = 0;
+  private degradedTimer?: NodeJS.Timeout;
 
   // Registered POSIX signal handlers, tracked for symmetric cleanup
   private readonly signalHandlers: Array<[NodeJS.Signals, () => void]> = [];
@@ -327,6 +333,24 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    */
   getHealth(): HealthStatus {
     return { ...this.health };
+  }
+
+  /**
+   * Fleet-level health snapshot: capacity vs target, quarantined slots,
+   * breaker state.
+   */
+  getFleetHealth(): FleetHealth {
+    // getQuarantinedCount() arrives with worker quarantine; read it through
+    // an optional chain until then.
+    const restartCoordinator = this.restartCoordinator as unknown as {
+      getQuarantinedCount?: () => number;
+    };
+    return {
+      target: this.resolveWorkerCount(),
+      active: this.metrics.activeWorkers,
+      quarantined: restartCoordinator.getQuarantinedCount?.() ?? 0,
+      breaker: { count: this.crashTracker.count, tripped: this.crashTracker.isTripped() },
+    };
   }
 
   /**
@@ -653,6 +677,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     }
 
     this.safeEmit("worker:online", { workerId: worker.id, pid: worker.process.pid ?? 0 });
+
+    this.recomputeFleetHealth();
   }
 
   private handleWorkerExit(worker: Worker, code: number | null, signal: string | null): void {
@@ -672,6 +698,10 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       }
       return;
     }
+
+    // Capacity just changed (the exited worker was already untracked) — both
+    // the graceful and the crash path below must re-evaluate fleet health.
+    this.recomputeFleetHealth();
 
     // Any crash breaks stability and cancels pending backoff reset
     if (!worker.exitedAfterDisconnect) {
@@ -693,6 +723,40 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       signal,
     });
     this.restartCoordinator.onWorkerCrash(worker.id, code, signal);
+  }
+
+  /**
+   * Re-evaluate fleet health after a capacity change: arm the degradation
+   * hysteresis when below target, clear it and emit `fleet:recovered` when
+   * capacity is restored. No-op during shutdown (and skipped entirely on the
+   * shutdown path of handleWorkerExit).
+   */
+  private recomputeFleetHealth(): void {
+    if (this.shutdownCoordinator.isShutdownInProgress()) return;
+    const target = this.resolveWorkerCount();
+    if (this.metrics.activeWorkers >= target) {
+      if (this.degradedTimer) {
+        clearTimeout(this.degradedTimer);
+        this.degradedTimer = undefined;
+      }
+      if (this.fleetDegraded) {
+        this.fleetDegraded = false;
+        this.safeEmit("fleet:recovered", {
+          target,
+          active: this.metrics.activeWorkers,
+          degradedDurationMs: Date.now() - this.degradedSince,
+        });
+      }
+      return;
+    }
+    if (this.fleetDegraded || this.degradedTimer) return;
+    this.degradedSince = Date.now();
+    this.degradedTimer = setTimeout(() => {
+      this.degradedTimer = undefined;
+      if (this.shutdownCoordinator.isShutdownInProgress()) return;
+      this.fleetDegraded = true;
+      this.safeEmit("fleet:degraded", { target: this.resolveWorkerCount(), active: this.metrics.activeWorkers });
+    }, this.cfg.health.degradedAfterMs).unref();
   }
 
   private handleWorkerRecycle(oldWorker: Worker, newWorker: Worker): void {
@@ -719,6 +783,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     this.restartCoordinator.cancelBackoffReset();
     this.workerManager.stopRecycling();
     this.healthMonitor.stop();
+
+    // Clear fleet health hysteresis state: no degraded/recovered after shutdown
+    if (this.degradedTimer) clearTimeout(this.degradedTimer);
+    this.degradedTimer = undefined;
+    this.fleetDegraded = false;
 
     // Remove signal handlers
     this.unregisterSignalHandlers();

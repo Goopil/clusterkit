@@ -2330,4 +2330,88 @@ describe("Orchestrator", () => {
       await shutdownPromise;
     });
   });
+
+  // --------------------------------------------------------------------------
+  describe("fleet health", () => {
+    async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
+      await orch.run(() => {});
+      return orch;
+    }
+
+    it("reports target/active/breaker and stays healthy at capacity", async () => {
+      vi.useFakeTimers();
+      const o = await setupPrimary(2, {
+        shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, sigtermDelayMs: 300, sigintDelayMs: 200 },
+      });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      expect(o.getFleetHealth()).toMatchObject({
+        target: 2,
+        active: 2,
+        quarantined: 0,
+        breaker: { tripped: false },
+      });
+
+      const shutdownPromise = o.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
+    it("emits fleet:degraded after the hysteresis and fleet:recovered with duration", async () => {
+      vi.useFakeTimers();
+      const degraded: unknown[] = [];
+      const recovered: unknown[] = [];
+      const o = await setupPrimary(2, {
+        health: { degradedAfterMs: 1_000 },
+        restart: { backoffMs: 2_000 }, // replacement forks after the hysteresis
+      });
+      o.on("fleet:degraded", (d) => degraded.push(d));
+      o.on("fleet:recovered", (d) => recovered.push(d));
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Unclean crash of one worker: capacity drops to 1 of 2 and the
+      // replacement fork is delayed past the hysteresis window.
+      mockCluster.emit("exit", Object.values(mockCluster.workers)[0], 1, null);
+
+      await vi.advanceTimersByTimeAsync(1_001);
+      expect(degraded).toHaveLength(1);
+      expect(degraded[0]).toMatchObject({ target: 2, active: 1 });
+
+      // Backoff elapses: replacement forks and comes online — recovered.
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(recovered).toHaveLength(1);
+      expect(recovered[0]).toMatchObject({ target: 2, active: 2, degradedDurationMs: expect.any(Number) });
+
+      const shutdownPromise = o.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
+    it("does not emit degraded during shutdown", async () => {
+      vi.useFakeTimers();
+      const degraded: unknown[] = [];
+      const o = await setupPrimary(2, { health: { degradedAfterMs: 1_000 } });
+      o.on("fleet:degraded", (d) => degraded.push(d));
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Drop below target before shutdown: arms the hysteresis timer.
+      const workers = Object.values(mockCluster.workers);
+      workers[0].exitedAfterDisconnect = true;
+      mockCluster.emit("exit", workers[0], 0, null);
+
+      workers[1].autoExitOnDisconnect = true;
+      const shutdownPromise = o.shutdownPrimary("SIGTERM");
+
+      // A worker dying mid-shutdown keeps capacity below target — no degraded.
+      workers[1].exitedAfterDisconnect = true;
+      mockCluster.emit("exit", workers[1], 0, null);
+
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+
+      expect(degraded).toHaveLength(0);
+    });
+  });
 });
