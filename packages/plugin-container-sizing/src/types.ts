@@ -35,6 +35,14 @@ export interface ContainerSizingOptions {
    */
   extraNodeOptions?: string;
   /**
+   * Enable Node's compile cache (NODE_COMPILE_CACHE) in workers.
+   * - true   — use `<tmpdir>/clusterkit-compile-cache`
+   * - string — use the given directory verbatim
+   * Injected as a direct env var, never through NODE_OPTIONS.
+   * @default false
+   */
+  compileCache?: boolean | string;
+  /**
    * When no container limits are detected (non-Linux or no cgroup limits):
    * - true  — fall back to os.cpus() and os.totalmem() (plugin still applies)
    * - false — skip the plugin entirely (no-op)

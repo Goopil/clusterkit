@@ -1,4 +1,6 @@
 import cluster from "node:cluster";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   type Logger,
   type Orchestrator,
@@ -18,6 +20,7 @@ export function createContainerSizingPlugin(options: ContainerSizingOptions = {}
     overrideWorkerCount = true,
     injectNodeOptions = true,
     extraNodeOptions,
+    compileCache,
     fallback = true,
     ...sizingOptions
   } = options;
@@ -80,12 +83,23 @@ export function createContainerSizingPlugin(options: ContainerSizingOptions = {}
         }
       }
 
+      const env: NodeJS.ProcessEnv = {};
+
       if (injectNodeOptions) {
         // Prefer workerEnv.NODE_OPTIONS (explicitly set by the user in config) over process.env,
         // so we only replace --max-old-space-size and leave every other flag intact.
         const baseNodeOptions = config.workers.env?.NODE_OPTIONS ?? process.env.NODE_OPTIONS ?? "";
-        const merged = mergeNodeOptions(sizing.nodeOptions, baseNodeOptions, extraNodeOptions);
-        orchestrator.patchWorkerEnv({ NODE_OPTIONS: merged });
+        env.NODE_OPTIONS = mergeNodeOptions(sizing.nodeOptions, baseNodeOptions, extraNodeOptions);
+      }
+
+      if (compileCache) {
+        // Env-only setting: NODE_COMPILE_CACHE is a plain env var, not a CLI flag.
+        env.NODE_COMPILE_CACHE =
+          typeof compileCache === "string" ? compileCache : join(tmpdir(), "clusterkit-compile-cache");
+      }
+
+      if (Object.keys(env).length > 0) {
+        orchestrator.patchWorkerEnv(env);
       }
     },
   };

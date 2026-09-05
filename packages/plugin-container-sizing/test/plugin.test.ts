@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createContainerSizingPlugin } from "../src/index.js";
 
@@ -41,6 +43,12 @@ function makeOrchestrator(workers: number | "auto" = "auto") {
 }
 
 const nullLogger = null;
+
+function patchEnvCall(
+  orchestrator: ReturnType<typeof makeOrchestrator>["orchestrator"],
+): Record<string, string> | undefined {
+  return vi.mocked(orchestrator.patchWorkerEnv).mock.calls[0]?.[0] as Record<string, string> | undefined;
+}
 
 beforeEach(() => {
   mockReadCgroupLimits.mockResolvedValue({ cpuLimit: 2, memoryLimitBytes: 512 * MB });
@@ -172,5 +180,36 @@ describe("createContainerSizingPlugin", () => {
     expect(orchestrator.patchWorkerEnv).not.toHaveBeenCalled();
 
     Object.defineProperty(clusterMod.default, "isPrimary", { value: originalIsPrimary, configurable: true });
+  });
+
+  describe("compileCache", () => {
+    it("injects a default compile cache dir when enabled", async () => {
+      const plugin = createContainerSizingPlugin({ compileCache: true });
+      const { orchestrator, config } = makeOrchestrator();
+
+      await plugin.install(orchestrator as never, nullLogger, config);
+
+      const call = patchEnvCall(orchestrator);
+      expect(call?.NODE_OPTIONS).not.toContain("NODE_COMPILE_CACHE");
+      expect(call?.NODE_COMPILE_CACHE).toBe(join(tmpdir(), "clusterkit-compile-cache"));
+    });
+
+    it("injects a custom compile cache dir", async () => {
+      const plugin = createContainerSizingPlugin({ compileCache: "/var/cache/ckc" });
+      const { orchestrator, config } = makeOrchestrator();
+
+      await plugin.install(orchestrator as never, nullLogger, config);
+
+      expect(patchEnvCall(orchestrator)?.NODE_COMPILE_CACHE).toBe("/var/cache/ckc");
+    });
+
+    it("does not touch worker env when disabled (default)", async () => {
+      const plugin = createContainerSizingPlugin({});
+      const { orchestrator, config } = makeOrchestrator();
+
+      await plugin.install(orchestrator as never, nullLogger, config);
+
+      expect(patchEnvCall(orchestrator)?.NODE_COMPILE_CACHE).toBeUndefined();
+    });
   });
 });
