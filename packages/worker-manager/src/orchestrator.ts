@@ -606,6 +606,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       (oldWorker, newWorker) => this.handleWorkerRecycle(oldWorker, newWorker),
     );
 
+    // Wedged-worker watch (opt-in via health.wedgedTimeoutMs)
+    this.healthMonitor.startWedgedWatch();
+
     this.log?.info("Primary started", { workerCount });
   }
 

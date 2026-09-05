@@ -184,6 +184,25 @@ describe("HealthMonitor — policies", () => {
     vi.advanceTimersByTime(60_000);
     expect(events.filter((e) => e.kind === "wedged")).toHaveLength(0);
   });
+
+  it("never flags a worker that never reported (first-report precondition)", () => {
+    const { monitor, events } = makeMonitor({ health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } });
+    monitor.startWedgedWatch();
+    vi.advanceTimersByTime(10_000);
+    expect(events).toHaveLength(0);
+  });
+
+  it("keeps a worker that keeps reporting", () => {
+    const { monitor, events } = makeMonitor({ health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } });
+    monitor.onWorkerMessage(1, 1000, HB());
+    monitor.startWedgedWatch();
+    for (let i = 0; i < 5; i++) {
+      vi.advanceTimersByTime(500);
+      monitor.onWorkerMessage(1, 1000, HB());
+    }
+    expect(events.filter((e) => e.kind === "report")).toHaveLength(6);
+    expect(events.filter((e) => e.kind === "wedged" || e.kind === "recycle:wedged")).toHaveLength(0);
+  });
 });
 
 describe("HealthMonitor — rss policy", () => {

@@ -972,6 +972,50 @@ describe("Orchestrator", () => {
   });
 
   // --------------------------------------------------------------------------
+  describe("wedged recycling", () => {
+    /** Report worker health through the real monitor tap (mirrors the worker IPC heartbeat). */
+    function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number): void {
+      (
+        orch as unknown as { healthMonitor: { onWorkerMessage: (id: number, pid: number, msg: unknown) => void } }
+      ).healthMonitor.onWorkerMessage(workerId, pid, {
+        type: "__wm:hb",
+        rss,
+        heapUsed: 0,
+        eventLoopLagMs: 0,
+      });
+    }
+
+    it("emits worker:wedged and drains a silent worker with reason wedged", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({ workers: { count: 2 }, health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } }),
+      );
+      const wedgedEvents: Array<{ workerId: number; pid: number; silentMs: number }> = [];
+      const recycleEvents: Array<{ workerId: number; reason: string }> = [];
+      orch.on("worker:wedged", (d) => wedgedEvents.push(d));
+      orch.on("worker:recycle", (d) => recycleEvents.push(d));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const worker = Object.values(mockCluster.workers)[0];
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024);
+      await vi.advanceTimersByTimeAsync(2_000); // silent well past wedgedTimeoutMs
+
+      expect(wedgedEvents).toMatchObject([{ workerId: worker.id, pid: worker.process.pid }]);
+      expect(wedgedEvents[0]?.silentMs).toBeGreaterThanOrEqual(1_500);
+      expect(recycleEvents).toMatchObject([{ workerId: worker.id, reason: "wedged" }]);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3); // replacement forked
+      expect(orch.getMetrics().crashLoopBackoffs).toBe(0); // NOT a crash — breaker untouched
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+  });
+
+  // --------------------------------------------------------------------------
   describe("restartWorkers()", () => {
     async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
       mockCluster.isPrimary = true;
