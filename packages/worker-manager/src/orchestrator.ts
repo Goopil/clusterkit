@@ -16,6 +16,7 @@ import {
   type OrchestratorConfig,
   type OrchestratorEvents,
   type OrchestratorPlugin,
+  type RecycleReason,
   type ResolvedConfig,
   type WorkerMetrics,
 } from "./types";
@@ -60,6 +61,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   private hasForked = false;
   private localShutdownInProgress = false;
   private cachedAutoWorkerCount?: number;
+
+  // Recycle reason for the in-flight recycle (worker:recycle payload); absent = maxAge
+  private readonly recycleReasons = new Map<number, RecycleReason>();
 
   // Metrics
   private readonly metrics: WorkerMetrics = {
@@ -763,15 +767,25 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
   private handleWorkerRecycle(oldWorker: Worker, newWorker: Worker): void {
     const ageMs = this.workerManager.getWorkerAge(oldWorker.id);
-    this.safeEmit("worker:recycle", {
-      workerId: oldWorker.id,
-      pid: oldWorker.process.pid ?? 0,
-      ageMs,
-    });
+    const reason = this.recycleReasons.get(oldWorker.id) ?? "maxAge";
+    this.recycleReasons.delete(oldWorker.id);
+    this.safeEmit("worker:recycle", { workerId: oldWorker.id, pid: oldWorker.process.pid ?? 0, ageMs, reason });
     this.drainCoordinator.recycle(oldWorker, newWorker);
   }
 
-  private triggerWorkerRecycle(_workerId: number, _reason: "rss" | "wedged"): void {}
+  // The monitor spends its rss one-shot before the outcome is known: a declined
+  // recycle (shutdown, mid-drain, fork failure) is not retried — maxAge/crash paths own the worker.
+  private triggerWorkerRecycle(workerId: number, reason: "rss" | "wedged"): void {
+    if (this.workerManager.isMarkedForRecycling(workerId)) return;
+    this.recycleReasons.set(workerId, reason);
+    const ok = this.workerManager.recycleWorkerNow(
+      workerId,
+      reason,
+      () => this.shutdownCoordinator.isShutdownInProgress(),
+      (oldWorker, newWorker) => this.handleWorkerRecycle(oldWorker, newWorker),
+    );
+    if (!ok) this.recycleReasons.delete(workerId);
+  }
 
   // ============================================================================
   // Shutdown coordination

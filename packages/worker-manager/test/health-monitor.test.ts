@@ -185,3 +185,24 @@ describe("HealthMonitor — policies", () => {
     expect(events.filter((e) => e.kind === "wedged")).toHaveLength(0);
   });
 });
+
+describe("HealthMonitor — rss policy", () => {
+  it("recycles a worker above maxRssMb, once", () => {
+    const { monitor, events } = makeMonitor({ workers: { maxRssMb: 100 } });
+    monitor.onWorkerMessage(1, 1000, HB({ rss: 200 * 1024 * 1024 }));
+    monitor.onWorkerMessage(1, 1000, HB({ rss: 300 * 1024 * 1024 })); // second report: no double fire
+    expect(events.filter((e) => e.kind === "recycle:rss")).toHaveLength(1);
+  });
+
+  it("does not recycle below the limit, while shutting down, or when disabled", () => {
+    const { monitor, events } = makeMonitor({ workers: { maxRssMb: 100 } });
+    monitor.onWorkerMessage(1, 1000, HB({ rss: 50 * 1024 * 1024 }));
+    const shutting = makeMonitor({ workers: { maxRssMb: 100 } }, { shuttingDown: true });
+    shutting.monitor.onWorkerMessage(1, 1000, HB({ rss: 200 * 1024 * 1024 }));
+    const off = makeMonitor();
+    off.monitor.onWorkerMessage(1, 1000, HB({ rss: 999 * 1024 * 1024 }));
+    expect(events.filter((e) => e.kind.startsWith("recycle:"))).toHaveLength(0);
+    expect(shutting.events.filter((e) => e.kind.startsWith("recycle:"))).toHaveLength(0);
+    expect(off.events.filter((e) => e.kind.startsWith("recycle:"))).toHaveLength(0);
+  });
+});

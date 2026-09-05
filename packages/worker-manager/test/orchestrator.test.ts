@@ -934,6 +934,44 @@ describe("Orchestrator", () => {
   });
 
   // --------------------------------------------------------------------------
+  describe("rss recycling", () => {
+    /** Report worker health through the real monitor tap (mirrors the worker IPC heartbeat). */
+    function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number): void {
+      (
+        orch as unknown as { healthMonitor: { onWorkerMessage: (id: number, pid: number, msg: unknown) => void } }
+      ).healthMonitor.onWorkerMessage(workerId, pid, {
+        type: "__wm:hb",
+        rss,
+        heapUsed: 0,
+        eventLoopLagMs: 0,
+      });
+    }
+
+    it("drains a worker over maxRssMb and emits worker:recycle with reason rss", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: { count: 2, maxRssMb: 100 } }));
+      const recycleEvents: Array<{ workerId: number; reason: string }> = [];
+      orch.on("worker:recycle", (d) => recycleEvents.push(d));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const worker = Object.values(mockCluster.workers)[0];
+      reportHealth(orch, worker.id, worker.process.pid, 200 * 1024 * 1024);
+      await vi.advanceTimersByTimeAsync(0); // let the replacement fork + drain start
+
+      expect(recycleEvents).toMatchObject([{ workerId: worker.id, reason: "rss" }]);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3); // replacement forked
+      expect(orch.getMetrics().crashLoopBackoffs).toBe(0); // NOT a crash — breaker untouched
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+  });
+
+  // --------------------------------------------------------------------------
   describe("restartWorkers()", () => {
     async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
       mockCluster.isPrimary = true;
