@@ -110,6 +110,18 @@ function cfg(extra: TestConfig = {}): Parameters<typeof Orchestrator>[0] {
   };
 }
 
+/** Report worker health through the real monitor tap (mirrors the worker IPC heartbeat). */
+function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number): void {
+  (
+    orch as unknown as { healthMonitor: { onWorkerMessage: (id: number, pid: number, msg: unknown) => void } }
+  ).healthMonitor.onWorkerMessage(workerId, pid, {
+    type: "__wm:hb",
+    rss,
+    heapUsed: 0,
+    eventLoopLagMs: 0,
+  });
+}
+
 let mockCluster: MockCluster;
 
 beforeEach(() => {
@@ -935,18 +947,6 @@ describe("Orchestrator", () => {
 
   // --------------------------------------------------------------------------
   describe("rss recycling", () => {
-    /** Report worker health through the real monitor tap (mirrors the worker IPC heartbeat). */
-    function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number): void {
-      (
-        orch as unknown as { healthMonitor: { onWorkerMessage: (id: number, pid: number, msg: unknown) => void } }
-      ).healthMonitor.onWorkerMessage(workerId, pid, {
-        type: "__wm:hb",
-        rss,
-        heapUsed: 0,
-        eventLoopLagMs: 0,
-      });
-    }
-
     it("drains a worker over maxRssMb and emits worker:recycle with reason rss", async () => {
       vi.useFakeTimers();
       mockCluster.isPrimary = true;
@@ -973,18 +973,6 @@ describe("Orchestrator", () => {
 
   // --------------------------------------------------------------------------
   describe("wedged recycling", () => {
-    /** Report worker health through the real monitor tap (mirrors the worker IPC heartbeat). */
-    function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number): void {
-      (
-        orch as unknown as { healthMonitor: { onWorkerMessage: (id: number, pid: number, msg: unknown) => void } }
-      ).healthMonitor.onWorkerMessage(workerId, pid, {
-        type: "__wm:hb",
-        rss,
-        heapUsed: 0,
-        eventLoopLagMs: 0,
-      });
-    }
-
     it("emits worker:wedged and drains a silent worker with reason wedged", async () => {
       vi.useFakeTimers();
       mockCluster.isPrimary = true;
@@ -1012,6 +1000,32 @@ describe("Orchestrator", () => {
       const shutdownPromise = orch.shutdownPrimary("SIGTERM");
       await vi.runAllTimersAsync();
       await shutdownPromise;
+    });
+
+    // A worker already draining (its recycle ACK froze the heartbeat) must not
+    // be reported wedged: the drain may outlive wedgedTimeoutMs (the shutdown
+    // budget is up to 12s) — the watch would fire on a worker that is being
+    // replaced, not wedged, and no kill follows.
+    it("does not report a worker already marked for recycling as wedged", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({ workers: { count: 2 }, health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } }),
+      );
+      const wedgedEvents: Array<{ workerId: number }> = [];
+      orch.on("worker:wedged", (d) => wedgedEvents.push(d));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const internals = orch as unknown as { workerManager: { markForRecycling(id: number): void } };
+      const worker = Object.values(mockCluster.workers)[0];
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024);
+      internals.workerManager.markForRecycling(worker.id); // recycle in flight — heartbeat frozen
+
+      await vi.advanceTimersByTimeAsync(2_000); // silent well past wedgedTimeoutMs
+
+      expect(wedgedEvents).toHaveLength(0); // draining, not wedged
+      expect(Object.keys(mockCluster.workers)).toHaveLength(2); // no recycle on top of the drain
     });
   });
 
@@ -2587,6 +2601,28 @@ describe("Orchestrator", () => {
       expect(orch.getMetrics().gracefulShutdowns).toBe(1);
     });
 
+    // The online-guard means "at least one worker online", not "has forks":
+    // during a boot window every fork is alive but none has ever served —
+    // a boot loop there must take the legacy crash path, not quarantine.
+    it("boot failures with no worker ever online keep the legacy crash path", async () => {
+      mockCluster.isPrimary = true;
+      // No online flush: the initial fleet is forked but never came online
+      const orch = new Orchestrator(cfg({ workers: 2, restart: { backoffMs: 0, bootFailQuarantine: 1 } }));
+      await orch.run(() => {});
+
+      const forkSpy = mockForkNeverOnline();
+      const quarantined: Array<{ consecutiveBootFailures: number }> = [];
+      orch.on("worker:quarantined", (d) => quarantined.push(d));
+
+      mockCluster.emit("exit", mockCluster.workers[1], 1, null);
+      mockCluster.emit("exit", mockCluster.workers[2], 1, null);
+      await new Promise<void>((r) => setImmediate(r));
+
+      expect(forkSpy).toHaveBeenCalledTimes(2); // legacy restarts proceeded
+      expect(quarantined).toHaveLength(0);
+      expect(orch.getFleetHealth().quarantined).toBe(0);
+    });
+
     it("restartWorkers() refills quarantined slots back to target capacity", async () => {
       const orch = await setupPrimary(2, { restart: { backoffMs: 0, bootFailQuarantine: 1 } });
 
@@ -2621,18 +2657,6 @@ describe("Orchestrator", () => {
   // eligible and could fire a recycle on a dead id.
   // --------------------------------------------------------------------------
   describe("exit-path health registry cleanup", () => {
-    /** Report worker health through the real monitor tap (mirrors the worker IPC heartbeat). */
-    function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number): void {
-      (
-        orch as unknown as { healthMonitor: { onWorkerMessage: (id: number, pid: number, msg: unknown) => void } }
-      ).healthMonitor.onWorkerMessage(workerId, pid, {
-        type: "__wm:hb",
-        rss,
-        heapUsed: 0,
-        eventLoopLagMs: 0,
-      });
-    }
-
     async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
       mockCluster.isPrimary = true;
       const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));

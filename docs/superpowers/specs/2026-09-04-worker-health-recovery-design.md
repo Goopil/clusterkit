@@ -40,7 +40,7 @@ health: {
   heartbeatMs?: number                    // 0 = off (default). Worker health report interval.
   wedgedTimeoutMs?: number                // 0 = off (default). Kill after this much silence.
                                           // Requires heartbeatMs > 0 and >= 2 × heartbeatMs.
-  degradedAfterMs?: number                // fleet:degraded hysteresis. @default 10_000
+  degradedAfterMs?: number                // 0 = off (default). fleet:degraded hysteresis.
 }
 restart: { bootFailQuarantine?: number }  // 0 = off (default). Consecutive never-online deaths
                                           // before the slot stops being re-forked.

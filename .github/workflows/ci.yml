@@ -101,12 +101,13 @@ jobs:
             packages/plugin-file-watcher/coverage/
 
   test-linux:
-    name: Test (Linux Docker — SO_REUSEPORT)
+    name: Test (Linux Docker — SO_REUSEPORT + health e2e)
     runs-on: ubuntu-latest
     needs: build
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - run: docker compose run --build --rm test
+      - run: docker compose run --build --rm e2e-health
 
   smoke:
     name: Smoke (examples boot)

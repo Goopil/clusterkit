@@ -153,7 +153,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
           this.health.ready = false;
           this.safeEmit("circuit-breaker:tripped", info);
         },
-        hasOnlineWorkers: () => this.metrics.activeWorkers > 0,
+        hasOnlineWorkers: () => this.onlineWorkerIds.size > 0,
         onQuarantined: (info) => this.safeEmit("worker:quarantined", info),
       },
     );
@@ -169,7 +169,13 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       isShuttingDown: () => this.shutdownCoordinator.isShutdownInProgress(),
       recycleWorker: (workerId, reason) => this.triggerWorkerRecycle(workerId, reason),
       onHealthReport: (report) => this.safeEmit("worker:health", report),
-      onWedged: (info) => this.safeEmit("worker:wedged", info),
+      onWedged: (info) => {
+        // A worker already draining (recycle ACK froze its heartbeat) is being
+        // replaced, not wedged — and no kill follows. Drop the event; the
+        // in-flight recycle owns the slot.
+        if (this.workerManager.isMarkedForRecycling(info.workerId)) return;
+        this.safeEmit("worker:wedged", info);
+      },
     });
   }
 
@@ -438,10 +444,6 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     staggerMs?: number;
     reason?: string;
   }): Promise<void> {
-    // A hot restart re-forks every slot: boot-loop quarantine state is stale
-    // the moment the roll begins.
-    this.restartCoordinator.resetQuarantine();
-
     // Fail fast on a polluted env overlay before any state change: an aborted
     // roll must not leave old workers marked for recycling (which would exempt
     // them from age-based recycling) or emit a dangling restart:start.
@@ -463,6 +465,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       this.log?.warn("restartWorkers() called in single-worker mode — no cluster to roll", { reason });
       return;
     }
+
+    // A hot restart re-forks every slot: boot-loop quarantine state is stale
+    // the moment the roll begins. Rejected calls (guards above) leave the
+    // reported quarantine count untouched.
+    this.restartCoordinator.resetQuarantine();
 
     this.restartInProgress = true;
 

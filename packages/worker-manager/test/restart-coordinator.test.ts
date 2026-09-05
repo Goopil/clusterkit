@@ -67,6 +67,8 @@ function makeCoordinator(
   const breakerTrips: Array<{ crashCount: number; windowMs: number }> = [];
   const quarantined: Array<{ consecutiveBootFailures: number }> = [];
   const isShuttingDown = vi.fn(() => false);
+  // Stand-in for the Orchestrator's "at least one worker online" dep
+  // (proxied here by activeWorkers).
   const hasOnlineWorkers = vi.fn(() => metrics.activeWorkers > 0);
   const fork = vi.fn(
     overrides.forkImpl ??
