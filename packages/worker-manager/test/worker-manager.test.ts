@@ -324,6 +324,77 @@ describe("WorkerManager", () => {
       expect(onRecycle).toHaveBeenCalledTimes(1);
     });
 
+    // Same guarantee for the immediate (RSS/wedged) recycle path: a failed
+    // replacement fork must not leak a stale recycling mark — the worker
+    // stays alive and serving, left to the next sweep or the crash path.
+    it("recycleWorkerNow: unmarks the worker and leaves it running when the fork throws", () => {
+      const cluster = new MockCluster();
+      const logger = makeLogger();
+      const manager = new WorkerManager(cluster as never, config, logger, makeMetrics(), []);
+      const worker = manager.forkWorker(); // id=1
+
+      vi.spyOn(cluster, "fork").mockImplementation(() => {
+        throw new Error("EMFILE: too many open files");
+      });
+      const onRecycle = vi.fn();
+
+      expect(manager.recycleWorkerNow(worker.id, "rss", () => false, onRecycle)).toBe(false);
+      expect(manager.isMarkedForRecycling(worker.id)).toBe(false); // unmarked
+      expect(manager.getActiveWorkers()).toEqual([worker]); // left running
+      expect(logger.error).toHaveBeenCalledWith(
+        "Recycle fork failed — worker left running",
+        expect.objectContaining({ workerId: worker.id, reason: "rss", error: "EMFILE: too many open files" }),
+      );
+      expect(onRecycle).not.toHaveBeenCalled();
+    });
+
+    it("recycleWorkerNow: declines when shutting down, already marked, or unknown", () => {
+      const cluster = new MockCluster();
+      const manager = new WorkerManager(cluster as never, config, null, makeMetrics(), []);
+      const worker = manager.forkWorker(); // id=1
+      const onRecycle = vi.fn();
+
+      expect(manager.recycleWorkerNow(999, "rss", () => false, onRecycle)).toBe(false); // unknown worker
+      expect(manager.recycleWorkerNow(worker.id, "rss", () => true, onRecycle)).toBe(false); // shutting down
+      expect(cluster.fork).toHaveBeenCalledTimes(1); // no replacement forked on decline
+
+      expect(manager.recycleWorkerNow(worker.id, "rss", () => false, onRecycle)).toBe(true);
+      expect(manager.isMarkedForRecycling(worker.id)).toBe(true);
+      expect(manager.recycleWorkerNow(worker.id, "rss", () => false, onRecycle)).toBe(false); // already marked
+
+      expect(onRecycle).toHaveBeenCalledTimes(1);
+      expect(cluster.fork).toHaveBeenCalledTimes(2); // initial + one replacement
+    });
+
+    // The sweep runs in rss-only mode too (recycleWorkerNow owns the actual
+    // recycling): it must idle — never recycle an unmarked worker by age.
+    it("sweep idles when only maxRssMb is set", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 0, maxRssMb: 100 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      manager.forkWorker();
+
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => false, onRecycle);
+
+      vi.advanceTimersByTime(120_001);
+      expect(onRecycle).not.toHaveBeenCalled();
+    });
+
+    it("sweep does not recycle workers younger than maxAgeMs", () => {
+      const cluster = new MockCluster();
+      const cfg = { ...config, workers: { ...config.workers, maxAgeMs: 30_000 } };
+      const manager = new WorkerManager(cluster as never, cfg, null, makeMetrics(), []);
+      const onRecycle = vi.fn();
+      manager.startRecycling(() => false, onRecycle);
+
+      vi.advanceTimersByTime(50_000);
+      manager.forkWorker(); // age 0 at fork
+      vi.advanceTimersByTime(10_001); // sweep fires; worker age 10_001 < maxAgeMs
+
+      expect(onRecycle).not.toHaveBeenCalled();
+    });
+
     /**
      * Harness for the stagger-window guards: two aged workers are swept at
      * 60s; the first stagger fires immediately (idx 0), the second stays
