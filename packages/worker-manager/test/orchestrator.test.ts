@@ -2586,6 +2586,33 @@ describe("Orchestrator", () => {
       expect(orch.getFleetHealth().quarantined).toBe(0);
       expect(orch.getMetrics().gracefulShutdowns).toBe(1);
     });
+
+    it("restartWorkers() refills quarantined slots back to target capacity", async () => {
+      const orch = await setupPrimary(2, { restart: { backoffMs: 0, bootFailQuarantine: 1 } });
+
+      // Quarantine one slot: replacement #1000 never comes online
+      const forkSpy = mockForkNeverOnline();
+      mockCluster.emit("exit", mockCluster.workers[1], 1, null); // runtime crash → #1000
+      mockCluster.workers[1].simulateCrash(); // mark the mock dead — the slot is untracked
+      mockCluster.emit("exit", mockCluster.workers[1000], 1, null); // boot failure → quarantined
+      mockCluster.workers[1000].simulateCrash();
+      expect(orch.getFleetHealth().quarantined).toBe(1);
+      expect(orch.getFleetHealth().active).toBe(1); // the slot is empty
+
+      // The remedy: a hot restart must also restore the dead slot
+      forkSpy.mockRestore();
+      const restartsBefore = orch.getMetrics().workerRestarts;
+      const survivor = mockCluster.workers[2];
+      survivor.autoExitOnDisconnect = true;
+      // Drain-induced exits must reach the cluster bookkeeping (mirrors real
+      // cluster, where the worker's exit also fires the cluster event)
+      survivor.on("exit", (code, signal) => mockCluster.emit("exit", survivor, code, signal));
+      await orch.restartWorkers({ staggerMs: 0, reason: "heal" });
+
+      expect(orch.getFleetHealth().quarantined).toBe(0);
+      expect(orch.getFleetHealth().active).toBe(2); // back to target
+      expect(orch.getMetrics().workerRestarts).toBe(restartsBefore + 1); // refill forked through the restart queue
+    });
   });
 
   // --------------------------------------------------------------------------

@@ -424,6 +424,10 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    * If shutdown starts mid-roll, the roll stops without emitting
    * `restart:complete` — a partial roll is not a complete one.
    *
+   * After a complete roll, missing capacity (e.g. quarantined slots, which
+   * have no tracked worker to roll) is refilled to target via the restart
+   * queue — the same mechanism as resetCircuitBreaker().
+   *
    * Throws before any state change if the env overlay contains
    * prototype-pollution keys — no worker is marked for recycling and no
    * `restart:start` is emitted for an aborted roll.
@@ -542,6 +546,13 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       } else {
         this.log?.info("Hot restart complete", { reason, restartedWorkerIds });
         this.safeEmit("restart:complete", { restartedWorkerIds, reason });
+
+        // Reconcile capacity: quarantined slots (or any gap) have no tracked
+        // worker, so the roll above could not replace them. The restart queue
+        // drops refill entries when capacity was restored meanwhile (e.g. by
+        // the crash-restart path) — no double forks.
+        const missing = Math.max(0, this.resolveWorkerCount() - this.metrics.activeWorkers);
+        this.restartCoordinator.requestCapacityRefill(missing);
       }
     } finally {
       this.restartInProgress = false;

@@ -103,7 +103,9 @@ export class RestartCoordinator {
         });
         this.deps.onQuarantined({ consecutiveBootFailures: this.consecutiveBootFailures });
         // Deliberately no crash record and no restart: one bad slot must not
-        // poison the fleet breaker or burn forks. Remedy: restartWorkers().
+        // poison the fleet breaker or burn forks. Remedy: restartWorkers(),
+        // which clears the quarantine counters and refills the missing
+        // capacity — the slot gets a fresh boot attempt.
         return;
       }
       // Pre-quarantine boot failure: a real crash — fall through to the
