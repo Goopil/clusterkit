@@ -1,11 +1,26 @@
 import cluster from "node:cluster";
-import { type Logger, type Orchestrator, type ResolvedConfig, withLoggerPrefix } from "@goopil/clusterkit";
+import {
+  type Logger,
+  type Orchestrator,
+  type OrchestratorEvents,
+  type ResolvedConfig,
+  withLoggerPrefix,
+} from "@goopil/clusterkit";
 import { AggregatorRegistry, Counter, collectDefaultMetrics, Gauge, Registry } from "prom-client";
 import type { PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
 
 export type { PrometheusPlugin, PrometheusPluginOptions } from "./types.js";
 
-type PrimaryEvent = "worker:online" | "worker:exit" | "worker:crash" | "worker:restart" | "circuit-breaker:tripped";
+type PrimaryEvent =
+  | "worker:online"
+  | "worker:exit"
+  | "worker:crash"
+  | "worker:restart"
+  | "circuit-breaker:tripped"
+  | "worker:health"
+  | "worker:recycle"
+  | "worker:wedged"
+  | "fleet:recovered";
 
 // ============================================================================
 // Factory
@@ -51,11 +66,100 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     registers: [registry],
   });
 
+  // Worker health & fleet metrics — driven by the health/recovery events and
+  // getFleetHealth() (see spec §9.1)
+  const lastReports = new Map<number, number>();
+  const workerIdLabel = ["workerId"];
+
+  const workerRss = new Gauge({
+    name: `${prefix}worker_rss_bytes`,
+    help: "Resident set size per worker (from health heartbeat)",
+    labelNames: workerIdLabel,
+    registers: [registry],
+  });
+
+  const workerHeap = new Gauge({
+    name: `${prefix}worker_heap_used_bytes`,
+    help: "Heap used per worker (from health heartbeat)",
+    labelNames: workerIdLabel,
+    registers: [registry],
+  });
+
+  const workerLag = new Gauge({
+    name: `${prefix}worker_eventloop_lag_ms`,
+    help: "Event loop lag per worker (from health heartbeat)",
+    labelNames: workerIdLabel,
+    registers: [registry],
+  });
+
+  const heartbeatAge = new Gauge({
+    name: `${prefix}worker_heartbeat_age_seconds`,
+    help: "Seconds since the worker's last health report (large = wedged risk)",
+    labelNames: workerIdLabel,
+    collect() {
+      const now = Date.now();
+      for (const [id, ts] of lastReports) {
+        this.set({ workerId: String(id) }, (now - ts) / 1000);
+      }
+    },
+    registers: [registry],
+  });
+
+  // Fleet gauges read the live fleet health on every scrape — no event wiring.
+  // Registered for their collect() side effect only, hence no local binding.
+  new Gauge({
+    name: `${prefix}fleet_active_workers`,
+    help: "Currently active workers (live fleet health)",
+    collect() {
+      this.set(primaryOrchestrator?.getFleetHealth().active ?? 0);
+    },
+    registers: [registry],
+  });
+
+  new Gauge({
+    name: `${prefix}fleet_target_workers`,
+    help: "Target worker count (live fleet health)",
+    collect() {
+      this.set(primaryOrchestrator?.getFleetHealth().target ?? 0);
+    },
+    registers: [registry],
+  });
+
+  new Gauge({
+    name: `${prefix}fleet_quarantined_slots`,
+    help: "Quarantined worker slots (live fleet health)",
+    collect() {
+      this.set(primaryOrchestrator?.getFleetHealth().quarantined ?? 0);
+    },
+    registers: [registry],
+  });
+
+  const workerRecycles = new Counter({
+    name: `${prefix}worker_recycles_total`,
+    help: "Total number of worker recycles by reason",
+    labelNames: ["reason"],
+    registers: [registry],
+  });
+
+  const wedgedKills = new Counter({
+    name: `${prefix}worker_wedged_kills_total`,
+    help: "Total number of workers killed for being wedged",
+    registers: [registry],
+  });
+
+  const recoveryDuration = new Gauge({
+    name: `${prefix}recovery_duration_seconds`,
+    help: "Duration of the last fleet degradation until recovery",
+    registers: [registry],
+  });
+
   // Aggregates per-worker metrics from all cluster workers via prom-client built-in IPC
   const aggregatorRegistry = new AggregatorRegistry();
   let primaryOrchestrator: Orchestrator | undefined;
   let pluginLog: Logger | null = null;
-  const primaryListeners: Array<{ event: PrimaryEvent; listener: () => void }> = [];
+  // Listeners stored payload-agnostic; the concrete payload type is inferred at
+  // the bind() call site via OrchestratorEvents[E].
+  const primaryListeners: Array<{ event: PrimaryEvent; listener: (...args: never[]) => void }> = [];
   let mergedMetricsCache: { value: string; expiresAt: number } | undefined;
   let inflightMetrics: Promise<string> | undefined;
   let defaultMetricsInstalled = false;
@@ -80,6 +184,14 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
 
     primaryListeners.length = 0;
     primaryOrchestrator = undefined;
+  };
+
+  const clearWorkerHealth = (workerId: number): void => {
+    lastReports.delete(workerId);
+    workerRss.remove({ workerId: String(workerId) });
+    workerHeap.remove({ workerId: String(workerId) });
+    workerLag.remove({ workerId: String(workerId) });
+    heartbeatAge.remove({ workerId: String(workerId) });
   };
 
   async function mergedMetrics(): Promise<string> {
@@ -141,7 +253,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
         primaryOrchestrator = orchestrator;
         log?.debug("Plugin installed on primary process");
 
-        const bind = (event: PrimaryEvent, listener: () => void): void => {
+        const bind = <E extends PrimaryEvent>(event: E, listener: (...args: OrchestratorEvents[E]) => void): void => {
           orchestrator.on(event, listener);
           primaryListeners.push({ event, listener });
         };
@@ -150,9 +262,10 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
           syncActiveWorkers();
           clearMergedMetricsCache();
         });
-        bind("worker:exit", () => {
+        bind("worker:exit", ({ workerId }) => {
           syncActiveWorkers();
           clearMergedMetricsCache();
+          clearWorkerHealth(workerId);
         });
         bind("worker:crash", () => {
           workerCrashes.inc();
@@ -166,6 +279,15 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
           circuitBreakerTrips.inc();
           clearMergedMetricsCache();
         });
+        bind("worker:health", ({ workerId, rss, heapUsed, eventLoopLagMs }) => {
+          lastReports.set(workerId, Date.now());
+          workerRss.set({ workerId: String(workerId) }, rss);
+          workerHeap.set({ workerId: String(workerId) }, heapUsed);
+          workerLag.set({ workerId: String(workerId) }, eventLoopLagMs);
+        });
+        bind("worker:recycle", ({ reason }) => workerRecycles.inc({ reason }));
+        bind("worker:wedged", () => wedgedKills.inc());
+        bind("fleet:recovered", ({ degradedDurationMs }) => recoveryDuration.set(degradedDurationMs / 1000));
 
         registry.setDefaultLabels({ pid: process.pid, ...labels });
 
@@ -220,6 +342,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
       syncActiveWorkers();
       clearPrimaryListeners();
       clearMergedMetricsCache();
+      lastReports.clear();
 
       if (defaultMetricsInstalled) {
         defaultMetricsInstalled = false;
