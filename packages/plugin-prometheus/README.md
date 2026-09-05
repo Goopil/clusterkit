@@ -79,12 +79,34 @@ throws with an explicit error instead of silently returning all-zero metrics.
 
 With the default prefix (`clusterkit_`):
 
-- `clusterkit_active_workers` (Gauge)
-- `clusterkit_worker_restarts_total` (Counter)
-- `clusterkit_worker_crashes_total` (Counter)
-- `clusterkit_circuit_breaker_trips_total` (Counter)
+Orchestration metrics (primary, event-driven):
 
-Plus worker-level Node.js default metrics from `prom-client` when `defaultMetrics: true`.
+- `clusterkit_active_workers` (Gauge) — Number of active cluster workers
+- `clusterkit_worker_restarts_total` (Counter) — Total number of worker restarts
+- `clusterkit_worker_crashes_total` (Counter) — Total number of worker crashes
+- `clusterkit_circuit_breaker_trips_total` (Counter) — Total number of circuit breaker trips
+
+Worker health metrics (per worker, driven by `worker:health` events — require `health.heartbeatMs > 0`):
+
+- `clusterkit_worker_rss_bytes` (Gauge, `workerId`) — Resident set size per worker (from health heartbeat)
+- `clusterkit_worker_heap_used_bytes` (Gauge, `workerId`) — Heap used per worker (from health heartbeat)
+- `clusterkit_worker_eventloop_lag_ms` (Gauge, `workerId`) — Event loop lag per worker (from health heartbeat)
+- `clusterkit_worker_heartbeat_age_seconds` (Gauge, `workerId`) — Seconds since the worker's last health report (large = wedged risk)
+
+Recovery metrics:
+
+- `clusterkit_worker_recycles_total{reason}` (Counter) — Total number of worker recycles by reason (`maxAge`, `rss`, `wedged`)
+- `clusterkit_worker_wedged_kills_total` (Counter) — Total number of workers killed for being wedged
+- `clusterkit_recovery_duration_seconds` (Gauge) — Duration of the last fleet degradation until recovery
+
+Fleet gauges (read `getFleetHealth()` live on every scrape):
+
+- `clusterkit_fleet_active_workers` (Gauge) — Currently active workers (live fleet health)
+- `clusterkit_fleet_target_workers` (Gauge) — Target worker count (live fleet health)
+- `clusterkit_fleet_quarantined_slots` (Gauge) — Quarantined worker slots (live fleet health)
+
+Labeled counters (`worker_recycles_total`) only appear once their first series is recorded. Plus worker-level Node.js
+default metrics from `prom-client` when `defaultMetrics: true`.
 
 In single-worker mode (`workers: 1`), the orchestrator runs the app directly in the
 primary process without forking. The plugin sets `clusterkit_active_workers` to `1` and

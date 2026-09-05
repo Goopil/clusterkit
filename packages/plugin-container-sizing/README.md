@@ -51,7 +51,13 @@ console.log(sizing.sizing);
 | `overrideWorkerCount` | `boolean` | `true` | Applies computed worker count when orchestrator is `workers.count: 'auto'` |
 | `injectNodeOptions` | `boolean` | `true` | Injects computed `--max-old-space-size` into worker `NODE_OPTIONS` |
 | `extraNodeOptions` | `string` | `undefined` | Extra flags appended to `NODE_OPTIONS` |
+| `compileCache` | `boolean \| string` | `false` | Enables Node.js compile caching for workers via `NODE_COMPILE_CACHE`: `true` → `<tmpdir>/clusterkit-compile-cache`, a string is used verbatim as the cache directory |
 | `fallback` | `boolean` | `true` | If no cgroup limits exist, use OS resources (`false` = skip plugin) |
+
+`compileCache` is env-only — `NODE_COMPILE_CACHE` is not a CLI flag, so it never touches `NODE_OPTIONS` (keeping the
+orchestrator's `NODE_OPTIONS` advisory quiet). The cache directory is content-hash keyed and safe to share across
+worker restarts of the same image; in containers, point it at a tmpfs/ephemeral path so it does not bloat the image
+layer.
 
 ## Strategies
 
