@@ -1,5 +1,15 @@
 # @goopil/clusterkit
 
+## 1.3.0
+
+### Minor Changes
+
+- [#166](https://github.com/Goopil/clusterkit/pull/166) [`680276a`](https://github.com/Goopil/clusterkit/commit/680276a9c4f0d4c11ea7807305cffd8f750e355d) Thanks [@Goopil](https://github.com/Goopil)! - feat: worker health & recovery subsystem — opt-in worker health heartbeats (`health.heartbeatMs`) emitting `worker:health` reports, RSS-based recycling (`workers.maxRssMb`) and wedged-worker detection (`health.wedgedTimeoutMs`) through the shared bounded drain, fleet health surface (`getFleetHealth()`, `fleet:degraded`/`fleet:recovered` via `health.degradedAfterMs`), and boot-loop quarantine (`restart.bootFailQuarantine`) with `restartWorkers()` as the remedy.
+
+### Patch Changes
+
+- [#164](https://github.com/Goopil/clusterkit/pull/164) [`51d4b17`](https://github.com/Goopil/clusterkit/commit/51d4b1761c7825dbadfffa566a82465b7735893e) Thanks [@Goopil](https://github.com/Goopil)! - refactor: split Orchestrator internals into RestartCoordinator and DrainCoordinator services. No public API change.
+
 ## 1.2.6
 
 ### Patch Changes

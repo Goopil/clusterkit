@@ -1,5 +1,11 @@
 # @goopil/clusterkit-sizing
 
+## 1.2.0
+
+### Minor Changes
+
+- [#166](https://github.com/Goopil/clusterkit/pull/166) [`680276a`](https://github.com/Goopil/clusterkit/commit/680276a9c4f0d4c11ea7807305cffd8f750e355d) Thanks [@Goopil](https://github.com/Goopil)! - feat: `compileCache` option — injects `NODE_COMPILE_CACHE` (env-only, never via `NODE_OPTIONS`) into the worker env to enable Node.js compile caching; `true` uses `<tmpdir>/clusterkit-compile-cache`, a string is used verbatim as the cache directory.
+
 ## 1.1.1
 
 ### Patch Changes
