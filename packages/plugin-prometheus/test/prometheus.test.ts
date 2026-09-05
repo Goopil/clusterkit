@@ -332,6 +332,15 @@ describe("worker health & fleet metrics", () => {
     expect(after).toMatch(metricLine("clusterkit_fleet_quarantined_slots", 1));
   });
 
+  it("reports fleet gauges as 0 when scraped before install", async () => {
+    const plugin = makePlugin();
+
+    const out = await plugin.registry.metrics();
+    expect(out).toMatch(metricLine("clusterkit_fleet_active_workers", 0));
+    expect(out).toMatch(metricLine("clusterkit_fleet_target_workers", 0));
+    expect(out).toMatch(metricLine("clusterkit_fleet_quarantined_slots", 0));
+  });
+
   it("records recovery duration on fleet:recovered", async () => {
     const plugin = makePlugin();
     const orch = mockOrchestrator();
