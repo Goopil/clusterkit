@@ -2518,4 +2518,142 @@ describe("Orchestrator", () => {
       await shutdownPromise;
     });
   });
+
+  // --------------------------------------------------------------------------
+  describe("boot-loop quarantine", () => {
+    async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
+      await orch.run(() => {});
+      await new Promise<void>((r) => setImmediate(r)); // flush initial "online" setImmediates
+      return orch;
+    }
+
+    /** Make every subsequent fork return a worker that never emits "online". */
+    function mockForkNeverOnline(): ReturnType<typeof vi.spyOn> {
+      let doomedId = 1000;
+      return vi.spyOn(mockCluster, "fork").mockImplementation((_env?: NodeJS.ProcessEnv) => {
+        const worker = new MockWorker(doomedId++);
+        mockCluster.workers[worker.id] = worker;
+        return worker;
+      });
+    }
+
+    it("quarantines a slot after N consecutive boot failures while the fleet serves", async () => {
+      const orch = await setupPrimary(2, { restart: { backoffMs: 0, bootFailQuarantine: 3 } });
+
+      // Every replacement fork returns a worker that never comes online:
+      // each replacement exit below is a boot failure.
+      const forkSpy = mockForkNeverOnline();
+      const quarantined: Array<{ consecutiveBootFailures: number }> = [];
+      orch.on("worker:quarantined", (d) => quarantined.push(d));
+
+      // Worker 1 was online: its crash is a runtime crash → replacement #1000
+      mockCluster.emit("exit", mockCluster.workers[1], 1, null);
+      // Boot failures #1–#3: each replacement exits without ever coming online
+      mockCluster.emit("exit", mockCluster.workers[1000], 1, null);
+      await new Promise<void>((r) => setImmediate(r)); // replacement #1001 forks
+      mockCluster.emit("exit", mockCluster.workers[1001], 1, null);
+      await new Promise<void>((r) => setImmediate(r)); // replacement #1002 forks
+      mockCluster.emit("exit", mockCluster.workers[1002], 1, null);
+      await new Promise<void>((r) => setImmediate(r)); // quarantine: no fourth replacement
+
+      expect(forkSpy).toHaveBeenCalledTimes(3); // no fourth fork
+      expect(quarantined).toEqual([{ consecutiveBootFailures: 3 }]);
+      expect(orch.getFleetHealth().quarantined).toBe(1);
+      expect(orch.getMetrics().crashLoopBackoffs).toBe(0); // breaker untouched
+      expect(orch.getMetrics().workerRestarts).toBe(3);
+    });
+
+    it("graceful exits do not trip the boot-failure streak", async () => {
+      const orch = await setupPrimary(2, { restart: { backoffMs: 0, bootFailQuarantine: 1 } });
+
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+      const quarantined: Array<{ consecutiveBootFailures: number }> = [];
+      orch.on("worker:quarantined", (d) => quarantined.push(d));
+
+      // Worker 1 was online and exits gracefully: no streak, no restart
+      const [w1, w2] = Object.values(mockCluster.workers);
+      w1.exitedAfterDisconnect = true;
+      mockCluster.emit("exit", w1, 0, null);
+
+      // Worker 2 was online too: its crash is a runtime crash, not a boot failure
+      mockCluster.emit("exit", w2, 1, null);
+      await new Promise<void>((r) => setImmediate(r));
+
+      expect(forkSpy).toHaveBeenCalledTimes(1); // normal crash path
+      expect(quarantined).toHaveLength(0);
+      expect(orch.getFleetHealth().quarantined).toBe(0);
+      expect(orch.getMetrics().gracefulShutdowns).toBe(1);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // healthMonitor.onWorkerExit must run on every exit path (graceful and
+  // shutdown included): a stale-but-registered worker would stay wedged-watch
+  // eligible and could fire a recycle on a dead id.
+  // --------------------------------------------------------------------------
+  describe("exit-path health registry cleanup", () => {
+    /** Report worker health through the real monitor tap (mirrors the worker IPC heartbeat). */
+    function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number): void {
+      (
+        orch as unknown as { healthMonitor: { onWorkerMessage: (id: number, pid: number, msg: unknown) => void } }
+      ).healthMonitor.onWorkerMessage(workerId, pid, {
+        type: "__wm:hb",
+        rss,
+        heapUsed: 0,
+        eventLoopLagMs: 0,
+      });
+    }
+
+    async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+      return orch;
+    }
+
+    it("a crashed worker's slot leaves the wedged watch", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, { health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } });
+
+      const wedged: unknown[] = [];
+      orch.on("worker:wedged", (d) => wedged.push(d));
+
+      const worker = mockCluster.workers[1];
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024);
+      mockCluster.emit("exit", worker, 1, null); // unclean crash
+
+      await vi.advanceTimersByTimeAsync(2_000); // well past wedgedTimeoutMs
+      expect(wedged).toHaveLength(0); // registry was cleared on exit
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
+    it("a gracefully exited worker's slot leaves the wedged watch", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, { health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } });
+
+      const wedged: unknown[] = [];
+      orch.on("worker:wedged", (d) => wedged.push(d));
+
+      const worker = mockCluster.workers[1];
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024);
+      worker.exitedAfterDisconnect = true;
+      mockCluster.emit("exit", worker, 0, null); // graceful — no restart
+
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(wedged).toHaveLength(0); // registry was cleared on exit
+      expect(Object.keys(mockCluster.workers)).toHaveLength(2); // graceful exits don't fork
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+  });
 });

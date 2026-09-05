@@ -65,6 +65,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // Recycle reason for the in-flight recycle (worker:recycle payload); absent = maxAge
   private readonly recycleReasons = new Map<number, RecycleReason>();
 
+  // Workers that reached `online` — a crash without it is a boot failure
+  private readonly onlineWorkerIds = new Set<number>();
+
   // Metrics
   private readonly metrics: WorkerMetrics = {
     workerRestarts: 0,
@@ -150,6 +153,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
           this.health.ready = false;
           this.safeEmit("circuit-breaker:tripped", info);
         },
+        hasOnlineWorkers: () => this.metrics.activeWorkers > 0,
+        onQuarantined: (info) => this.safeEmit("worker:quarantined", info),
       },
     );
 
@@ -344,15 +349,10 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    * breaker state.
    */
   getFleetHealth(): FleetHealth {
-    // getQuarantinedCount() arrives with worker quarantine; read it through
-    // an optional chain until then.
-    const restartCoordinator = this.restartCoordinator as unknown as {
-      getQuarantinedCount?: () => number;
-    };
     return {
       target: this.resolveWorkerCount(),
       active: this.metrics.activeWorkers,
-      quarantined: restartCoordinator.getQuarantinedCount?.() ?? 0,
+      quarantined: this.restartCoordinator.getQuarantinedCount(),
       breaker: { count: this.crashTracker.count, tripped: this.crashTracker.isTripped() },
     };
   }
@@ -434,6 +434,10 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     staggerMs?: number;
     reason?: string;
   }): Promise<void> {
+    // A hot restart re-forks every slot: boot-loop quarantine state is stale
+    // the moment the roll begins.
+    this.restartCoordinator.resetQuarantine();
+
     // Fail fast on a polluted env overlay before any state change: an aborted
     // roll must not leave old workers marked for recycling (which would exempt
     // them from age-based recycling) or emit a dangling restart:start.
@@ -675,6 +679,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // ============================================================================
 
   private handleWorkerOnline(worker: Worker): void {
+    this.onlineWorkerIds.add(worker.id);
     this.restartCoordinator.onWorkerOnline(worker.id);
 
     // Fleet back at target capacity: a failure exit code flagged while the
@@ -700,6 +705,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // During shutdown: do not restart but emit and record events
     if (this.shutdownCoordinator.isShutdownInProgress()) {
       this.log?.info("Worker exited during shutdown", { workerId: worker.id, code, signal });
+      this.onlineWorkerIds.delete(worker.id);
+      this.healthMonitor.onWorkerExit(worker.id);
       if (worker.exitedAfterDisconnect) {
         this.metrics.gracefulShutdowns++;
       }
@@ -718,18 +725,25 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // Clean exit
     if (worker.exitedAfterDisconnect) {
       this.log?.info("Worker exited gracefully", { workerId: worker.id, code, signal });
+      this.onlineWorkerIds.delete(worker.id);
+      this.healthMonitor.onWorkerExit(worker.id);
       this.metrics.gracefulShutdowns++;
       return;
     }
 
-    // Crash - record for circuit breaker and decide restart/breaker fate
+    // Crash - record for circuit breaker and decide restart/breaker fate.
+    // A crash without a prior `online` is a boot failure: the restart
+    // coordinator may quarantine the slot instead of re-forking.
+    const bootFailed = !this.onlineWorkerIds.has(worker.id);
+    this.onlineWorkerIds.delete(worker.id);
+    this.healthMonitor.onWorkerExit(worker.id);
     this.safeEmit("worker:crash", {
       workerId: worker.id,
       pid: worker.process.pid ?? 0,
       code,
       signal,
     });
-    this.restartCoordinator.onWorkerCrash(worker.id, code, signal);
+    this.restartCoordinator.onWorkerCrash(worker.id, code, signal, bootFailed);
   }
 
   /**

@@ -16,6 +16,7 @@ const config: ResolvedConfig = {
     maxBackoffMs: 30_000,
     backoffMultiplier: 2,
     stabilityWindowMs: 0,
+    bootFailQuarantine: 0,
   },
   shutdown: {
     timeoutMs: 1_000,
@@ -39,6 +40,8 @@ interface Harness {
   restarts: MockWorker[];
   breakerTrips: Array<{ crashCount: number; windowMs: number }>;
   isShuttingDown: ReturnType<typeof vi.fn>;
+  hasOnlineWorkers: ReturnType<typeof vi.fn>;
+  quarantined: Array<{ consecutiveBootFailures: number }>;
 }
 
 /**
@@ -62,7 +65,9 @@ function makeCoordinator(
   );
   const restarts: MockWorker[] = [];
   const breakerTrips: Array<{ crashCount: number; windowMs: number }> = [];
+  const quarantined: Array<{ consecutiveBootFailures: number }> = [];
   const isShuttingDown = vi.fn(() => false);
+  const hasOnlineWorkers = vi.fn(() => metrics.activeWorkers > 0);
   const fork = vi.fn(
     overrides.forkImpl ??
       (() => {
@@ -82,15 +87,30 @@ function makeCoordinator(
       recyclingCount: vi.fn(() => overrides.recycling ?? 0),
       onRestarted: (w) => restarts.push(w as MockWorker),
       onBreakerTripped: (info) => breakerTrips.push(info),
+      hasOnlineWorkers,
+      onQuarantined: (info) => quarantined.push(info),
     },
   );
-  return { coordinator, metrics, crashTracker, fork, restarts, breakerTrips, isShuttingDown };
+  return {
+    coordinator,
+    metrics,
+    crashTracker,
+    fork,
+    restarts,
+    breakerTrips,
+    isShuttingDown,
+    hasOnlineWorkers,
+    quarantined,
+  };
 }
 
-/** Simulate an unclean crash: WorkerManager already removed the worker. */
-function crash(h: Harness, workerId: number): void {
+/**
+ * Simulate an unclean crash: WorkerManager already removed the worker.
+ * `bootFailed` marks a worker that exited without ever coming online.
+ */
+function crash(h: Harness, workerId: number, bootFailed = false): void {
   h.metrics.activeWorkers = Math.max(0, h.metrics.activeWorkers - 1);
-  h.coordinator.onWorkerCrash(workerId, 1, null);
+  h.coordinator.onWorkerCrash(workerId, 1, null, bootFailed);
 }
 
 let savedExitCode: typeof process.exitCode;
@@ -439,6 +459,84 @@ describe("RestartCoordinator", () => {
       h.coordinator.reset();
       expect(h.crashTracker.isTripped()).toBe(false);
       expect(h.coordinator.isForkEnvUnrecoverable()).toBe(false);
+    });
+  });
+
+  describe("boot-loop quarantine", () => {
+    function bootFailingHarness(overrides: { target?: number; quarantine?: number } = {}) {
+      return makeCoordinator({
+        restart: { bootFailQuarantine: overrides.quarantine ?? 3 },
+        target: overrides.target ?? 2,
+        recycling: 0,
+      });
+    }
+
+    /** Drain the restart queue: the loop suspends at each `await restartWorkerWithBackoff`. */
+    const flushQueue = (): Promise<void> => new Promise<void>((resolve) => setImmediate(resolve));
+
+    it("quarantines after N consecutive boot failures while other workers serve", async () => {
+      const h = bootFailingHarness({ quarantine: 3 });
+      h.metrics.activeWorkers = 2; // the rest of the fleet is serving
+
+      crash(h, 1, true); // boot failure #1 — pre-quarantine: normal restart
+      expect(h.fork).toHaveBeenCalledTimes(1);
+      await flushQueue(); // replacement #1 is up (activeWorkers back to 2)
+      crash(h, 2, true); // #2
+      await flushQueue(); // replacement #2 is up
+      crash(h, 3, true); // #3 → quarantine
+      await flushQueue();
+      expect(h.fork).toHaveBeenCalledTimes(2); // no third fork
+      expect(h.metrics.crashLoopBackoffs).toBe(0); // not counted toward the breaker
+      expect(h.quarantined).toEqual([{ consecutiveBootFailures: 3 }]);
+    });
+
+    it("keeps legacy behavior (record + backoff) when no worker is online", async () => {
+      const h = bootFailingHarness({ quarantine: 2 });
+      h.metrics.activeWorkers = 0;
+      crash(h, 1, true);
+      crash(h, 2, true); // would quarantine if the online-guard were ignored
+      await flushQueue();
+      expect(h.fork).toHaveBeenCalledTimes(2); // queued restarts as before
+      expect(h.quarantined).toHaveLength(0);
+    });
+
+    it("never quarantines when bootFailQuarantine is 0 (default)", async () => {
+      const h = bootFailingHarness({ quarantine: 0 });
+      h.metrics.activeWorkers = 2;
+      crash(h, 1, true);
+      crash(h, 2, true);
+      await flushQueue();
+      expect(h.fork).toHaveBeenCalledTimes(2);
+      expect(h.quarantined).toHaveLength(0);
+    });
+
+    it("a successful boot resets the streak", async () => {
+      const h = bootFailingHarness({ quarantine: 2 });
+      h.metrics.activeWorkers = 2;
+      crash(h, 1, true);
+      h.coordinator.onWorkerOnline(2); // replacement boots fine
+      crash(h, 3, true);
+      await flushQueue();
+      expect(h.fork).toHaveBeenCalledTimes(2); // streak was reset — no quarantine
+      expect(h.quarantined).toHaveLength(0);
+    });
+
+    it("runtime crashes (booted workers) never count toward the streak", () => {
+      const h = bootFailingHarness({ quarantine: 1 });
+      h.metrics.activeWorkers = 2;
+      crash(h, 1); // bootFailed = false → normal crash path
+      expect(h.fork).toHaveBeenCalledTimes(1);
+      expect(h.quarantined).toHaveLength(0);
+    });
+
+    it("resetQuarantine clears the counters", () => {
+      const h = bootFailingHarness({ quarantine: 1 });
+      h.metrics.activeWorkers = 2;
+      crash(h, 1, true);
+      expect(h.fork).not.toHaveBeenCalled(); // quarantined: no re-fork
+      expect(h.coordinator.getQuarantinedCount()).toBe(1);
+      h.coordinator.resetQuarantine();
+      expect(h.coordinator.getQuarantinedCount()).toBe(0);
     });
   });
 });
