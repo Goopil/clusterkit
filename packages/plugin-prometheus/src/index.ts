@@ -107,7 +107,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
 
   // Fleet gauges read the live fleet health on every scrape — no event wiring.
   // Registered for their collect() side effect only, hence no local binding.
-  new Gauge({
+  new Gauge({ // NOSONAR: registered for its collect() side effect; kept via `registers`
     name: `${prefix}fleet_active_workers`,
     help: "Currently active workers (live fleet health)",
     collect() {
@@ -116,7 +116,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     registers: [registry],
   });
 
-  new Gauge({
+  new Gauge({ // NOSONAR: registered for its collect() side effect; kept via `registers`
     name: `${prefix}fleet_target_workers`,
     help: "Target worker count (live fleet health)",
     collect() {
@@ -125,7 +125,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     registers: [registry],
   });
 
-  new Gauge({
+  new Gauge({ // NOSONAR: registered for its collect() side effect; kept via `registers`
     name: `${prefix}fleet_quarantined_slots`,
     help: "Quarantined worker slots (live fleet health)",
     collect() {
