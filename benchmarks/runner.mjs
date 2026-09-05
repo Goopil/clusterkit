@@ -9,7 +9,8 @@ import { runScenario } from "./lib/autocannon-runner.mjs";
 import { listAvailable, parseCliArgs, resolveConfig } from "./lib/cli.mjs";
 import { checkPidDistribution } from "./lib/pid-distributor.mjs";
 import { ProcSampler } from "./lib/proc-sampler.mjs";
-import { buildMarkdownReport, writeJsonReport, writeMarkdownReport } from "./lib/reporter.mjs";
+import { median, runRecoveryScenario, summarizeRecoveryRuns } from "./lib/recovery-runner.mjs";
+import { buildMarkdownReport, buildRecoveryMarkdown, writeJsonReport, writeMarkdownReport } from "./lib/reporter.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(__dirname, "results");
@@ -64,6 +65,11 @@ async function main() {
 
   if (cli.smoke) {
     await runSmokeTest(targets, workloads, config.port);
+    return;
+  }
+
+  if (cli.scenario === "recovery") {
+    await runRecoveryBenchmark(cli, config);
     return;
   }
 
@@ -191,10 +197,84 @@ async function runScenarioForTarget(target, workload, config) {
   }
 }
 
-async function bootTarget(target, workload, port) {
+async function runRecoveryBenchmark(cli, config) {
+  if (process.platform !== "linux") {
+    console.error("ERROR: the recovery scenario requires Linux (/proc pid discovery) — run it on the Docker harness:");
+    console.error(
+      "  docker compose -f benchmarks/docker-compose.bench.yml run --build --rm benchmark --scenario recovery --quick",
+    );
+    process.exit(1);
+  }
+
+  const targets = cli.target ? [cli.target] : ["clusterkit-3"];
+  const workload = cli.workload || "hello";
+  const healthOn = cli.health === "on";
+  const results = {};
+  const startTime = Date.now();
+
+  console.log("\n=== Recovery Scenario ===");
+  console.log(
+    `Mode: ${config.mode} | Repetitions: ${config.repetitions} | Health features: ${healthOn ? "on" : "off (baseline)"}`,
+  );
+  console.log(`Targets: ${targets.join(", ")} | Workload: ${workload} | Port: ${config.port}\n`);
+
+  for (const target of targets) {
+    console.log(`--- ${target} ---`);
+    const runs = [];
+    for (let rep = 1; rep <= config.repetitions; rep++) {
+      console.log(`  Repetition ${rep}/${config.repetitions}...`);
+      const bootStartTs = Date.now();
+      const { child, kill } = await bootTarget(target, workload, config.port, healthOn ? { BENCH_HEALTH: "1" } : {});
+      const bootTimeMs = Date.now() - bootStartTs;
+      try {
+        await sleep(5000); // warmup: let the full fleet come online before killing
+        const scenario = await runRecoveryScenario({
+          targetChild: child,
+          port: config.port,
+          expectedWorkers: EXPECTED_PIDS[target] || 3,
+        });
+        runs.push({ ...scenario, bootTimeMs, bootTimesMsMedian: median(scenario.bootTimesMs) });
+        console.log(
+          `    restore ${scenario.restoreDurationMs}ms | ${scenario.requestsDuringRecovery} req during recovery | killed ${scenario.pidsKilled.length}/${scenario.pidsBefore.length}${scenario.restored ? "" : " (TIMED OUT)"}`,
+        );
+      } finally {
+        await kill();
+        await sleep(1000);
+      }
+    }
+    results[target] = summarizeRecoveryRuns(runs, {
+      workload,
+      health: healthOn ? "on" : "off",
+      repetitions: config.repetitions,
+    });
+  }
+
+  const metadata = {
+    generatedAt: new Date().toISOString(),
+    nodeVersion: process.version,
+    platform: `${process.platform} ${process.arch}`,
+    cpuCount: os.cpus().length,
+    cpuModel: os.cpus()[0]?.model || "unknown",
+    dockerImage: "node:22-slim",
+    scenario: "recovery",
+    health: healthOn ? "on" : "off",
+    method: { warmupMs: 5000, deadlineMs: 10_000, repetitions: config.repetitions, mode: config.mode },
+  };
+
+  const report = { metadata, results };
+  writeJsonReport(report, RESULTS_DIR);
+  writeMarkdownReport(buildRecoveryMarkdown(report), RESULTS_DIR);
+
+  const elapsed = Math.round((Date.now() - startTime) / 1000);
+  console.log(`\n=== Done in ${elapsed}s ===`);
+  console.log(`JSON: ${join(RESULTS_DIR, "latest.json")}`);
+  console.log(`Markdown: ${join(RESULTS_DIR, "REPORT.generated.md")}`);
+}
+
+async function bootTarget(target, workload, port, extraEnv = {}) {
   const targetScript = join(__dirname, "targets", `${target}.mjs`);
   const child = fork(targetScript, [], {
-    env: { ...process.env, PORT: String(port), BENCH_WORKLOAD: workload },
+    env: { ...process.env, PORT: String(port), BENCH_WORKLOAD: workload, ...extraEnv },
     stdio: "pipe",
   });
 

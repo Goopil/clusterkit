@@ -26,9 +26,20 @@ async function loadWorkload() {
 
 const capabilities = await Orchestrator.getCapabilities();
 
+// BENCH_HEALTH=1 opts the benchmark target into the health features (A/B seam
+// for the recovery scenario). Default boot is unchanged: features are opt-in.
+const health =
+  process.env.BENCH_HEALTH === "1"
+    ? {
+        workers: { count: 3, maxRssMb: 512 },
+        health: { heartbeatMs: 500, wedgedTimeoutMs: 3000, degradedAfterMs: 2000 },
+      }
+    : {};
+
 const orchestrator = new Orchestrator({
   logger: null,
   workers: { count: 3 },
+  ...health,
 });
 
 orchestrator.run(async () => {
