@@ -62,6 +62,8 @@ Related support modules:
   the Orchestrator owns recovery (`exitCode = 0`, `health.ready = true`).
 - `drain-coordinator.ts` — bounded drain of replaced workers (IPC shutdown → disconnect →
   SIGTERM → SIGKILL), shared by age-based recycling and hot restarts.
+- `health-monitor.ts` — `HealthMonitor`: worker-side health heartbeat over IPC, primary-side health registry feeding
+  the opt-in RSS/wedged recycle policies.
 - `validation.ts` — config validation and defaulting → `ResolvedConfig` (`workers.env`, `workers.execArgv`, and
   `clusterModule` stay `| undefined` — no meaningful default)
 - `logger.ts` — logger facade
@@ -166,6 +168,9 @@ harness runs but those metrics are unavailable. See `benchmarks/README.md` for t
 - `workers: 1` is single-worker mode (no cluster fork); crash/restart behavior needs `workers >= 2`.
 - `shutdown.timeoutMs` has a minimum of `1000` ms.
 - macOS is unreliable for `SO_REUSEPORT` assertions. Use the Linux Docker harness for Linux-specific behavior.
+- Health features (heartbeat, RSS recycling, wedged detection, fleet health, quarantine) are platform-neutral. The
+  chaos suite that exercises them end to end is Linux-only and runs via the `e2e-health` compose service
+  (`docker-compose run --build --rm e2e-health`); on macOS the runner prints "skipped (Linux e2e)" and exits 0.
 - Use fake timers (`vi.useFakeTimers()` + `vi.runAllTimersAsync()`) for shutdown/circuit-breaker timing tests.
 - For Prometheus plugin tests, prefer isolated registries and disable default metrics unless the test specifically needs
   them.

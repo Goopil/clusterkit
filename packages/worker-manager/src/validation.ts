@@ -1,4 +1,11 @@
-import type { OrchestratorConfig, ResolvedConfig, RestartConfig, ShutdownConfig, WorkersConfig } from "./types";
+import type {
+  HealthConfig,
+  OrchestratorConfig,
+  ResolvedConfig,
+  RestartConfig,
+  ShutdownConfig,
+  WorkersConfig,
+} from "./types";
 
 // ============================================================================
 // Error
@@ -84,6 +91,11 @@ function validateWorkersOptions(workers: WorkersConfig): void {
   if (workers.maxAgeMs !== undefined && workers.maxAgeMs !== 0) {
     assertRange(workers.maxAgeMs, "workers.maxAgeMs", 1_000, Infinity);
   }
+  if (workers.maxRssMb !== undefined) {
+    if (!Number.isInteger(workers.maxRssMb) || workers.maxRssMb < 0) {
+      throw new WorkerManagerValidationError("workers.maxRssMb", "must be a non-negative integer");
+    }
+  }
   if (workers.env !== undefined && (typeof workers.env !== "object" || Array.isArray(workers.env))) {
     throw new WorkerManagerValidationError("workers.env", "must be a plain object");
   }
@@ -131,6 +143,11 @@ function validateRestartOptions(restart: RestartConfig): void {
   if (restart.stabilityWindowMs !== undefined) {
     assertRange(restart.stabilityWindowMs, "restart.stabilityWindowMs", 0, 600_000);
   }
+  if (restart.bootFailQuarantine !== undefined) {
+    if (!Number.isInteger(restart.bootFailQuarantine) || restart.bootFailQuarantine < 0) {
+      throw new WorkerManagerValidationError("restart.bootFailQuarantine", "must be a non-negative integer");
+    }
+  }
 }
 
 function validateShutdownOptions(shutdown: ShutdownConfig): void {
@@ -156,6 +173,27 @@ function validateShutdownOptions(shutdown: ShutdownConfig): void {
   }
 }
 
+function validateHealthOptions(health: HealthConfig): void {
+  if (health.heartbeatMs !== undefined) {
+    if (!Number.isInteger(health.heartbeatMs) || health.heartbeatMs < 0) {
+      throw new WorkerManagerValidationError("health.heartbeatMs", "must be a non-negative integer");
+    }
+    if (health.heartbeatMs > 0 && health.heartbeatMs < 100) {
+      throw new WorkerManagerValidationError("health.heartbeatMs", "must be >= 100 when enabled (IPC protection)");
+    }
+  }
+  if (health.wedgedTimeoutMs !== undefined) {
+    if (!Number.isInteger(health.wedgedTimeoutMs) || health.wedgedTimeoutMs < 0) {
+      throw new WorkerManagerValidationError("health.wedgedTimeoutMs", "must be a non-negative integer");
+    }
+  }
+  if (health.degradedAfterMs !== undefined) {
+    if (!Number.isInteger(health.degradedAfterMs) || health.degradedAfterMs < 0) {
+      throw new WorkerManagerValidationError("health.degradedAfterMs", "must be a non-negative integer");
+    }
+  }
+}
+
 function validateCrossFieldConstraints(resolved: ResolvedConfig): void {
   const totalKillDelay = resolved.shutdown.sigtermDelayMs + resolved.shutdown.sigintDelayMs;
   if (totalKillDelay >= resolved.shutdown.timeoutMs) {
@@ -176,6 +214,17 @@ function validateCrossFieldConstraints(resolved: ResolvedConfig): void {
       `must be greater than or equal to restart.backoffMs (${resolved.restart.backoffMs}ms)`,
     );
   }
+  if ((resolved.health.wedgedTimeoutMs ?? 0) > 0) {
+    if ((resolved.health.heartbeatMs ?? 0) <= 0) {
+      throw new WorkerManagerValidationError("health.wedgedTimeoutMs", "requires health.heartbeatMs > 0");
+    }
+    if (resolved.health.wedgedTimeoutMs < 2 * resolved.health.heartbeatMs) {
+      throw new WorkerManagerValidationError(
+        "health.wedgedTimeoutMs",
+        `must be >= 2 × health.heartbeatMs (${resolved.health.heartbeatMs}ms)`,
+      );
+    }
+  }
 }
 
 // ============================================================================
@@ -189,6 +238,7 @@ const DEFAULTS = {
     env: undefined,
     execArgv: undefined,
     maxAgeMs: 0,
+    maxRssMb: 0,
   },
   restart: {
     crashThreshold: 5,
@@ -197,6 +247,7 @@ const DEFAULTS = {
     maxBackoffMs: 30_000,
     backoffMultiplier: 2,
     stabilityWindowMs: 30_000,
+    bootFailQuarantine: 0,
   },
   shutdown: {
     timeoutMs: 12_000,
@@ -205,10 +256,15 @@ const DEFAULTS = {
     sigtermDelayMs: 2_000,
     sigintDelayMs: 1_000,
   },
+  health: {
+    heartbeatMs: 0,
+    wedgedTimeoutMs: 0,
+    degradedAfterMs: 0,
+  },
   clusterModule: undefined,
 } satisfies ResolvedConfig;
 
-const ALLOWED_ROOT_KEYS = new Set(["logger", "workers", "restart", "shutdown", "clusterModule"]);
+const ALLOWED_ROOT_KEYS = new Set(["logger", "workers", "restart", "shutdown", "health", "clusterModule"]);
 
 export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig {
   const configRecord = config as Record<string, unknown>;
@@ -220,14 +276,17 @@ export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig 
   assertPlainObject(config.workers, "workers");
   assertPlainObject(config.restart, "restart");
   assertPlainObject(config.shutdown, "shutdown");
+  assertPlainObject(config.health, "health");
 
   const workers = config.workers ?? {};
   const restart = config.restart ?? {};
   const shutdown = config.shutdown ?? {};
+  const health = config.health ?? {};
 
   validateWorkersOptions(workers);
   validateRestartOptions(restart);
   validateShutdownOptions(shutdown);
+  validateHealthOptions(health);
 
   const resolvedConfig: ResolvedConfig = {
     logger: config.logger ?? DEFAULTS.logger,
@@ -237,6 +296,7 @@ export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig 
       env: workers.env ?? DEFAULTS.workers.env,
       execArgv: workers.execArgv ?? DEFAULTS.workers.execArgv,
       maxAgeMs: workers.maxAgeMs ?? DEFAULTS.workers.maxAgeMs,
+      maxRssMb: workers.maxRssMb ?? DEFAULTS.workers.maxRssMb,
     },
     restart: {
       crashThreshold: restart.crashThreshold ?? DEFAULTS.restart.crashThreshold,
@@ -245,6 +305,7 @@ export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig 
       maxBackoffMs: restart.maxBackoffMs ?? DEFAULTS.restart.maxBackoffMs,
       backoffMultiplier: restart.backoffMultiplier ?? DEFAULTS.restart.backoffMultiplier,
       stabilityWindowMs: restart.stabilityWindowMs ?? DEFAULTS.restart.stabilityWindowMs,
+      bootFailQuarantine: restart.bootFailQuarantine ?? DEFAULTS.restart.bootFailQuarantine,
     },
     shutdown: {
       timeoutMs: shutdown.timeoutMs ?? DEFAULTS.shutdown.timeoutMs,
@@ -252,6 +313,11 @@ export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig 
       messagePrefix: shutdown.messagePrefix ?? DEFAULTS.shutdown.messagePrefix,
       sigtermDelayMs: shutdown.sigtermDelayMs ?? DEFAULTS.shutdown.sigtermDelayMs,
       sigintDelayMs: shutdown.sigintDelayMs ?? DEFAULTS.shutdown.sigintDelayMs,
+    },
+    health: {
+      heartbeatMs: health.heartbeatMs ?? DEFAULTS.health.heartbeatMs,
+      wedgedTimeoutMs: health.wedgedTimeoutMs ?? DEFAULTS.health.wedgedTimeoutMs,
+      degradedAfterMs: health.degradedAfterMs ?? DEFAULTS.health.degradedAfterMs,
     },
   };
 

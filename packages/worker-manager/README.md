@@ -12,9 +12,10 @@ For monorepo context and examples catalog, see the [root README](../../README.md
 | Worker orchestration | Spawns and supervises workers with `cluster` |
 | Platform capability detection | `Orchestrator.getCapabilities()` reports `platform`, `reusePort` |
 | Crash protection | Exponential restart backoff + circuit breaker (`restart.*`) |
+| Health & recovery | Worker heartbeats, RSS recycling, wedged-worker detection, fleet health, boot-loop quarantine (`health.*`, `workers.maxRssMb`) |
 | Graceful shutdown | ACK-based worker shutdown, configurable timeouts/signals (`shutdown.*`) |
 | Lifecycle controls | Worker recycling (`workers.maxAgeMs`), env patching and worker-count override APIs |
-| Observability | Typed events, `getMetrics()`, `getHealth()` |
+| Observability | Typed events, `getMetrics()`, `getHealth()`, `getFleetHealth()` |
 | Plugin system | `use(plugin)` with install/uninstall lifecycle |
 
 ## Installation
@@ -59,6 +60,7 @@ orchestrator.run(async () => {
 | `workers` | `WorkersConfig` | `{}` | Worker count/process options |
 | `restart` | `RestartConfig` | `{}` | Crash handling + restart policy |
 | `shutdown` | `ShutdownConfig` | `{}` | Shutdown lifecycle options |
+| `health` | `HealthConfig` | `{}` | Worker health monitoring options |
 
 ### `workers`
 
@@ -68,6 +70,11 @@ orchestrator.run(async () => {
 | `env` | `NodeJS.ProcessEnv` | `undefined` | Extra env vars merged into worker env (security guards apply, see below) |
 | `execArgv` | `string[]` | `undefined` | Node.js args passed to workers (dangerous flags blocked, see below) |
 | `maxAgeMs` | `number` | `0` | Worker recycling interval (`0` disables) |
+| `maxRssMb` | `number` | `0` | Recycle a worker whose RSS exceeds this value in MB, through the bounded drain (`0` disables). RSS is reported by the health heartbeat, so it requires `health.heartbeatMs > 0` |
+
+A practical container recipe for `maxRssMb`: budget ≈ 70 % × (cgroup memory limit − primary-process overhead) / workers.
+Leave headroom because RSS includes V8 overhead that `--max-old-space-size` does not control. On Linux the cgroup limit
+is what the container actually gets; `@goopil/clusterkit-sizing` can compute the whole plan for you.
 
 #### Security guards
 
@@ -93,6 +100,7 @@ orchestrator.run(async () => {
 | `maxBackoffMs` | `number` | `30000` | Backoff upper bound |
 | `backoffMultiplier` | `number` | `2` | Exponential backoff multiplier |
 | `stabilityWindowMs` | `number` | `30000` | Crash-free time required to reset backoff (`0` = immediate reset) |
+| `bootFailQuarantine` | `number` | `0` | Consecutive boot failures (worker exits before its first `online`) before the slot is quarantined — the primary stops re-forking it while other workers serve (`0` disables). Remedy: `restartWorkers()` |
 
 Restart/backoff is cluster-level, not worker-local. Every non-graceful worker exit is recorded in the crash window and
 queued for replacement unless shutdown is already in progress or the circuit breaker has tripped. Replacements are
@@ -111,6 +119,19 @@ unless `crashThreshold` is reached inside `crashWindowMs`.
 | `sigtermDelayMs` | `number` | `2000` | Delay before escalating `SIGTERM -> SIGINT` |
 | `sigintDelayMs` | `number` | `1000` | Delay before escalating `SIGINT -> SIGKILL` |
 
+### `health`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `heartbeatMs` | `number` | `0` | Worker health report (RSS, heap, event-loop lag) interval in ms (`0` disables) |
+| `wedgedTimeoutMs` | `number` | `0` | Recycle a worker whose heartbeat has been silent this long (`0` disables). Requires `heartbeatMs > 0` and ≥ 2 × `heartbeatMs` |
+| `degradedAfterMs` | `number` | `0` | Duration `active < target` must persist before `fleet:degraded` fires (`0` disables) |
+
+Workers report RSS, heap, and event-loop beat drift over IPC every `heartbeatMs`; the primary-side monitor feeds two
+opt-in policies: RSS recycling (`workers.maxRssMb`) and wedged-worker detection (`health.wedgedTimeoutMs`). A wedged
+worker cannot ACK anything, so the drain escalates to SIGKILL. Both policies run through the same bounded drain as
+age-based recycling and never count toward the crash circuit breaker.
+
 ## Runtime API (high level)
 
 ```ts
@@ -125,6 +146,9 @@ orchestrator.patchWorkerEnv({ NODE_OPTIONS: "--max-old-space-size=256" });
 
 const metrics = orchestrator.getMetrics();
 const health = orchestrator.getHealth();
+const fleet = orchestrator.getFleetHealth(); // { target, active, quarantined, breaker }
+
+orchestrator.resetCircuitBreaker(); // after fixing a crash-loop cause
 
 const supportsReusePort = await Orchestrator.supportsReusePort();
 const capabilities = await Orchestrator.getCapabilities();
@@ -162,7 +186,12 @@ container or process supervisor kills the primary process.
 | `worker:exit` | A worker exits, including graceful disconnects and crashes. |
 | `worker:crash` | A worker exits non-gracefully and is recorded in the crash window. |
 | `worker:restart` | A replacement worker is forked after restart backoff. |
-| `worker:recycle` | A worker is replaced because `workers.maxAgeMs` is enabled and reached. |
+| `worker:recycle` | A worker is replaced through the bounded drain. `reason` is `"maxAge"` (default), `"rss"` (`workers.maxRssMb` exceeded), or `"wedged"` (heartbeat silent for `health.wedgedTimeoutMs`). |
+| `worker:health` | A worker reported health (requires `health.heartbeatMs > 0`): `{ workerId, pid, rss, heapUsed, eventLoopLagMs }`. |
+| `worker:wedged` | A worker's heartbeat was silent for `health.wedgedTimeoutMs` — it is recycled through the bounded drain: `{ workerId, pid, silentMs }`. |
+| `worker:quarantined` | A slot was quarantined after `restart.bootFailQuarantine` consecutive boot failures while other workers serve: `{ consecutiveBootFailures }`. |
+| `fleet:degraded` | `active < target` persisted for `health.degradedAfterMs`: `{ target, active }`. |
+| `fleet:recovered` | Capacity restored to target: `{ target, active, degradedDurationMs }`. |
 | `shutdown:start` | Primary shutdown coordination starts for `SIGTERM` or `SIGINT`. |
 | `shutdown:complete` | Primary shutdown has finished — emitted after user shutdown callbacks and plugin `uninstall()`, in every mode. Plugins doing final work must do it in `uninstall()`: their `shutdown:complete` listener is removed before the event fires. |
 | `circuit-breaker:tripped` | Crash count reached `restart.crashThreshold` inside `restart.crashWindowMs`. |
@@ -174,6 +203,31 @@ container or process supervisor kills the primary process.
 Use `Orchestrator.getCapabilities()` when startup needs the full platform summary, and
 `Orchestrator.supportsReusePort()` when only `SO_REUSEPORT` support matters. Both helpers are asynchronous because
 capability detection can probe the runtime platform.
+
+## Fleet health, quarantine and recovery
+
+`getFleetHealth()` returns a point-in-time snapshot:
+
+```ts
+{ target: 4, active: 3, quarantined: 1, breaker: { count: 2, tripped: false } }
+```
+
+- `target` / `active` — configured worker count vs. currently online workers.
+- `quarantined` — slots stopped by the boot-loop guard (see below).
+- `breaker` — crash-window count and circuit-breaker state.
+
+**Boot-loop quarantine.** A worker that exits without ever reaching `online` is a boot failure. After
+`restart.bootFailQuarantine` consecutive boot failures — while the rest of the fleet is still serving — the slot is
+quarantined: the primary stops re-forking it instead of burning forks in a loop. Quarantined boot failures write no
+crash record, so one bad slot cannot trip the fleet circuit breaker.
+
+**Remedy.** `restartWorkers()` clears the quarantine counters and refills the missing capacity — every slot gets a
+fresh boot attempt as part of the roll. `resetCircuitBreaker()` also refills missing capacity but does not clear the
+quarantine counters, so `getFleetHealth().quarantined` can over-report while such a refill is already serving the slot.
+
+**Recycle path.** All recycle reasons (`maxAge`, `rss`, `wedged`) share one bounded drain: the replacement is forked
+first, then the old worker is retired through IPC shutdown → disconnect → SIGTERM → SIGKILL. RSS and wedged recycles
+never count toward the crash circuit breaker.
 
 ## Related docs
 

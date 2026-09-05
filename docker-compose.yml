@@ -22,6 +22,29 @@ services:
     tty: false
 
   # -------------------------------------------------------------------------
+  # e2e-health — chaos suite for the worker health & recovery subsystem
+  # (Linux-only: /proc pid discovery, SO_REUSEPORT, SIGKILL drain escalation)
+  #
+  # Usage:
+  #   docker compose run --build --rm e2e-health
+  # -------------------------------------------------------------------------
+  e2e-health:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    command: ["node", "packages/worker-manager/test/e2e/chaos.e2e.mjs"]
+    environment:
+      CI: "true"
+      TURBO_DAEMON: "false"
+      TURBO_TELEMETRY_DISABLED: "1"
+      CKX_E2E: "1"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tty: false
+
+  # -------------------------------------------------------------------------
   # examples — starts all example servers simultaneously
   #
   # App servers:

@@ -18,6 +18,7 @@ export default defineConfig({
         "src/cgroup.ts": { lines: 96, branches: 89 },
         "src/crash-tracker.ts": { lines: 98, branches: 98 },
         "src/drain-coordinator.ts": { lines: 95, branches: 85 },
+        "src/health-monitor.ts": { lines: 95, branches: 85 },
         "src/logger.ts": { lines: 98, branches: 73 },
         "src/orchestrator.ts": { lines: 93, branches: 73 },
         "src/platform.ts": { lines: 74, branches: 49 },

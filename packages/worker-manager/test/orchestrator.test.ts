@@ -110,6 +110,18 @@ function cfg(extra: TestConfig = {}): Parameters<typeof Orchestrator>[0] {
   };
 }
 
+/** Report worker health through the real monitor tap (mirrors the worker IPC heartbeat). */
+function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number): void {
+  (
+    orch as unknown as { healthMonitor: { onWorkerMessage: (id: number, pid: number, msg: unknown) => void } }
+  ).healthMonitor.onWorkerMessage(workerId, pid, {
+    type: "__wm:hb",
+    rss,
+    heapUsed: 0,
+    eventLoopLagMs: 0,
+  });
+}
+
 let mockCluster: MockCluster;
 
 beforeEach(() => {
@@ -930,6 +942,90 @@ describe("Orchestrator", () => {
 
       // Should have emitted recycle events
       expect(recycleEvents.length).toBeGreaterThan(0);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  describe("rss recycling", () => {
+    it("drains a worker over maxRssMb and emits worker:recycle with reason rss", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: { count: 2, maxRssMb: 100 } }));
+      const recycleEvents: Array<{ workerId: number; reason: string }> = [];
+      orch.on("worker:recycle", (d) => recycleEvents.push(d));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const worker = Object.values(mockCluster.workers)[0];
+      reportHealth(orch, worker.id, worker.process.pid, 200 * 1024 * 1024);
+      await vi.advanceTimersByTimeAsync(0); // let the replacement fork + drain start
+
+      expect(recycleEvents).toMatchObject([{ workerId: worker.id, reason: "rss" }]);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3); // replacement forked
+      expect(orch.getMetrics().crashLoopBackoffs).toBe(0); // NOT a crash — breaker untouched
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  describe("wedged recycling", () => {
+    it("emits worker:wedged and drains a silent worker with reason wedged", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({ workers: { count: 2 }, health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } }),
+      );
+      const wedgedEvents: Array<{ workerId: number; pid: number; silentMs: number }> = [];
+      const recycleEvents: Array<{ workerId: number; reason: string }> = [];
+      orch.on("worker:wedged", (d) => wedgedEvents.push(d));
+      orch.on("worker:recycle", (d) => recycleEvents.push(d));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const worker = Object.values(mockCluster.workers)[0];
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024);
+      await vi.advanceTimersByTimeAsync(2_000); // silent well past wedgedTimeoutMs
+
+      expect(wedgedEvents).toMatchObject([{ workerId: worker.id, pid: worker.process.pid }]);
+      expect(wedgedEvents[0]?.silentMs).toBeGreaterThanOrEqual(1_500);
+      expect(recycleEvents).toMatchObject([{ workerId: worker.id, reason: "wedged" }]);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3); // replacement forked
+      expect(orch.getMetrics().crashLoopBackoffs).toBe(0); // NOT a crash — breaker untouched
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
+    // A worker already draining (its recycle ACK froze the heartbeat) must not
+    // be reported wedged: the drain may outlive wedgedTimeoutMs (the shutdown
+    // budget is up to 12s) — the watch would fire on a worker that is being
+    // replaced, not wedged, and no kill follows.
+    it("does not report a worker already marked for recycling as wedged", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({ workers: { count: 2 }, health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } }),
+      );
+      const wedgedEvents: Array<{ workerId: number }> = [];
+      orch.on("worker:wedged", (d) => wedgedEvents.push(d));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const internals = orch as unknown as { workerManager: { markForRecycling(id: number): void } };
+      const worker = Object.values(mockCluster.workers)[0];
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024);
+      internals.workerManager.markForRecycling(worker.id); // recycle in flight — heartbeat frozen
+
+      await vi.advanceTimersByTimeAsync(2_000); // silent well past wedgedTimeoutMs
+
+      expect(wedgedEvents).toHaveLength(0); // draining, not wedged
+      expect(Object.keys(mockCluster.workers)).toHaveLength(2); // no recycle on top of the drain
     });
   });
 
@@ -2327,6 +2423,287 @@ describe("Orchestrator", () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(workerDisconnectSpy).toHaveBeenCalledOnce();
 
+      await shutdownPromise;
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  describe("fleet health", () => {
+    async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
+      await orch.run(() => {});
+      return orch;
+    }
+
+    it("reports target/active/breaker and stays healthy at capacity", async () => {
+      vi.useFakeTimers();
+      const o = await setupPrimary(2, {
+        shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, sigtermDelayMs: 300, sigintDelayMs: 200 },
+      });
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      expect(o.getFleetHealth()).toMatchObject({
+        target: 2,
+        active: 2,
+        quarantined: 0,
+        breaker: { tripped: false },
+      });
+
+      const shutdownPromise = o.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
+    it("emits fleet:degraded after the hysteresis and fleet:recovered with duration", async () => {
+      vi.useFakeTimers();
+      const degraded: unknown[] = [];
+      const recovered: unknown[] = [];
+      const o = await setupPrimary(2, {
+        health: { degradedAfterMs: 1_000 },
+        restart: { backoffMs: 2_000 }, // replacement forks after the hysteresis
+      });
+      o.on("fleet:degraded", (d) => degraded.push(d));
+      o.on("fleet:recovered", (d) => recovered.push(d));
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Unclean crash of one worker: capacity drops to 1 of 2 and the
+      // replacement fork is delayed past the hysteresis window.
+      mockCluster.emit("exit", Object.values(mockCluster.workers)[0], 1, null);
+
+      await vi.advanceTimersByTimeAsync(1_001);
+      expect(degraded).toHaveLength(1);
+      expect(degraded[0]).toMatchObject({ target: 2, active: 1 });
+
+      // Backoff elapses: replacement forks and comes online — recovered.
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(recovered).toHaveLength(1);
+      expect(recovered[0]).toMatchObject({ target: 2, active: 2, degradedDurationMs: expect.any(Number) });
+
+      const shutdownPromise = o.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
+    it("does not emit degraded during shutdown", async () => {
+      vi.useFakeTimers();
+      const degraded: unknown[] = [];
+      const o = await setupPrimary(2, { health: { degradedAfterMs: 1_000 } });
+      o.on("fleet:degraded", (d) => degraded.push(d));
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Drop below target before shutdown: arms the hysteresis timer.
+      const workers = Object.values(mockCluster.workers);
+      workers[0].exitedAfterDisconnect = true;
+      mockCluster.emit("exit", workers[0], 0, null);
+
+      workers[1].autoExitOnDisconnect = true;
+      const shutdownPromise = o.shutdownPrimary("SIGTERM");
+
+      // A worker dying mid-shutdown keeps capacity below target — no degraded.
+      workers[1].exitedAfterDisconnect = true;
+      mockCluster.emit("exit", workers[1], 0, null);
+
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+
+      expect(degraded).toHaveLength(0);
+    });
+
+    it("emits no degraded by default — degradation is opt-in (0 = disabled)", async () => {
+      vi.useFakeTimers();
+      const degraded: unknown[] = [];
+      const o = await setupPrimary(2); // degradedAfterMs unset → 0 (disabled)
+      o.on("fleet:degraded", (d) => degraded.push(d));
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      // Sustained drop below target with no replacement: the default config
+      // must never arm the hysteresis, no matter how far time advances.
+      const workers = Object.values(mockCluster.workers);
+      workers[0].exitedAfterDisconnect = true;
+      mockCluster.emit("exit", workers[0], 0, null);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(degraded).toHaveLength(0);
+      expect(o.getFleetHealth()).toMatchObject({ target: 2, active: 1 }); // drop is real and sustained
+
+      const shutdownPromise = o.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  describe("boot-loop quarantine", () => {
+    async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
+      await orch.run(() => {});
+      await new Promise<void>((r) => setImmediate(r)); // flush initial "online" setImmediates
+      return orch;
+    }
+
+    /** Make every subsequent fork return a worker that never emits "online". */
+    function mockForkNeverOnline(): ReturnType<typeof vi.spyOn> {
+      let doomedId = 1000;
+      return vi.spyOn(mockCluster, "fork").mockImplementation((_env?: NodeJS.ProcessEnv) => {
+        const worker = new MockWorker(doomedId++);
+        mockCluster.workers[worker.id] = worker;
+        return worker;
+      });
+    }
+
+    it("quarantines a slot after N consecutive boot failures while the fleet serves", async () => {
+      const orch = await setupPrimary(2, { restart: { backoffMs: 0, bootFailQuarantine: 3 } });
+
+      // Every replacement fork returns a worker that never comes online:
+      // each replacement exit below is a boot failure.
+      const forkSpy = mockForkNeverOnline();
+      const quarantined: Array<{ consecutiveBootFailures: number }> = [];
+      orch.on("worker:quarantined", (d) => quarantined.push(d));
+
+      // Worker 1 was online: its crash is a runtime crash → replacement #1000
+      mockCluster.emit("exit", mockCluster.workers[1], 1, null);
+      // Boot failures #1–#3: each replacement exits without ever coming online
+      mockCluster.emit("exit", mockCluster.workers[1000], 1, null);
+      await new Promise<void>((r) => setImmediate(r)); // replacement #1001 forks
+      mockCluster.emit("exit", mockCluster.workers[1001], 1, null);
+      await new Promise<void>((r) => setImmediate(r)); // replacement #1002 forks
+      mockCluster.emit("exit", mockCluster.workers[1002], 1, null);
+      await new Promise<void>((r) => setImmediate(r)); // quarantine: no fourth replacement
+
+      expect(forkSpy).toHaveBeenCalledTimes(3); // no fourth fork
+      expect(quarantined).toEqual([{ consecutiveBootFailures: 3 }]);
+      expect(orch.getFleetHealth().quarantined).toBe(1);
+      expect(orch.getMetrics().crashLoopBackoffs).toBe(0); // breaker untouched
+      expect(orch.getMetrics().workerRestarts).toBe(3);
+    });
+
+    it("graceful exits do not trip the boot-failure streak", async () => {
+      const orch = await setupPrimary(2, { restart: { backoffMs: 0, bootFailQuarantine: 1 } });
+
+      const forkSpy = vi.spyOn(mockCluster, "fork");
+      const quarantined: Array<{ consecutiveBootFailures: number }> = [];
+      orch.on("worker:quarantined", (d) => quarantined.push(d));
+
+      // Worker 1 was online and exits gracefully: no streak, no restart
+      const [w1, w2] = Object.values(mockCluster.workers);
+      w1.exitedAfterDisconnect = true;
+      mockCluster.emit("exit", w1, 0, null);
+
+      // Worker 2 was online too: its crash is a runtime crash, not a boot failure
+      mockCluster.emit("exit", w2, 1, null);
+      await new Promise<void>((r) => setImmediate(r));
+
+      expect(forkSpy).toHaveBeenCalledTimes(1); // normal crash path
+      expect(quarantined).toHaveLength(0);
+      expect(orch.getFleetHealth().quarantined).toBe(0);
+      expect(orch.getMetrics().gracefulShutdowns).toBe(1);
+    });
+
+    // The online-guard means "at least one worker online", not "has forks":
+    // during a boot window every fork is alive but none has ever served —
+    // a boot loop there must take the legacy crash path, not quarantine.
+    it("boot failures with no worker ever online keep the legacy crash path", async () => {
+      mockCluster.isPrimary = true;
+      // No online flush: the initial fleet is forked but never came online
+      const orch = new Orchestrator(cfg({ workers: 2, restart: { backoffMs: 0, bootFailQuarantine: 1 } }));
+      await orch.run(() => {});
+
+      const forkSpy = mockForkNeverOnline();
+      const quarantined: Array<{ consecutiveBootFailures: number }> = [];
+      orch.on("worker:quarantined", (d) => quarantined.push(d));
+
+      mockCluster.emit("exit", mockCluster.workers[1], 1, null);
+      mockCluster.emit("exit", mockCluster.workers[2], 1, null);
+      await new Promise<void>((r) => setImmediate(r));
+
+      expect(forkSpy).toHaveBeenCalledTimes(2); // legacy restarts proceeded
+      expect(quarantined).toHaveLength(0);
+      expect(orch.getFleetHealth().quarantined).toBe(0);
+    });
+
+    it("restartWorkers() refills quarantined slots back to target capacity", async () => {
+      const orch = await setupPrimary(2, { restart: { backoffMs: 0, bootFailQuarantine: 1 } });
+
+      // Quarantine one slot: replacement #1000 never comes online
+      const forkSpy = mockForkNeverOnline();
+      mockCluster.emit("exit", mockCluster.workers[1], 1, null); // runtime crash → #1000
+      mockCluster.workers[1].simulateCrash(); // mark the mock dead — the slot is untracked
+      mockCluster.emit("exit", mockCluster.workers[1000], 1, null); // boot failure → quarantined
+      mockCluster.workers[1000].simulateCrash();
+      expect(orch.getFleetHealth().quarantined).toBe(1);
+      expect(orch.getFleetHealth().active).toBe(1); // the slot is empty
+
+      // The remedy: a hot restart must also restore the dead slot
+      forkSpy.mockRestore();
+      const restartsBefore = orch.getMetrics().workerRestarts;
+      const survivor = mockCluster.workers[2];
+      survivor.autoExitOnDisconnect = true;
+      // Drain-induced exits must reach the cluster bookkeeping (mirrors real
+      // cluster, where the worker's exit also fires the cluster event)
+      survivor.on("exit", (code, signal) => mockCluster.emit("exit", survivor, code, signal));
+      await orch.restartWorkers({ staggerMs: 0, reason: "heal" });
+
+      expect(orch.getFleetHealth().quarantined).toBe(0);
+      expect(orch.getFleetHealth().active).toBe(2); // back to target
+      expect(orch.getMetrics().workerRestarts).toBe(restartsBefore + 1); // refill forked through the restart queue
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // healthMonitor.onWorkerExit must run on every exit path (graceful and
+  // shutdown included): a stale-but-registered worker would stay wedged-watch
+  // eligible and could fire a recycle on a dead id.
+  // --------------------------------------------------------------------------
+  describe("exit-path health registry cleanup", () => {
+    async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+      return orch;
+    }
+
+    it("a crashed worker's slot leaves the wedged watch", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, { health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } });
+
+      const wedged: unknown[] = [];
+      orch.on("worker:wedged", (d) => wedged.push(d));
+
+      const worker = mockCluster.workers[1];
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024);
+      mockCluster.emit("exit", worker, 1, null); // unclean crash
+
+      await vi.advanceTimersByTimeAsync(2_000); // well past wedgedTimeoutMs
+      expect(wedged).toHaveLength(0); // registry was cleared on exit
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+
+    it("a gracefully exited worker's slot leaves the wedged watch", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, { health: { heartbeatMs: 500, wedgedTimeoutMs: 1_500 } });
+
+      const wedged: unknown[] = [];
+      orch.on("worker:wedged", (d) => wedged.push(d));
+
+      const worker = mockCluster.workers[1];
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024);
+      worker.exitedAfterDisconnect = true;
+      mockCluster.emit("exit", worker, 0, null); // graceful — no restart
+
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(wedged).toHaveLength(0); // registry was cleared on exit
+      expect(Object.keys(mockCluster.workers)).toHaveLength(2); // graceful exits don't fork
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
       await shutdownPromise;
     });
   });

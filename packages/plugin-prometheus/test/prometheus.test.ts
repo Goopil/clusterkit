@@ -1,6 +1,6 @@
 import cluster from "node:cluster";
 import { EventEmitter } from "node:events";
-import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
+import type { FleetHealth, Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import { AggregatorRegistry, Registry } from "prom-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPrometheusPlugin, type PrometheusPlugin, type PrometheusPluginOptions } from "../src/index";
@@ -15,10 +15,19 @@ function mockOrchestrator(activeWorkers = 0, workerCount = 0): Orchestrator {
     currentActiveWorkers: number;
     getMetrics: () => { activeWorkers: number };
     workerCount: number;
+    quarantined: number;
+    getFleetHealth: () => FleetHealth;
   };
   emitter.currentActiveWorkers = activeWorkers;
   emitter.getMetrics = () => ({ activeWorkers: emitter.currentActiveWorkers });
   emitter.workerCount = workerCount;
+  emitter.quarantined = 0;
+  emitter.getFleetHealth = () => ({
+    target: emitter.workerCount,
+    active: emitter.currentActiveWorkers,
+    quarantined: emitter.quarantined,
+    breaker: { count: 0, tripped: false },
+  });
   return emitter as unknown as Orchestrator;
 }
 
@@ -241,6 +250,106 @@ describe("metrics", () => {
     expect(out).toContain('env="test"');
     expect(out).toContain('region="eu-west-1"');
     expect(out).toContain(`pid="${process.pid}"`);
+  });
+});
+
+// ============================================================================
+// Worker health & fleet metrics
+// ============================================================================
+
+describe("worker health & fleet metrics", () => {
+  it("exposes per-worker health gauges from worker:health events", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null);
+
+    emit(orch, "worker:health", { workerId: 7, pid: 7007, rss: 1e8, heapUsed: 5e7, eventLoopLagMs: 3 });
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_worker_rss_bytes", 100000000));
+    expect(out).toMatch(metricLine("clusterkit_worker_heap_used_bytes", 50000000));
+    expect(out).toMatch(metricLine("clusterkit_worker_eventloop_lag_ms", 3));
+  });
+
+  it("tracks heartbeat age and drops per-worker series on worker:exit", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-03T12:00:00.000Z"));
+
+    const plugin = makePlugin({ metricsCacheTtlMs: 0 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null);
+
+    emit(orch, "worker:health", { workerId: 7, pid: 7007, rss: 1000, heapUsed: 500, eventLoopLagMs: 1 });
+    vi.advanceTimersByTime(60_000);
+
+    const before = await plugin.getMetrics();
+    expect(before).toMatch(metricLine("clusterkit_worker_heartbeat_age_seconds", 60));
+
+    emit(orch, "worker:exit", { workerId: 7, pid: 7007, code: 0, signal: null, graceful: true });
+    const after = await plugin.getMetrics();
+    expect(after).not.toContain("clusterkit_worker_rss_bytes{");
+    expect(after).not.toContain("clusterkit_worker_heartbeat_age_seconds{");
+
+    vi.useRealTimers();
+  });
+
+  it("counts recycles by reason and wedged kills", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null);
+
+    emit(orch, "worker:recycle", { workerId: 1, pid: 1, ageMs: 0, reason: "rss" });
+    emit(orch, "worker:recycle", { workerId: 2, pid: 2, ageMs: 0, reason: "rss" });
+    emit(orch, "worker:recycle", { workerId: 3, pid: 3, ageMs: 0, reason: "maxAge" });
+    emit(orch, "worker:wedged", { workerId: 4, pid: 4, silentMs: 5000 });
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(/clusterkit_worker_recycles_total\{reason="rss"[^}]*\} 2(?:\s|$)/);
+    expect(out).toMatch(/clusterkit_worker_recycles_total\{reason="maxAge"[^}]*\} 1(?:\s|$)/);
+    expect(out).toMatch(metricLine("clusterkit_worker_wedged_kills_total", 1));
+  });
+
+  it("exposes fleet gauges via live collection", async () => {
+    const plugin = makePlugin({ metricsCacheTtlMs: 0 });
+    const orch = mockOrchestrator(2, 2);
+    await plugin.install(orch, null);
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_fleet_active_workers", 2));
+    expect(out).toMatch(metricLine("clusterkit_fleet_target_workers", 2));
+    expect(out).toMatch(metricLine("clusterkit_fleet_quarantined_slots", 0));
+
+    // One worker crashes without replacement; a boot failure quarantines its slot.
+    // The gauges must reflect the mutated fleet state on the next scrape.
+    (orch as unknown as { currentActiveWorkers: number }).currentActiveWorkers = 1;
+    (orch as unknown as { quarantined: number }).quarantined = 1;
+    emit(orch, "worker:crash", { workerId: 1, pid: 1, code: 1, signal: null });
+    emit(orch, "worker:quarantined", { consecutiveBootFailures: 3 });
+
+    const after = await plugin.getMetrics();
+    expect(after).toMatch(metricLine("clusterkit_fleet_active_workers", 1));
+    expect(after).toMatch(metricLine("clusterkit_fleet_target_workers", 2));
+    expect(after).toMatch(metricLine("clusterkit_fleet_quarantined_slots", 1));
+  });
+
+  it("reports fleet gauges as 0 when scraped before install", async () => {
+    const plugin = makePlugin();
+
+    const out = await plugin.registry.metrics();
+    expect(out).toMatch(metricLine("clusterkit_fleet_active_workers", 0));
+    expect(out).toMatch(metricLine("clusterkit_fleet_target_workers", 0));
+    expect(out).toMatch(metricLine("clusterkit_fleet_quarantined_slots", 0));
+  });
+
+  it("records recovery duration on fleet:recovered", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null);
+
+    emit(orch, "fleet:recovered", { target: 2, active: 2, degradedDurationMs: 4321 });
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_recovery_duration_seconds", 4.321));
   });
 });
 

@@ -44,6 +44,8 @@ export interface WorkersConfig {
   execArgv?: string[];
   /** Maximum worker age before recycling in ms. 0 = disabled. @default 0 */
   maxAgeMs?: number;
+  /** Recycle a worker whose RSS exceeds this value in MB. Uses the graceful drain. 0 = disabled. @default 0 */
+  maxRssMb?: number;
 }
 
 export interface RestartConfig {
@@ -59,6 +61,9 @@ export interface RestartConfig {
   backoffMultiplier?: number;
   /** Time in ms the cluster must remain crash-free before backoff resets. 0 = immediate reset. @default 30_000 */
   stabilityWindowMs?: number;
+  /** Consecutive crashes before the worker's first online that quarantine the slot
+   * (stop re-forking it while other workers serve). 0 = disabled. @default 0 */
+  bootFailQuarantine?: number;
 }
 
 export interface ShutdownConfig {
@@ -74,6 +79,16 @@ export interface ShutdownConfig {
   sigintDelayMs?: number;
 }
 
+export interface HealthConfig {
+  /** Worker health report (RSS, heap, event-loop lag) interval in ms. 0 = disabled. @default 0 */
+  heartbeatMs?: number;
+  /** Recycle a worker whose heartbeat has been silent this long. Requires heartbeatMs > 0
+   * and >= 2 × heartbeatMs. 0 = disabled. @default 0 */
+  wedgedTimeoutMs?: number;
+  /** Duration `active < target` must persist before `fleet:degraded` fires. 0 = disabled. @default 0 */
+  degradedAfterMs?: number;
+}
+
 export interface OrchestratorConfig {
   /** pino/winston/console-compatible logger. null = silent. @default null */
   logger?: Logger | null;
@@ -83,6 +98,8 @@ export interface OrchestratorConfig {
   restart?: RestartConfig;
   /** Shutdown lifecycle and signaling options. */
   shutdown?: ShutdownConfig;
+  /** Worker health monitoring options. */
+  health?: HealthConfig;
   /** Custom cluster module (for testing only). @internal */
   clusterModule?: typeof cluster;
 }
@@ -99,6 +116,7 @@ export type ResolvedConfig = {
     env: NodeJS.ProcessEnv | undefined;
     execArgv: string[] | undefined;
     maxAgeMs: number;
+    maxRssMb: number;
   };
   restart: {
     crashThreshold: number;
@@ -107,6 +125,7 @@ export type ResolvedConfig = {
     maxBackoffMs: number;
     backoffMultiplier: number;
     stabilityWindowMs: number;
+    bootFailQuarantine: number;
   };
   shutdown: {
     timeoutMs: number;
@@ -115,8 +134,34 @@ export type ResolvedConfig = {
     sigtermDelayMs: number;
     sigintDelayMs: number;
   };
+  health: {
+    heartbeatMs: number;
+    wedgedTimeoutMs: number;
+    degradedAfterMs: number;
+  };
   clusterModule: typeof cluster | undefined;
 };
+
+// ============================================================================
+// Worker health & recovery
+// ============================================================================
+
+export type RecycleReason = "maxAge" | "rss" | "wedged";
+
+export interface WorkerHealthReport {
+  workerId: number;
+  pid: number;
+  rss: number;
+  heapUsed: number;
+  eventLoopLagMs: number;
+}
+
+export interface FleetHealth {
+  target: number;
+  active: number;
+  quarantined: number;
+  breaker: { count: number; tripped: boolean };
+}
 
 // ============================================================================
 // Plugin interface
@@ -139,12 +184,17 @@ export interface OrchestratorEvents {
   ];
   "worker:crash": [data: { workerId: number; pid: number; code: number | null; signal: string | null }];
   "worker:restart": [data: { newWorkerId: number; newPid: number }];
-  "worker:recycle": [data: { workerId: number; pid: number; ageMs: number }];
+  "worker:recycle": [data: { workerId: number; pid: number; ageMs: number; reason: RecycleReason }];
   "shutdown:start": [data: { signal: string }];
   "shutdown:complete": [data: { metrics: WorkerMetrics }];
   "circuit-breaker:tripped": [data: { crashCount: number; windowMs: number }];
   "restart:start": [data: { reason: string; workerIds: number[] }];
   "restart:complete": [data: { restartedWorkerIds: number[]; reason: string }];
+  "worker:health": [data: WorkerHealthReport];
+  "worker:wedged": [data: { workerId: number; pid: number; silentMs: number }];
+  "worker:quarantined": [data: { consecutiveBootFailures: number }];
+  "fleet:degraded": [data: { target: number; active: number }];
+  "fleet:recovered": [data: { target: number; active: number; degradedDurationMs: number }];
 }
 
 /** Type guard for IPC messages with required 'type' field */

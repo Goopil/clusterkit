@@ -30,6 +30,10 @@ export interface RestartCoordinatorDeps {
   onRestarted: (newWorker: Worker) => void;
   /** Called when the breaker trips (Orchestrator flips readiness and emits circuit-breaker:tripped). */
   onBreakerTripped: (info: { crashCount: number; windowMs: number }) => void;
+  /** True while at least one worker serves: boot-failure quarantine only arms while the rest of the fleet is up. */
+  hasOnlineWorkers: () => boolean;
+  /** Called when a slot is quarantined (Orchestrator emits worker:quarantined). */
+  onQuarantined: (info: { consecutiveBootFailures: number }) => void;
 }
 
 /**
@@ -58,6 +62,10 @@ export class RestartCoordinator {
   // Consecutive forkWorker() failures — reset on any successful fork
   private consecutiveForkFailures = 0;
 
+  // Boot-loop quarantine: consecutive crashes of workers that never came online
+  private consecutiveBootFailures = 0;
+  private quarantinedSlots = 0;
+
   // One process warning per breaker trip
   private breakerWarningEmitted = false;
 
@@ -78,8 +86,32 @@ export class RestartCoordinator {
   /**
    * A worker crashed (unclean exit): record the crash, react to a possible
    * breaker trip, otherwise queue a restart and kick the loop.
+   *
+   * A boot failure (`bootFailed`: the worker exited without ever coming
+   * online) quarantines its slot after `restart.bootFailQuarantine`
+   * consecutive failures while the rest of the fleet serves.
    */
-  onWorkerCrash(workerId: number, code: number | null, signal: string | null): void {
+  onWorkerCrash(workerId: number, code: number | null, signal: string | null, bootFailed = false): void {
+    const quarantine = this.cfg.restart.bootFailQuarantine;
+    if (bootFailed && quarantine > 0 && this.deps.hasOnlineWorkers()) {
+      this.consecutiveBootFailures++;
+      if (this.consecutiveBootFailures >= quarantine) {
+        this.quarantinedSlots++;
+        this.log?.warn("Boot-loop detected — quarantining slot (no re-fork)", {
+          workerId,
+          consecutiveBootFailures: this.consecutiveBootFailures,
+        });
+        this.deps.onQuarantined({ consecutiveBootFailures: this.consecutiveBootFailures });
+        // Deliberately no crash record and no restart: one bad slot must not
+        // poison the fleet breaker or burn forks. Remedy: restartWorkers(),
+        // which clears the quarantine counters and refills the missing
+        // capacity — the slot gets a fresh boot attempt.
+        return;
+      }
+      // Pre-quarantine boot failure: a real crash — fall through to the
+      // record + restart path below.
+    }
+
     // ALWAYS record, even if restart is locked
     this.crashTracker.record();
 
@@ -120,8 +152,10 @@ export class RestartCoordinator {
     this.kickRestartQueue();
   }
 
-  /** A replacement came online: reset backoff after a sustained crash-free window. */
+  /** A replacement came online: any successful boot resets the boot-failure streak. */
   onWorkerOnline(workerId: number): void {
+    this.consecutiveBootFailures = 0;
+
     // Reset backoff only after a sustained crash-free window
     if (this.restartBackoffDelay > 0) {
       this.scheduleBackoffReset(workerId);
@@ -139,6 +173,17 @@ export class RestartCoordinator {
     this.crashTracker.reset();
     this.restartBackoffDelay = 0;
     this.consecutiveForkFailures = 0;
+  }
+
+  /** Number of slots currently quarantined by the boot-loop guard. */
+  getQuarantinedCount(): number {
+    return this.quarantinedSlots;
+  }
+
+  /** Clear quarantine state — a restartWorkers() roll re-forks every slot. */
+  resetQuarantine(): void {
+    this.quarantinedSlots = 0;
+    this.consecutiveBootFailures = 0;
   }
 
   /**

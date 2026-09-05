@@ -15,10 +15,19 @@ export function parseCliArgs() {
       list: { type: "boolean", default: false },
       smoke: { type: "boolean", default: false },
       "conns-per-worker": { type: "string", default: "50" },
+      scenario: { type: "string" },
+      health: { type: "string", default: "off" },
     },
     strict: true,
     allowPositionals: false,
   });
+
+  if (values.scenario !== undefined && values.scenario !== "recovery") {
+    throw new Error(`unknown --scenario "${values.scenario}" (supported: recovery)`);
+  }
+  if (values.health !== "on" && values.health !== "off") {
+    throw new Error(`--health must be "on" or "off" (got "${values.health}")`);
+  }
 
   return {
     quick: values.quick,
@@ -28,6 +37,8 @@ export function parseCliArgs() {
     list: values.list,
     smoke: values.smoke,
     connsPerWorker: Number.parseInt(values["conns-per-worker"], 10),
+    scenario: values.scenario,
+    health: values.health,
   };
 }
 

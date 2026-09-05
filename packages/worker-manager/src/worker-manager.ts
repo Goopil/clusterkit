@@ -26,6 +26,7 @@ export class WorkerManager {
   // Event callback (injected from Orchestrator)
   private onWorkerOnlineCallback?: (worker: Worker) => void;
   private onWorkerExitCallback?: (worker: Worker, code: number | null, signal: string | null) => void;
+  private onWorkerMessageCallback?: (worker: Worker, msg: unknown) => void;
   private clusterOnlineListener?: (worker: Worker) => void;
   private clusterExitListener?: (worker: Worker, code: number | null, signal: string | null) => void;
 
@@ -50,9 +51,11 @@ export class WorkerManager {
   setupEventHandlers(
     onOnline: (worker: Worker) => void,
     onExit: (worker: Worker, code: number | null, signal: string | null) => void,
+    onMessage: (worker: Worker, msg: unknown) => void,
   ): void {
     this.onWorkerOnlineCallback = onOnline;
     this.onWorkerExitCallback = onExit;
+    this.onWorkerMessageCallback = onMessage;
 
     this.clusterExitListener = (worker, code, signal) => this.handleWorkerExit(worker, code, signal);
     this.clusterOnlineListener = (worker) => this.handleWorkerOnline(worker);
@@ -91,6 +94,8 @@ export class WorkerManager {
         error: err instanceof Error ? err.message : String(err),
       });
     });
+
+    worker.on("message", (msg) => this.onWorkerMessageCallback?.(worker, msg));
 
     this.workerStartTimes.set(worker.id, Date.now());
     this.metrics.activeWorkers++;
@@ -137,12 +142,52 @@ export class WorkerManager {
     return this.recyclingWorkerIds.size;
   }
 
+  /** True when this worker id is already marked for recycling. */
+  isMarkedForRecycling(workerId: number): boolean {
+    return this.recyclingWorkerIds.has(workerId);
+  }
+
   /**
-   * Start age-based worker recycling.
-   * Workers older than workers.maxAgeMs are gradually replaced.
+   * Immediately recycle one worker (RSS limit or wedged detection): mark it,
+   * fork the replacement now, hand both to onRecycle (bounded drain of the old
+   * one). Mirrors the aged-worker fork-failure handling: on fork error the
+   * worker is unmarked and left running for the next sweep.
+   */
+  recycleWorkerNow(
+    workerId: number,
+    reason: "rss" | "wedged",
+    isShuttingDown: () => boolean,
+    onRecycle: (oldWorker: Worker, newWorker: Worker) => void,
+  ): boolean {
+    if (isShuttingDown()) return false;
+    if (this.recyclingWorkerIds.has(workerId)) return false;
+    const worker = this.getActiveWorkers().find((w) => w.id === workerId);
+    if (!worker) return false;
+    this.recyclingWorkerIds.add(workerId);
+    this.log?.info("Recycling worker", { workerId, reason });
+    let newWorker: Worker;
+    try {
+      newWorker = this.forkWorker();
+    } catch (err) {
+      this.recyclingWorkerIds.delete(workerId);
+      this.log?.error("Recycle fork failed — worker left running", {
+        workerId,
+        reason,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+    onRecycle(worker, newWorker);
+    return true;
+  }
+
+  /**
+   * Start the recycling sweep. Workers older than workers.maxAgeMs are
+   * gradually replaced; with only workers.maxRssMb set the sweep idles and
+   * RSS-limited workers are recycled immediately by recycleWorkerNow.
    */
   startRecycling(isShuttingDown: () => boolean, onRecycle: (worker: Worker, newWorker: Worker) => void): void {
-    if (this.cfg.workers.maxAgeMs <= 0) return;
+    if (this.cfg.workers.maxAgeMs <= 0 && this.cfg.workers.maxRssMb <= 0) return;
 
     this.recycleInterval = setInterval(() => {
       if (isShuttingDown()) return;
@@ -150,8 +195,8 @@ export class WorkerManager {
       const workers = this.getActiveWorkers();
       const toRecycle = workers.filter((w) => {
         if (this.recyclingWorkerIds.has(w.id)) return false;
-        const age = this.getWorkerAge(w.id);
-        return age > this.cfg.workers.maxAgeMs;
+        if (this.cfg.workers.maxAgeMs > 0 && this.getWorkerAge(w.id) > this.cfg.workers.maxAgeMs) return true;
+        return false;
       });
 
       toRecycle.forEach((worker, idx) => {

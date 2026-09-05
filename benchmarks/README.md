@@ -35,6 +35,8 @@ corepack pnpm --filter benchmarks exec node runner.mjs --list
 | `--list` | List available targets and workloads | — |
 | `--smoke` | Smoke test: verify targets boot, no perf | `false` |
 | `--conns-per-worker <n>` | Autocannon connections per worker | `50` |
+| `--scenario <id>` | Run a special scenario instead of the perf workloads (`recovery` is the only one today) | — (perf workloads) |
+| `--health on\|off` | Recovery-scenario A/B seam: boot `clusterkit-3` with the opt-in health features | `off` |
 
 ## Targets
 
@@ -62,6 +64,34 @@ corepack pnpm --filter benchmarks exec node runner.mjs --list
 
 All workload responses include `pid: process.pid` for worker distribution validation.
 The `upload-echo` workload uses POST method; the runner automatically sends a JSON body.
+
+## Recovery scenario
+
+Measures crash recovery instead of throughput. The runner boots the target, waits 5 s, SIGKILLs half the workers,
+then polls the HTTP endpoint every 100 ms — over a fresh connection each time, so the SO_REUSEPORT worker group is
+actually sampled — until every worker slot answers again (10 s deadline).
+
+```bash
+# baseline (health features off — the default)
+docker compose -f benchmarks/docker-compose.bench.yml run --build --rm benchmark --scenario recovery --quick
+
+# features-on delta (A/B via the --health seam)
+docker compose -f benchmarks/docker-compose.bench.yml run --build --rm benchmark --scenario recovery --quick --target clusterkit-3 --health on
+```
+
+With `--health on` the runner sets `BENCH_HEALTH=1` for the `clusterkit-3` target, which opts its Orchestrator into
+the health features: `workers.maxRssMb: 512` and `health: { heartbeatMs: 500, wedgedTimeoutMs: 3000,
+degradedAfterMs: 2000 }`. Without the flag the target boots exactly as on `main` — the features are opt-in and
+default-off — so the features-off run doubles as the pre-branch baseline.
+
+Metrics (written to `results/latest.json` and `results/REPORT.generated.md`):
+
+- `restoreDurationMs` — from the SIGKILLs to the moment all worker slots answer again
+- `bootTimesMs` — per-replacement time offsets, measured from the first replacement observed
+- `requestsDuringRecovery` — successful requests served while capacity was degraded
+
+Linux only: worker pids come from `/proc/<pid>/task/<pid>/children`, so on macOS the runner exits with a clear
+error before booting anything. Defaults: target `clusterkit-3`, workload `hello` (any workload exposing `pid` works).
 
 ## Output
 
@@ -122,6 +152,7 @@ benchmarks/
 │   ├── proc-sampler.mjs # /proc reader (RSS, CPU, PIDs)
 │   ├── autocannon-runner.mjs  # Load generator wrapper
 │   ├── pid-distributor.mjs    # Worker distribution checker
+│   ├── recovery-runner.mjs    # Recovery scenario (SIGKILL half the workers, measure restore)
 │   ├── pm2-launcher.mjs      # pm2 API wrapper
 │   └── reporter.mjs           # JSON + Markdown generator
 ├── results/             # Output directory (latest.json, REPORT.generated.md)

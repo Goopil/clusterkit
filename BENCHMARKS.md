@@ -176,6 +176,28 @@ clusterkit-3 wins on 4 of 8 workloads; the largest gap on the remaining 4 is cpu
 
 ---
 
+## Recovery baseline (Linux, quick mode)
+
+> Generated 2026-09-05 | Docker `node:22-slim` | linux arm64 | 4 CPUs | 1 run (quick mode) per row
+> Scenario: `--scenario recovery --quick --target clusterkit-3` — boot, 5 s warmup, SIGKILL 2 of 3 workers, poll
+> `/hello` over fresh connections until every worker slot serves again (10 s deadline).
+
+The Worker Health & Recovery features (`workers.maxRssMb`, `health.heartbeatMs` / `wedgedTimeoutMs` /
+`degradedAfterMs`) are opt-in and default-off, so the features-off row is behaviorally identical to clean `main`
+for this crash-recovery path. The features-on row adds `workers: { count: 3, maxRssMb: 512 }` and
+`health: { heartbeatMs: 500, wedgedTimeoutMs: 3000, degradedAfterMs: 2000 }` via `--health on`.
+
+| Health features | Restore duration (ms) | Boot times median (ms) | Requests during recovery | Workers killed | Timed out |
+|---|---|---|---|---|---|
+| off (baseline) | 3597 | 1026 | 35 | 2/3 | 0 |
+| on | 3148 | 1165 | 31 | 2/3 | 0 |
+
+Restore time is dominated by the crash-restart backoff (first replacement ~1 s, second ~3 s — machinery shared by
+both modes). The features-on delta (-12% restore, -11% requests) is within single-run noise for this scenario; the
+opt-in health features show no regression on crash recovery. Raw data: `benchmarks/results/latest.json`.
+
+---
+
 ## Key Findings
 
 ### clusterkit-3 vs native-cluster-3 (Linux, all workloads)
