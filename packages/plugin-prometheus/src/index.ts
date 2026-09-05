@@ -106,33 +106,34 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
   });
 
   // Fleet gauges read the live fleet health on every scrape — no event wiring.
-  // Registered for their collect() side effect only, hence no local binding.
-  new Gauge({ // NOSONAR: registered for its collect() side effect; kept via `registers`
-    name: `${prefix}fleet_active_workers`,
-    help: "Currently active workers (live fleet health)",
-    collect() {
-      this.set(primaryOrchestrator?.getFleetHealth().active ?? 0);
-    },
-    registers: [registry],
-  });
-
-  new Gauge({ // NOSONAR: registered for its collect() side effect; kept via `registers`
-    name: `${prefix}fleet_target_workers`,
-    help: "Target worker count (live fleet health)",
-    collect() {
-      this.set(primaryOrchestrator?.getFleetHealth().target ?? 0);
-    },
-    registers: [registry],
-  });
-
-  new Gauge({ // NOSONAR: registered for its collect() side effect; kept via `registers`
-    name: `${prefix}fleet_quarantined_slots`,
-    help: "Quarantined worker slots (live fleet health)",
-    collect() {
-      this.set(primaryOrchestrator?.getFleetHealth().quarantined ?? 0);
-    },
-    registers: [registry],
-  });
+  // collect-only gauges: prom-client keeps them via `registers`; uninstall()
+  // removes them from the registry.
+  const fleetGauges = [
+    new Gauge({
+      name: `${prefix}fleet_active_workers`,
+      help: "Currently active workers (live fleet health)",
+      collect() {
+        this.set(primaryOrchestrator?.getFleetHealth().active ?? 0);
+      },
+      registers: [registry],
+    }),
+    new Gauge({
+      name: `${prefix}fleet_target_workers`,
+      help: "Target worker count (live fleet health)",
+      collect() {
+        this.set(primaryOrchestrator?.getFleetHealth().target ?? 0);
+      },
+      registers: [registry],
+    }),
+    new Gauge({
+      name: `${prefix}fleet_quarantined_slots`,
+      help: "Quarantined worker slots (live fleet health)",
+      collect() {
+        this.set(primaryOrchestrator?.getFleetHealth().quarantined ?? 0);
+      },
+      registers: [registry],
+    }),
+  ];
 
   const workerRecycles = new Counter({
     name: `${prefix}worker_recycles_total`,
@@ -343,6 +344,9 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
       clearPrimaryListeners();
       clearMergedMetricsCache();
       lastReports.clear();
+      for (const gauge of fleetGauges) {
+        registry.removeSingleMetric(gauge.name);
+      }
 
       if (defaultMetricsInstalled) {
         defaultMetricsInstalled = false;
