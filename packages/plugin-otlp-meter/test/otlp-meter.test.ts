@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
+import cluster from "node:cluster";
 import type { FleetHealth, Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import type { MeterProvider as MeterProviderType } from "@opentelemetry/sdk-metrics";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -629,6 +630,10 @@ describe("single worker (count 1, forked)", () => {
 // Instrumentation ===========================================================
 
 describe("instrumentation", () => {
+  afterEach(() => {
+    Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
+  });
+
   it("does not start host metrics in the primary at count 1 — the forked worker collects them", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 1000 });
@@ -646,6 +651,17 @@ describe("instrumentation", () => {
     await plugin.install(orch, null, singleWorkerConfig());
 
     expect(mockHostMetricsStart).not.toHaveBeenCalled();
+    await plugin.uninstall?.(orch);
+  });
+
+  it("starts host metrics in a worker process when instrumentation is true", async () => {
+    Object.defineProperty(cluster, "isPrimary", { value: false, configurable: true });
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator(0, 0);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    expect(mockHostMetricsStart).toHaveBeenCalledTimes(1);
     await plugin.uninstall?.(orch);
   });
 });
