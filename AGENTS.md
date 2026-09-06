@@ -97,12 +97,12 @@ avoid global metric pollution and port conflicts.
 `Orchestrator.restartWorkers()` performs a rolling restart: forks a replacement for each
 worker, then drains the old one via the existing `handleWorkerRecycle` flow. Emits
 `restart:start` and `restart:complete` events. Idempotent via a `restartInProgress` guard.
-Returns early in single-worker mode. The `env` overlay parameter passes per-restart env
+The `env` overlay parameter passes per-restart env
 to newly forked workers without mutating `cfg.workers.env`.
 
 Two plugins trigger it:
-- `plugin-signal-restart`: listens for SIGHUP (or custom signal). In single-worker mode,
-  delivers SIGTERM for external restart.
+- `plugin-signal-restart`: listens for SIGHUP (or custom signal) and triggers a rolling
+  restart at any worker count.
 - `plugin-file-watcher`: watches files, `.env` files, and/or `process.env` for changes.
   Debounced triggers. Supports `dryRun` mode.
 
@@ -168,7 +168,7 @@ harness runs but those metrics are unavailable. See `benchmarks/README.md` for t
 ## Testing guidance
 
 - Start with the narrowest relevant test target, then widen scope if needed.
-- `workers: 1` is single-worker mode (no cluster fork); crash/restart behavior needs `workers >= 2`.
+- `workers: 1` forks a single worker (2.0+): health, crash/restart and hot-restart behavior are testable at every count.
 - `shutdown.timeoutMs` has a minimum of `1000` ms.
 - macOS is unreliable for `SO_REUSEPORT` assertions. Use the Linux Docker harness for Linux-specific behavior.
 - Health features (heartbeat, RSS recycling, wedged detection, fleet health, quarantine) are platform-neutral. The
