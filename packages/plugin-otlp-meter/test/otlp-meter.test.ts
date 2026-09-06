@@ -629,13 +629,13 @@ describe("single worker (count 1, forked)", () => {
 // Instrumentation ===========================================================
 
 describe("instrumentation", () => {
-  it("starts host metrics at count 1 when instrumentation is true", async () => {
+  it("does not start host metrics in the primary at count 1 — the forked worker collects them", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 1000 });
     const orch = mockOrchestrator(1, 1);
     await plugin.install(orch, null, singleWorkerConfig());
 
-    expect(mockHostMetricsStart).toHaveBeenCalledTimes(1);
+    expect(mockHostMetricsStart).not.toHaveBeenCalled();
     await plugin.uninstall?.(orch);
   });
 

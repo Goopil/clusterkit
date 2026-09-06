@@ -581,58 +581,28 @@ describe("getMetrics()", () => {
 // ============================================================================
 
 describe("single worker (count 1, forked)", () => {
-  it("sets active_workers to 1 when workerCount resolves to 1 (forked worker tracked by the primary)", async () => {
+  it("reads active_workers from live fleet state at count 1", async () => {
     const plugin = makePlugin();
-    const orch = mockOrchestrator(0, 1);
+    const orch = mockOrchestrator(1, 1);
     await plugin.install(orch, null, singleWorkerConfig());
 
     const out = await plugin.getMetrics();
     expect(out).toMatch(metricLine("clusterkit_active_workers", 1));
   });
 
-  it("collects default process metrics in the primary at count 1", async () => {
+  it("does not collect default process metrics in the primary at count 1 (the forked worker reports them)", async () => {
     const registry = new Registry();
-    const plugin = createPrometheusPlugin({
-      defaultMetrics: true,
-      registry,
-    });
+    const plugin = createPrometheusPlugin({ defaultMetrics: true, registry });
     const orch = mockOrchestrator(0, 1);
     await plugin.install(orch, null, singleWorkerConfig());
 
     const out = await plugin.getMetrics();
-    expect(out).toContain("process_cpu_user_seconds_total");
+    expect(out).not.toContain("process_cpu_user_seconds_total");
   });
 
-  it("does not re-register default metrics after uninstall and reinstall at count 1", async () => {
-    const registry = new Registry();
-    const plugin = createPrometheusPlugin({ defaultMetrics: true, registry });
-    const orch = mockOrchestrator(0, 1);
-
-    await plugin.install(orch, null, singleWorkerConfig());
-    await plugin.uninstall?.(orch);
-    await expect(plugin.install(orch, null, singleWorkerConfig())).resolves.not.toThrow();
-  });
-
-  it("removes default metrics on uninstall and collects them again on reinstall", async () => {
-    const registry = new Registry();
-    const plugin = createPrometheusPlugin({ defaultMetrics: true, registry });
-    const orch = mockOrchestrator(0, 1);
-
-    await plugin.install(orch, null, singleWorkerConfig());
-    await plugin.uninstall?.(orch);
-
-    const afterUninstall = await plugin.getMetrics();
-    expect(afterUninstall).not.toContain("process_cpu_user_seconds_total");
-
-    // Reinstall against the now-fresh registry: default metrics come back.
-    await plugin.install(orch, null, singleWorkerConfig());
-    const afterReinstall = await plugin.getMetrics();
-    expect(afterReinstall).toContain("process_cpu_user_seconds_total");
-  });
-
-  it("sets active_workers to 1 when workers is 'auto' and resolves to 1", async () => {
+  it("reads active_workers from live fleet state when workers is 'auto' and resolves to 1", async () => {
     const plugin = makePlugin();
-    const orch = mockOrchestrator(0, 1);
+    const orch = mockOrchestrator(1, 1);
     await plugin.install(orch, null, autoWorkerConfig());
 
     const out = await plugin.getMetrics();
