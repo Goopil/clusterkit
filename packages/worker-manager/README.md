@@ -132,10 +132,22 @@ opt-in policies: RSS recycling (`workers.maxRssMb`) and wedged-worker detection 
 worker cannot ACK anything, so the drain escalates to SIGKILL. Both policies run through the same bounded drain as
 age-based recycling and never count toward the crash circuit breaker.
 
-All of these health features require forked workers (`workers.count >= 2`) — they are fed by worker heartbeats over
-IPC. In single-worker mode (`count: 1`, including `count: 'auto'` resolving to 1 CPU) the app runs in the primary with
-no fork, so health heartbeats never run and these policies never evaluate. The orchestrator logs a warning at startup
-for each policy that is configured but disabled this way.
+Health features work at every worker count: at `count: 1` a single worker is forked and reports heartbeats over IPC
+exactly like a larger fleet. Since 2.0 there is no no-fork mode — the primary is always a supervisor and the app always
+runs in a worker process.
+
+## Migration to 2.0
+
+- `workers.count: 1` now forks one worker instead of running the app in the primary. The primary is a pure supervisor:
+  OOM/wedge of the app no longer kills the process tree — the worker is restarted with backoff and the crash-loop
+  breaker. Budget ~30-50 MB extra RSS for the extra process.
+- `orchestrator.isPrimary` is now `false` in the application process at count 1. Gate primary-only resources on
+  `isPrimary` as you would in multi-worker mode.
+- Health features (heartbeats, RSS recycling, wedged detection, fleet degradation) work at count 1 — the 1.x startup
+  warnings are gone.
+- SIGHUP (plugin-signal-restart) and file/env watching (plugin-file-watcher) trigger in-process rolling restarts at
+  count 1.
+- Debugging: attach the inspector to the worker process — Node auto-increments cluster worker inspector ports.
 
 ## Runtime API (high level)
 
@@ -153,7 +165,7 @@ const metrics = orchestrator.getMetrics();
 const health = orchestrator.getHealth();
 const fleet = orchestrator.getFleetHealth(); // { target, active, quarantined, breaker }
 
-orchestrator.isPrimary; // true in the primary (incl. single-worker mode), false in forked workers
+orchestrator.isPrimary; // true in the primary (the supervisor), false in forked workers — incl. the app process at count 1
 
 orchestrator.resetCircuitBreaker(); // after fixing a crash-loop cause
 

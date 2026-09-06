@@ -72,7 +72,7 @@ if (orchestrator.isPrimary) {
 |--------|------|---------|-------------|
 | `prefix` | `string` | `'clusterkit_'` | Metric name prefix |
 | `registry` | `Registry` | `new Registry()` | Registry for orchestration metrics |
-| `defaultMetrics` | `boolean` | `true` | Collect Node.js default process metrics from workers (or from the primary in single-worker mode) |
+| `defaultMetrics` | `boolean` | `true` | Collect Node.js default process metrics from workers |
 | `metricsCacheTtlMs` | `number` | `1000` | Merged-metrics cache TTL in milliseconds (`0` disables cache) |
 | `labels` | `Record<string, string \| number>` | `{}` | Static labels added to all metrics (`pid` is always included) |
 
@@ -136,10 +136,9 @@ Sizing metrics (set at install, on the primary):
 Labeled counters (`worker_recycles_total`) only appear once their first series is recorded. Plus worker-level Node.js
 default metrics from `prom-client` when `defaultMetrics: true`.
 
-In single-worker mode (`workers: 1`), the orchestrator runs the app directly in the
-primary process without forking. The plugin sets `clusterkit_active_workers` to `1` and
-collects default process metrics in the primary, since there are no worker processes to
-aggregate from.
+At `workers: 1`, the app runs in a forked worker like any other count: the plugin
+tracks it via orchestrator events, `clusterkit_active_workers` reads `1`, and the
+primary-side endpoint serves aggregated metrics as in multi-worker mode.
 
 ## Grafana dashboard
 

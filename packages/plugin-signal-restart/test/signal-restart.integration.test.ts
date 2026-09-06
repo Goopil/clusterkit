@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Orchestrator } from "@goopil/clusterkit";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createSignalRestartPlugin } from "../src/index";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -78,7 +78,7 @@ describe("signal-restart integration", () => {
     await shutdownP;
   }, 15_000);
 
-  it("exits on SIGHUP in single-worker mode", async () => {
+  it("rolls the single worker on SIGHUP at count 1", async () => {
     cluster.setupPrimary({ exec: WORKER_FIXTURE_PATH });
     const orchestrator = new Orchestrator({
       clusterModule: cluster,
@@ -88,21 +88,13 @@ describe("signal-restart integration", () => {
 
     const plugin = createSignalRestartPlugin();
     orchestrator.use(plugin);
-
-    // Single-worker shutdown calls process.exit(0) — mock it so the test process survives
-    const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
-
     await orchestrator.run();
 
-    // SIGHUP in single-worker mode should trigger SIGTERM → shutdown
-    const shutdownP = once(orchestrator, "shutdown:complete");
-
+    const restartP = once(orchestrator, "restart:complete");
     process.emit("SIGHUP");
 
-    await Promise.race([shutdownP, new Promise((_, r) => setTimeout(() => r(new Error("shutdown timeout")), 8_000))]);
+    await Promise.race([restartP, new Promise((_, r) => setTimeout(() => r(new Error("restart timeout")), 8_000))]);
 
-    expect(orchestrator.getHealth().ready).toBe(false);
-    expect(exitSpy).toHaveBeenCalledWith(0);
-    exitSpy.mockRestore();
+    expect(plugin.lastRestart).toBeInstanceOf(Date);
   }, 15_000);
 });

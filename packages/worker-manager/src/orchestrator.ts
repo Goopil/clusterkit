@@ -202,7 +202,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    */
   async run(start?: () => Promise<void> | void): Promise<void> {
     if (this.clusterRef.isPrimary) {
-      await this.runPrimary(start);
+      await this.runPrimary();
       return;
     }
 
@@ -261,7 +261,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     }
   }
 
-  private async runPrimary(start?: () => Promise<void> | void): Promise<void> {
+  private async runPrimary(): Promise<void> {
     this.assertPrimaryCanRun();
     this.isPrimaryStarted = true;
 
@@ -270,17 +270,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // NODE_OPTIONS) apply to the initial fleet — not only to restarted workers.
     await this.installPlugins();
 
-    const workerCount = this.resolveWorkerCount();
-
-    // Single-worker mode: run directly in primary without forking
-    if (workerCount === 1) {
-      this.startSingleWorkerPrimary();
-      await start?.();
-      return;
-    }
-
-    // Multi-worker mode: fork workers
-    await this.startPrimary(workerCount);
+    await this.startPrimary(this.resolveWorkerCount());
   }
 
   private async runWorker(start?: () => Promise<void> | void): Promise<void> {
@@ -330,9 +320,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   }
 
   /**
-   * True in the primary process (including single-worker mode, where the
-   * primary runs the app), false in forked workers. Plugin authors should
-   * gate primary-only resources (listeners, metrics endpoints) on this
+   * True in the primary process, false in forked workers. Plugin authors
+   * should gate primary-only resources (listeners, metrics endpoints) on this
    * instead of reaching into node:cluster themselves.
    */
   get isPrimary(): boolean {
@@ -436,7 +425,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
    * guard) forever.
    *
    * Idempotent: no-op if a restart is already in progress or shutdown has
-   * started. Returns early in single-worker mode (no cluster to roll).
+   * started.
    * If shutdown starts mid-roll, the roll stops without emitting
    * `restart:complete` — a partial roll is not a complete one.
    *
@@ -468,11 +457,6 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
     if (this.restartInProgress) {
       this.log?.warn("restartWorkers() ignored — restart already in progress", { reason });
-      return;
-    }
-
-    if (this.workerCount === 1) {
-      this.log?.warn("restartWorkers() called in single-worker mode — no cluster to roll", { reason });
       return;
     }
 
@@ -655,76 +639,6 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   }
 
   // ============================================================================
-  // Single-worker mode (no fork — the app runs inside the primary process)
-  // ============================================================================
-
-  private startSingleWorkerPrimary(): void {
-    // Without these handlers a PID 1 process ignores SIGTERM entirely and
-    // `docker stop` escalates to SIGKILL without ever draining the app.
-    this.registerSignalHandlers({
-      SIGTERM: () => void this.shutdownSingleWorker("SIGTERM"),
-      SIGINT: () => void this.shutdownSingleWorker("SIGINT"),
-      SIGHUP: () => {
-        // No-op - prevents Node.js default behavior
-      },
-    });
-
-    // Health policies are fed by worker heartbeats over IPC; without a fork
-    // they can never evaluate. A silent no-op on a safety feature is the
-    // worst failure mode — warn instead of letting users assume it is on.
-    if (this.cfg.workers.maxRssMb > 0) {
-      this.log?.warn(
-        "workers.maxRssMb is set but single-worker mode (no fork) disables health heartbeats — RSS recycling will never trigger. Set workers.count >= 2 to enable it.",
-        { maxRssMb: this.cfg.workers.maxRssMb },
-      );
-    }
-    if (this.cfg.health.wedgedTimeoutMs > 0) {
-      this.log?.warn(
-        "health.wedgedTimeoutMs is set but single-worker mode (no fork) disables health heartbeats — wedged detection will never trigger. Set workers.count >= 2 to enable it.",
-        { wedgedTimeoutMs: this.cfg.health.wedgedTimeoutMs },
-      );
-    }
-    if (this.cfg.health.degradedAfterMs > 0) {
-      this.log?.warn(
-        "health.degradedAfterMs is set but single-worker mode (no fork) means there are no workers to track — fleet:degraded will never fire.",
-        { degradedAfterMs: this.cfg.health.degradedAfterMs },
-      );
-    }
-
-    this.log?.info("Primary started in single-worker mode (no fork)");
-  }
-
-  private async shutdownSingleWorker(signal: string): Promise<void> {
-    if (this.localShutdownInProgress) return;
-    this.localShutdownInProgress = true;
-
-    this.health.ready = false;
-    this.safeEmit("shutdown:start", { signal });
-    this.log?.info("Single-worker shutdown initiated", { signal });
-
-    this.unregisterSignalHandlers();
-
-    let shutdownTimedOut = false;
-    const exitTimer = setTimeout(() => {
-      shutdownTimedOut = true;
-      this.log?.error("Forced exit after shutdown timeout", { timeoutMs: this.cfg.shutdown.timeoutMs });
-      process.exit(1);
-    }, this.cfg.shutdown.timeoutMs).unref();
-
-    try {
-      await this.runShutdownCallbacks(signal);
-      await this.uninstallPlugins();
-      this.safeEmit("shutdown:complete", { metrics: { ...this.metrics } });
-      this.log?.info("Single-worker shutdown complete");
-    } finally {
-      clearTimeout(exitTimer);
-      if (!shutdownTimedOut) {
-        process.exit(0);
-      }
-    }
-  }
-
-  // ============================================================================
   // Worker lifecycle handlers
   // ============================================================================
 
@@ -884,7 +798,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
     // Failsafe: user callbacks and plugin uninstall are unbounded async work —
     // one callback that never resolves would hang the primary after SIGTERM
-    // forever. Single-worker mode and worker children have the same failsafe.
+    // forever. Worker children have the same failsafe.
     let shutdownTimedOut = false;
     const exitTimer = setTimeout(() => {
       shutdownTimedOut = true;
@@ -898,9 +812,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       // Uninstall plugins
       await this.uninstallPlugins();
 
-      // Emitted after user callbacks and plugin uninstall (same contract as
-      // single-worker mode) — plugins doing final work must do it in
-      // uninstall(): their shutdown:complete listener is gone by then.
+      // Emitted after user callbacks and plugin uninstall — plugins doing
+      // final work must do it in uninstall(): their shutdown:complete
+      // listener is gone by then.
       this.safeEmit("shutdown:complete", { metrics: { ...this.metrics } });
     } finally {
       clearTimeout(exitTimer);
@@ -922,8 +836,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
 
   private handleShutdownComplete(metrics: WorkerMetrics): void {
     // No shutdown:complete emission here: the event is emitted at the end of
-    // shutdownPrimary(), after user callbacks and plugin uninstall, matching
-    // single-worker mode.
+    // shutdownPrimary(), after user callbacks and plugin uninstall.
     this.log?.info("All workers terminated", { metrics });
   }
 

@@ -309,11 +309,6 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
         bind("fleet:recovered", ({ degradedDurationMs }) => {
           recoveryDurationGauge.record(degradedDurationMs / 1000);
         });
-
-        const singleWorker = orchestrator.workerCount === 1;
-        if (singleWorker && instrumentation) {
-          await startHostMetrics(meterProvider);
-        }
       } else {
         log?.debug("Plugin installed on worker process");
 

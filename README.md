@@ -166,7 +166,7 @@ orchestrator.registerOnShutdown(cb);    // called in each worker before exit
 orchestrator.getMetrics();              // WorkerMetrics snapshot
 orchestrator.getHealth();               // { ready: boolean, live: boolean } — live is always true by design
 orchestrator.getFleetHealth();          // { target, active, quarantined, breaker }
-orchestrator.isPrimary;                 // true in the primary (incl. single-worker mode), false in workers
+orchestrator.isPrimary;                 // true in the primary (the supervisor), false in workers — incl. the app process at count 1 (2.0)
 orchestrator.setNotReady();             // mark ready=false (e.g. during rolling deploys)
 orchestrator.setReady();                // restore ready=true (no-op during shutdown)
 orchestrator.resetCircuitBreaker();     // re-arm after a crash-loop trip; refills missing workers

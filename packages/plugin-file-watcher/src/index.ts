@@ -139,11 +139,6 @@ export function createFileWatcherPlugin(options?: FileWatcherOptions): FileWatch
 
       const log = withLoggerPrefix(logger, "clusterkit:file-watcher");
 
-      if (orchestrator.workerCount === 1) {
-        log?.warn("file-watcher plugin has no effect in single-worker mode");
-        return;
-      }
-
       const flushRestart = async (): Promise<void> => {
         if (debounceTimer) {
           clearTimeout(debounceTimer);

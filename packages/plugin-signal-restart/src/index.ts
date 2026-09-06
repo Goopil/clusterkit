@@ -55,15 +55,6 @@ export function createSignalRestartPlugin(options?: SignalRestartOptions): Signa
       const handleSignal = async () => {
         const reason = defaultReason;
 
-        if (orchestrator.workerCount === 1) {
-          log?.info("Signal received in single-worker mode, exiting for external restart", {
-            signal,
-            reason,
-          });
-          process.kill(process.pid, "SIGTERM");
-          return;
-        }
-
         log?.info("Signal received, initiating hot restart", { signal, reason });
         try {
           await orchestrator.restartWorkers({ staggerMs, reason });

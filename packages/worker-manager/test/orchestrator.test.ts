@@ -156,7 +156,7 @@ describe("Orchestrator", () => {
       expect(new Orchestrator(cfg({ workers: 2 })).isPrimary).toBe(false);
     });
 
-    it("is true in single-worker mode (primary runs the app)", () => {
+    it("is true with workers = 1 (always-fork mode)", () => {
       mockCluster.isPrimary = true;
       expect(new Orchestrator(cfg({ workers: 1 })).isPrimary).toBe(true);
     });
@@ -670,120 +670,88 @@ describe("Orchestrator", () => {
   });
 
   // --------------------------------------------------------------------------
-  describe("run() — single-worker mode (workers = 1)", () => {
-    it("should call the start function directly without forking", async () => {
+  describe("run() — single worker (workers = 1)", () => {
+    it("forks exactly one worker — the app runs in the worker, not the primary", async () => {
       mockCluster.isPrimary = true;
       const orch = new Orchestrator(cfg({ workers: 1 }));
       const start = vi.fn().mockResolvedValue(undefined);
       await orch.run(start);
-      expect(start).toHaveBeenCalledOnce();
-      expect(Object.keys(mockCluster.workers)).toHaveLength(0);
+      expect(start).not.toHaveBeenCalled();
+      expect(Object.keys(mockCluster.workers)).toHaveLength(1);
     });
 
-    it("should run shutdown callbacks and emit shutdown events on SIGTERM", async () => {
+    it("tracks the single worker and emits worker:online", async () => {
       mockCluster.isPrimary = true;
       const orch = new Orchestrator(cfg({ workers: 1 }));
-      const onShutdown = vi.fn();
-      await orch.run(() => {
-        orch.registerOnShutdown(onShutdown);
-      });
-
       const events: unknown[] = [];
-      orch.on("shutdown:start", (d) => events.push(d));
-
-      process.emit("SIGTERM", "SIGTERM");
-      await vi.waitFor(() => expect(onShutdown).toHaveBeenCalledWith("SIGTERM"));
-
-      expect(events).toEqual([{ signal: "SIGTERM" }]);
-      expect(orch.getHealth().ready).toBe(false);
-      await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
-    });
-
-    it("should uninstall plugins on single-worker shutdown", async () => {
-      mockCluster.isPrimary = true;
-      const orch = new Orchestrator(cfg({ workers: 1 }));
-      const uninstall = vi.fn();
-      orch.use({ name: "p", install: vi.fn(), uninstall });
+      orch.on("worker:online", (data) => events.push(data));
       await orch.run(() => {});
-
-      process.emit("SIGINT", "SIGINT");
-      await vi.waitFor(() => expect(uninstall).toHaveBeenCalledOnce());
+      await new Promise<void>((r) => setImmediate(r));
+      expect(orch.getMetrics().activeWorkers).toBe(1);
+      expect(events).toHaveLength(1);
     });
 
-    it("should run the shutdown sequence only once for overlapping signals", async () => {
+    it("registers signal handlers before forking (same #93 guarantee as multi-worker)", async () => {
       mockCluster.isPrimary = true;
+      const onSpy = vi.spyOn(process, "on");
+      const forkSpy = vi.spyOn(mockCluster, "fork");
       const orch = new Orchestrator(cfg({ workers: 1 }));
-      const onShutdown = vi.fn(async () => {
-        await new Promise((r) => setTimeout(r, 10));
-      });
-      await orch.run(() => {
-        orch.registerOnShutdown(onShutdown);
-      });
+      await orch.run(() => {});
+      const sigtermIdx = onSpy.mock.invocationCallOrder[onSpy.mock.calls.findIndex(([signal]) => signal === "SIGTERM")];
+      expect(sigtermIdx).toBeLessThan(forkSpy.mock.invocationCallOrder[0]);
+    });
+
+    it("SIGTERM drains the single worker and completes shutdown", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({
+          workers: 1,
+          shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, sigtermDelayMs: 300, sigintDelayMs: 200 },
+        }),
+      );
+      await orch.run(() => {});
+      for (const w of Object.values(mockCluster.workers)) {
+        // The mock has no in-worker shutdown handler: a compliant worker exits
+        // on disconnect, so the drain completes without the kill escalation.
+        w.autoExitOnDisconnect = true;
+      }
+      const events: string[] = [];
+      orch.on("shutdown:start", () => events.push("start"));
+      orch.on("shutdown:complete", () => events.push("complete"));
 
       process.emit("SIGTERM", "SIGTERM");
-      process.emit("SIGINT", "SIGINT");
-      await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
-      expect(onShutdown).toHaveBeenCalledTimes(1);
+      await vi.waitFor(() => expect(events).toEqual(["start", "complete"]), { timeout: 5_000 });
+      expect(orch.getHealth().ready).toBe(false);
     });
 
-    // Health policies silently disabled in single-worker mode (no fork, no IPC)
-    describe("health policy warnings (single-worker blind spot)", () => {
-      function loggerWithWarnSpy() {
-        const warn = vi.fn();
-        return { warn, logger: { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() } };
-      }
+    it("health heartbeats flow at count 1 (no more blind spot)", async () => {
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: 1, health: { heartbeatMs: 1000 } }));
+      await orch.run(() => {});
+      reportHealth(orch, 1, 1001, 50);
+      // The heartbeat reached the monitor: one worker tracked by the health registry.
+      const tracked = (orch as unknown as { healthMonitor: { registry: Map<number, unknown> } }).healthMonitor.registry;
+      expect(tracked.size).toBe(1);
+    });
 
-      it("warns that maxRssMb recycling is disabled in single-worker mode", async () => {
-        mockCluster.isPrimary = true;
-        const { warn, logger } = loggerWithWarnSpy();
-        const orch = new Orchestrator(cfg({ workers: { count: 1, maxRssMb: 100 }, logger }));
-        await orch.run(() => {});
-        expect(warn).toHaveBeenCalledTimes(1);
-        expect(warn.mock.calls[0][0]).toContain("maxRssMb");
-        expect(warn.mock.calls[0][0]).toContain("single-worker");
-      });
+    it("worker crash triggers a restart with the single worker forked back", async () => {
+      mockCluster.isPrimary = true;
+      // backoffMs/maxBackoffMs are validated to be >= 1000: the restart forks
+      // after a 1s real-timer backoff, well within the waitFor budget.
+      const orch = new Orchestrator(cfg({ workers: 1, restart: { backoffMs: 1_000, maxBackoffMs: 1_000 } }));
+      const restarted: unknown[] = [];
+      orch.on("worker:restart", (d) => restarted.push(d));
+      await orch.run(() => {});
+      await new Promise<void>((r) => setImmediate(r));
 
-      it("warns that wedgedTimeoutMs detection is disabled in single-worker mode", async () => {
-        mockCluster.isPrimary = true;
-        const { warn, logger } = loggerWithWarnSpy();
-        const orch = new Orchestrator(
-          cfg({ workers: 1, logger, health: { heartbeatMs: 1000, wedgedTimeoutMs: 2000 } }),
-        );
-        await orch.run(() => {});
-        expect(warn).toHaveBeenCalledTimes(1);
-        expect(warn.mock.calls[0][0]).toContain("wedgedTimeoutMs");
-      });
+      const worker = Object.values(mockCluster.workers)[0];
+      // Mirror real cluster: the worker's exit also fires the cluster-level
+      // event that drives the crash-restart bookkeeping.
+      worker.on("exit", (code, signal) => mockCluster.emit("exit", worker, code, signal));
+      worker.simulateCrash(1, null);
 
-      it("warns that degradedAfterMs cannot fire in single-worker mode", async () => {
-        mockCluster.isPrimary = true;
-        const { warn, logger } = loggerWithWarnSpy();
-        const orch = new Orchestrator(cfg({ workers: 1, logger, health: { degradedAfterMs: 5000 } }));
-        await orch.run(() => {});
-        expect(warn).toHaveBeenCalledTimes(1);
-        expect(warn.mock.calls[0][0]).toContain("degradedAfterMs");
-      });
-
-      it("does not warn when health policies are set with forked workers (count >= 2)", async () => {
-        mockCluster.isPrimary = true;
-        const { warn, logger } = loggerWithWarnSpy();
-        const orch = new Orchestrator(
-          cfg({
-            workers: { count: 2, maxRssMb: 100 },
-            logger,
-            health: { heartbeatMs: 1000, wedgedTimeoutMs: 2000, degradedAfterMs: 5000 },
-          }),
-        );
-        await orch.run(() => {});
-        expect(warn).not.toHaveBeenCalled();
-      });
-
-      it("does not warn with default config in single-worker mode", async () => {
-        mockCluster.isPrimary = true;
-        const { warn, logger } = loggerWithWarnSpy();
-        const orch = new Orchestrator(cfg({ workers: 1, logger }));
-        await orch.run(() => {});
-        expect(warn).not.toHaveBeenCalled();
-      });
+      await vi.waitFor(() => expect(Object.keys(mockCluster.workers)).toHaveLength(2), { timeout: 3000 });
+      expect(restarted).toHaveLength(1);
     });
   });
 
@@ -876,7 +844,6 @@ describe("Orchestrator", () => {
 
   // --------------------------------------------------------------------------
   describe("worker crash and restart", () => {
-    // workers must be >= 2 to enter cluster primary mode (workers=1 → single-worker mode)
     async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
       mockCluster.isPrimary = true;
       const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
@@ -1163,17 +1130,29 @@ describe("Orchestrator", () => {
       expect(completeEvents[0].reason).toBe("first");
     });
 
-    it("returns early in single-worker mode", async () => {
+    it("rolls the single worker — count 1 is no longer special-cased", async () => {
       mockCluster.isPrimary = true;
-      const orchestrator = new Orchestrator(cfg({ workers: 1 }));
+      const orchestrator = new Orchestrator(cfg({ workers: 1, ...FAST_SHUTDOWN }));
       await orchestrator.run(() => {});
+      await new Promise<void>((r) => setImmediate(r));
 
-      const events: Array<{ reason: string }> = [];
-      orchestrator.on("restart:start", (d) => events.push(d));
+      for (const w of Object.values(mockCluster.workers)) {
+        w!.autoExitOnDisconnect = true;
+      }
 
-      await orchestrator.restartWorkers({ reason: "test" });
+      const startEvents: Array<{ reason: string; workerIds: number[] }> = [];
+      const completeEvents: Array<{ restartedWorkerIds: number[] }> = [];
+      orchestrator.on("restart:start", (d) => startEvents.push(d));
+      orchestrator.on("restart:complete", (d) => completeEvents.push(d));
 
-      expect(events).toHaveLength(0);
+      await orchestrator.restartWorkers({ staggerMs: 0, reason: "single" });
+
+      expect(startEvents).toHaveLength(1);
+      expect(startEvents[0].workerIds).toHaveLength(1);
+      expect(completeEvents).toHaveLength(1);
+      expect(completeEvents[0].restartedWorkerIds).toHaveLength(1);
+      // The old worker was drained by the roll
+      expect(Object.values(mockCluster.workers)[0].isDead()).toBe(true);
     });
 
     it("passes env overlay to forked workers", async () => {
@@ -1865,7 +1844,6 @@ describe("Orchestrator", () => {
   // with code 0, masking a total crash from supervisors/K8s.
   // --------------------------------------------------------------------------
   describe("exit code protocol", () => {
-    // workers must be >= 2 to enter cluster primary mode (workers=1 → single-worker mode)
     async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
       mockCluster.isPrimary = true;
       const orch = new Orchestrator(cfg({ workers: workerCount, restart: { backoffMs: 0 }, ...extra }));
@@ -1991,7 +1969,7 @@ describe("Orchestrator", () => {
       );
     });
 
-    it("use() throws after run() even in single-worker mode (no fork)", async () => {
+    it("use() throws after run() with workers = 1", async () => {
       mockCluster.isPrimary = true;
       const orch = new Orchestrator(cfg({ workers: 1 }));
       await orch.run(() => {});

@@ -42,7 +42,7 @@ corepack pnpm --filter benchmarks exec node runner.mjs --list
 
 | ID | Description | Workers | SO_REUSEPORT |
 |---|---|---|---|
-| `single` | clusterkit with 1 worker (no fork) | 1 | N/A |
+| `single` | clusterkit with 1 worker (primary + forked worker) | 1 | N/A |
 | `clusterkit-3` | clusterkit with 3 workers | 3 | Yes (Linux) |
 | `native-cluster-3` | `cluster.fork` x3, Node.js round-robin | 3 | No |
 | `throng-3` | throng(3) wrapper on cluster | 3 | No |

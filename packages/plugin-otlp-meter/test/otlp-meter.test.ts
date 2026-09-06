@@ -1,3 +1,4 @@
+import cluster from "node:cluster";
 import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
 import type { FleetHealth, Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
@@ -602,9 +603,9 @@ describe("plugin lifecycle", () => {
   });
 });
 
-// Single-worker mode =========================================================
+// Single worker (count 1, forked) ============================================
 
-describe("single-worker mode", () => {
+describe("single worker (count 1, forked)", () => {
   it("creates meter provider when workerCount is 1", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
@@ -629,13 +630,17 @@ describe("single-worker mode", () => {
 // Instrumentation ===========================================================
 
 describe("instrumentation", () => {
-  it("starts host metrics in single-worker mode when instrumentation is true", async () => {
+  afterEach(() => {
+    Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
+  });
+
+  it("does not start host metrics in the primary at count 1 — the forked worker collects them", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 1000 });
     const orch = mockOrchestrator(1, 1);
     await plugin.install(orch, null, singleWorkerConfig());
 
-    expect(mockHostMetricsStart).toHaveBeenCalledTimes(1);
+    expect(mockHostMetricsStart).not.toHaveBeenCalled();
     await plugin.uninstall?.(orch);
   });
 
@@ -646,6 +651,17 @@ describe("instrumentation", () => {
     await plugin.install(orch, null, singleWorkerConfig());
 
     expect(mockHostMetricsStart).not.toHaveBeenCalled();
+    await plugin.uninstall?.(orch);
+  });
+
+  it("starts host metrics in a worker process when instrumentation is true", async () => {
+    Object.defineProperty(cluster, "isPrimary", { value: false, configurable: true });
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator(0, 0);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    expect(mockHostMetricsStart).toHaveBeenCalledTimes(1);
     await plugin.uninstall?.(orch);
   });
 });

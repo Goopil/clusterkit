@@ -91,34 +91,32 @@ describe("signal-restart plugin", () => {
     expect(plugin.lastRestart).toBeInstanceOf(Date);
   });
 
-  it("sends SIGTERM to self in single-worker mode", async () => {
+  it("rolls the single worker via restartWorkers at count 1", async () => {
     const plugin = createSignalRestartPlugin();
     const orch = mockOrchestrator(1);
-    const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
+    const restartWorkers = (orch as unknown as { restartWorkers: ReturnType<typeof vi.fn> }).restartWorkers;
 
     await plugin.install(orch, null, mockConfig(1));
 
     const sighupHandler = handlers.find((h) => h.signal === "SIGHUP")!.handler;
     await sighupHandler();
 
-    expect(killSpy).toHaveBeenCalledWith(process.pid, "SIGTERM");
-    killSpy.mockRestore();
+    expect(restartWorkers).toHaveBeenCalledWith({ staggerMs: 1000, reason: "signal:SIGHUP" });
+    await plugin.uninstall?.(orch);
   });
 
-  it("sends SIGTERM to self when workers is 'auto' but resolves to a single worker", async () => {
+  it("rolls the single worker when workers is 'auto' and resolves to 1", async () => {
     const plugin = createSignalRestartPlugin();
     const orch = mockOrchestrator(1);
     const restartWorkers = (orch as unknown as { restartWorkers: ReturnType<typeof vi.fn> }).restartWorkers;
-    const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
 
     await plugin.install(orch, null, mockConfig("auto"));
 
     const sighupHandler = handlers.find((h) => h.signal === "SIGHUP")!.handler;
     await sighupHandler();
 
-    expect(killSpy).toHaveBeenCalledWith(process.pid, "SIGTERM");
-    expect(restartWorkers).not.toHaveBeenCalled();
-    killSpy.mockRestore();
+    expect(restartWorkers).toHaveBeenCalledOnce();
+    await plugin.uninstall?.(orch);
   });
 
   it("does not register listener in worker process", async () => {

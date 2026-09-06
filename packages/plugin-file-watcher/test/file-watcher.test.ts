@@ -113,23 +113,23 @@ describe("file-watcher plugin", () => {
     vi.restoreAllMocks();
   });
 
-  it("no-ops in single-worker mode", async () => {
+  it("watches files at count 1 — rolling restarts work there now", async () => {
     Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
     const plugin = createFileWatcherPlugin({ watch: ["./src"] });
     const orch = mockOrchestrator(1);
 
     await plugin.install(orch, null, mockConfig(1));
 
-    expect(plugin.isWatching).toBe(false);
+    expect(plugin.isWatching).toBe(true);
   });
 
-  it("no-ops when workers is 'auto' but resolves to a single worker", async () => {
+  it("watches files when workers is 'auto' but resolves to a single worker", async () => {
     Object.defineProperty(cluster, "isPrimary", { value: true, configurable: true });
     const plugin = createFileWatcherPlugin({ watch: ["./src"] });
     const orch = mockOrchestrator(1);
     try {
       await plugin.install(orch, null, mockConfig("auto"));
-      expect(plugin.isWatching).toBe(false);
+      expect(plugin.isWatching).toBe(true);
       expect(orch.restartWorkers).not.toHaveBeenCalled();
     } finally {
       await plugin.uninstall?.();

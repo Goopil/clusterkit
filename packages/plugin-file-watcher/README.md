@@ -82,9 +82,9 @@ createFileWatcherPlugin({
 })
 ```
 
-## Single-worker mode
+## Single worker (count 1)
 
-The plugin has no effect in single-worker mode (`workers: { count: 1 }`). A file change does not trigger a full process exit (that would be a crash loop on every save).
+The watcher is effective at every worker count (>= 1); changes trigger an in-process rolling restart.
 
 ## Options
 
