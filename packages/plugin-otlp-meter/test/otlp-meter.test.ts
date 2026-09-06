@@ -13,12 +13,15 @@ const exporterCtorArgs = vi.hoisted(() => ({
   grpc: [] as unknown[],
 }));
 
+const capturedExports = vi.hoisted(() => [] as unknown[]);
+
 vi.mock("@opentelemetry/exporter-metrics-otlp-http", () => ({
   OTLPMetricExporter: class {
     constructor(config: unknown) {
       exporterCtorArgs.http.push(config);
     }
-    async export(_metrics: unknown, cb: (r: { status: number }) => void) {
+    async export(metrics: unknown, cb: (r: { status: number }) => void) {
+      capturedExports.push(metrics);
       cb({ status: 0 });
     }
     async shutdown() {}
@@ -31,7 +34,8 @@ vi.mock("@opentelemetry/exporter-metrics-otlp-grpc", () => ({
     constructor(config: unknown) {
       exporterCtorArgs.grpc.push(config);
     }
-    async export(_metrics: unknown, cb: (r: { status: number }) => void) {
+    async export(metrics: unknown, cb: (r: { status: number }) => void) {
+      capturedExports.push(metrics);
       cb({ status: 0 });
     }
     async shutdown() {}
@@ -51,6 +55,7 @@ beforeEach(() => {
   mockHostMetricsStart.mockClear();
   exporterCtorArgs.http.length = 0;
   exporterCtorArgs.grpc.length = 0;
+  capturedExports.length = 0;
 });
 
 // Helpers (reused by later tasks) ===========================================
@@ -144,6 +149,29 @@ async function spyOnCounters(): Promise<{
       MeterProvider.prototype.getMeter = origGetMeter;
     },
   };
+}
+
+type HealthDataPoint = { attributes: Record<string, string | number>; value: number };
+
+/**
+ * Collect the data points observed for a metric name in the most recent export
+ * batch that contains it (SDK timestamps stripped; the latest batch reflects
+ * the current gauge state).
+ */
+function findPoints(metricName: string): HealthDataPoint[] {
+  for (let i = capturedExports.length - 1; i >= 0; i--) {
+    const { scopeMetrics } = capturedExports[i] as {
+      scopeMetrics?: Array<{ metrics?: Array<{ descriptor: { name: string }; dataPoints?: HealthDataPoint[] }> }>;
+    };
+    for (const scope of scopeMetrics ?? []) {
+      for (const metric of scope.metrics ?? []) {
+        if (metric.descriptor.name === metricName) {
+          return (metric.dataPoints ?? []).map(({ attributes, value }) => ({ attributes, value }));
+        }
+      }
+    }
+  }
+  return [];
 }
 
 // Interface conformance =====================================================
@@ -291,6 +319,85 @@ describe("metrics — event to counter mapping", () => {
 
     expect(spies["clusterkit.worker.restarts"]).toHaveBeenCalledTimes(1);
     restore();
+    await plugin.uninstall?.(orch);
+  });
+});
+
+describe("metrics — worker health gauges", () => {
+  it("worker:health populates per-worker gauges with worker.id and process.pid attributes", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    emit(orch, "worker:health", { workerId: 7, pid: 7007, rss: 1000, heapUsed: 500, eventLoopLagMs: 12 });
+    emit(orch, "worker:health", { workerId: 8, pid: 8008, rss: 2000, heapUsed: 900, eventLoopLagMs: 34 });
+
+    await plugin.meterProvider!.forceFlush();
+
+    expect(findPoints("clusterkit.worker.rss_bytes")).toEqual([
+      { attributes: { "worker.id": 7, "process.pid": 7007 }, value: 1000 },
+      { attributes: { "worker.id": 8, "process.pid": 8008 }, value: 2000 },
+    ]);
+    expect(findPoints("clusterkit.worker.heap_used_bytes")).toEqual([
+      { attributes: { "worker.id": 7, "process.pid": 7007 }, value: 500 },
+      { attributes: { "worker.id": 8, "process.pid": 8008 }, value: 900 },
+    ]);
+    expect(findPoints("clusterkit.worker.eventloop_lag_ms")).toEqual([
+      { attributes: { "worker.id": 7, "process.pid": 7007 }, value: 12 },
+      { attributes: { "worker.id": 8, "process.pid": 8008 }, value: 34 },
+    ]);
+
+    await plugin.uninstall?.(orch);
+  });
+
+  it("worker.heartbeat_age_seconds grows with time since the last heartbeat", async () => {
+    vi.useFakeTimers();
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    emit(orch, "worker:health", { workerId: 3, pid: 3003, rss: 1, heapUsed: 1, eventLoopLagMs: 1 });
+    vi.advanceTimersByTime(60_000);
+
+    await plugin.meterProvider!.forceFlush();
+    expect(findPoints("clusterkit.worker.heartbeat_age_seconds")).toEqual([
+      { attributes: { "worker.id": 3, "process.pid": 3003 }, value: 60 },
+    ]);
+
+    await plugin.uninstall?.(orch);
+    vi.useRealTimers();
+  });
+
+  it("worker:exit stops emitting the worker's series", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    emit(orch, "worker:health", { workerId: 9, pid: 9009, rss: 1, heapUsed: 2, eventLoopLagMs: 3 });
+    emit(orch, "worker:exit", { workerId: 9, pid: 9009, code: 0, signal: null, graceful: true });
+    await plugin.meterProvider!.forceFlush();
+
+    expect(findPoints("clusterkit.worker.rss_bytes")).toEqual([]);
+
+    await plugin.uninstall?.(orch);
+  });
+
+  it("uninstall clears health state so a reinstall starts fresh", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    emit(orch, "worker:health", { workerId: 5, pid: 5005, rss: 10, heapUsed: 20, eventLoopLagMs: 30 });
+    await plugin.uninstall?.(orch);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    await plugin.meterProvider!.forceFlush();
+    expect(findPoints("clusterkit.worker.rss_bytes")).toEqual([]);
+
     await plugin.uninstall?.(orch);
   });
 });

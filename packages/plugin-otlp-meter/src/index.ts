@@ -1,8 +1,14 @@
 import cluster from "node:cluster";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
-import { type Logger, type Orchestrator, type ResolvedConfig, withLoggerPrefix } from "@goopil/clusterkit";
-import { metrics } from "@opentelemetry/api";
+import {
+  type Logger,
+  type Orchestrator,
+  type OrchestratorEvents,
+  type ResolvedConfig,
+  withLoggerPrefix,
+} from "@goopil/clusterkit";
+import { metrics, type ObservableResult } from "@opentelemetry/api";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { MeterProvider, PeriodicExportingMetricReader, type PushMetricExporter } from "@opentelemetry/sdk-metrics";
 import { ATTR_SERVICE_INSTANCE_ID, ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
@@ -11,7 +17,7 @@ import type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
 
 export type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
 
-type PrimaryEvent = "worker:crash" | "worker:restart" | "circuit-breaker:tripped";
+type PrimaryEvent = "worker:crash" | "worker:restart" | "circuit-breaker:tripped" | "worker:health" | "worker:exit";
 
 const DEFAULT_HTTP_ENDPOINT = "http://localhost:4318/v1/metrics";
 const DEFAULT_GRPC_ENDPOINT = "localhost:4317";
@@ -59,7 +65,18 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
   let pluginSetGlobalProvider = false;
   let pluginLog: Logger | null = null;
   let primaryOrchestrator: Orchestrator | undefined;
-  const primaryListeners: Array<{ event: PrimaryEvent; listener: () => void }> = [];
+  interface WorkerHealthSample {
+    pid: number;
+    rss: number;
+    heapUsed: number;
+    eventLoopLagMs: number;
+    lastBeatAt: number;
+  }
+
+  // Listeners stored payload-agnostic; the concrete payload type is inferred at
+  // the bind() call site via OrchestratorEvents[E].
+  const primaryListeners: Array<{ event: PrimaryEvent; listener: (...args: never[]) => void }> = [];
+  const workerHealth = new Map<number, WorkerHealthSample>();
 
   const clearPrimaryListeners = (): void => {
     if (!primaryOrchestrator) return;
@@ -188,7 +205,41 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
           description: "Total number of circuit breaker trips",
         });
 
-        const bind = (event: PrimaryEvent, listener: () => void): void => {
+        const workerRssGauge = meter.createObservableGauge(`${prefix}worker.rss_bytes`, {
+          description: "Resident set size per worker from health heartbeats",
+          unit: "By",
+        });
+        const workerHeapGauge = meter.createObservableGauge(`${prefix}worker.heap_used_bytes`, {
+          description: "V8 heap used per worker from health heartbeats",
+          unit: "By",
+        });
+        const workerLagGauge = meter.createObservableGauge(`${prefix}worker.eventloop_lag_ms`, {
+          description: "Event loop lag per worker from health heartbeats",
+          unit: "ms",
+        });
+        const workerHeartbeatAgeGauge = meter.createObservableGauge(`${prefix}worker.heartbeat_age_seconds`, {
+          description: "Seconds since the last health heartbeat per worker",
+          unit: "s",
+        });
+
+        const observeWorkerHealth = (
+          result: ObservableResult<number>,
+          pick: (sample: WorkerHealthSample) => number,
+        ): void => {
+          for (const [workerId, sample] of workerHealth) {
+            result.observe(pick(sample), { "worker.id": workerId, "process.pid": sample.pid });
+          }
+        };
+
+        workerRssGauge.addCallback((result) => observeWorkerHealth(result, (s) => s.rss));
+        workerHeapGauge.addCallback((result) => observeWorkerHealth(result, (s) => s.heapUsed));
+        workerLagGauge.addCallback((result) => observeWorkerHealth(result, (s) => s.eventLoopLagMs));
+        workerHeartbeatAgeGauge.addCallback((result) => {
+          const now = Date.now();
+          observeWorkerHealth(result, (s) => Math.max(0, (now - s.lastBeatAt) / 1000));
+        });
+
+        const bind = <E extends PrimaryEvent>(event: E, listener: (...args: OrchestratorEvents[E]) => void): void => {
           orchestrator.on(event, listener);
           primaryListeners.push({ event, listener });
         };
@@ -201,6 +252,13 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
         });
         bind("circuit-breaker:tripped", () => {
           circuitBreakerTripsCounter.add(1);
+        });
+
+        bind("worker:health", ({ workerId, pid, rss, heapUsed, eventLoopLagMs }) => {
+          workerHealth.set(workerId, { pid, rss, heapUsed, eventLoopLagMs, lastBeatAt: Date.now() });
+        });
+        bind("worker:exit", ({ workerId }) => {
+          workerHealth.delete(workerId);
         });
 
         const singleWorker = orchestrator.workerCount === 1;
@@ -222,6 +280,7 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
 
     async uninstall(): Promise<void> {
       clearPrimaryListeners();
+      workerHealth.clear();
       // If the plugin's provider became the global one, release the slot:
       // metrics.disable() is the API's public unregister and restores the exact
       // pre-install state (getMeterProvider() falls back to the noop provider).
