@@ -15,7 +15,7 @@ export default defineConfig({
         functions: 85,
         branches: 75,
         statements: 85,
-        "src/index.ts": { lines: 90, branches: 82 },
+        "src/index.ts": { lines: 93, branches: 85 },
       },
     },
     testTimeout: 10000,

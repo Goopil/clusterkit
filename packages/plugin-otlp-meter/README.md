@@ -110,8 +110,21 @@ With the default prefix (`clusterkit.`):
 - `clusterkit.worker.restarts` (Counter)
 - `clusterkit.worker.crashes` (Counter)
 - `clusterkit.circuit_breaker.trips` (Counter)
+- `clusterkit.worker.rss_bytes` (ObservableGauge, attributes `worker.id`, `process.pid`)
+- `clusterkit.worker.heap_used_bytes` (ObservableGauge, attributes `worker.id`, `process.pid`)
+- `clusterkit.worker.eventloop_lag_ms` (ObservableGauge, attributes `worker.id`, `process.pid`)
+- `clusterkit.worker.heartbeat_age_seconds` (ObservableGauge, attributes `worker.id`, `process.pid`)
+- `clusterkit.worker.recycles` (Counter, attribute `reason`: rss / maxAge / wedged)
+- `clusterkit.worker.wedged.kills` (Counter)
+- `clusterkit.fleet.active_workers` (ObservableGauge)
+- `clusterkit.fleet.target_workers` (ObservableGauge)
+- `clusterkit.fleet.quarantined_slots` (ObservableGauge)
+- `clusterkit.recovery.duration_seconds` (Gauge)
 
 Plus Node.js host/process metrics from `@opentelemetry/host-metrics` when `instrumentation: true`.
+Worker-sourced series (`worker.rss_bytes`, `worker.heap_used_bytes`, `worker.eventloop_lag_ms`,
+`worker.heartbeat_age_seconds`) only appear when core health monitoring is enabled and
+heartbeats flow; the fleet gauges and event counters report regardless.
 
 In single-worker mode (`workers: 1`), the orchestrator runs the app directly in the
 primary process without forking. The plugin collects host metrics on the primary since
