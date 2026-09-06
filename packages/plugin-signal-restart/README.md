@@ -31,7 +31,7 @@ kill -HUP <pid>
 
 ## Single-worker mode
 
-In single-worker mode (`workers: { count: 1 }`), there is no cluster to roll. The plugin delivers `SIGTERM` to self, triggering the normal graceful shutdown for external restart (e.g. by a process manager).
+At `workers: { count: 1 }`, SIGHUP performs an in-process rolling restart (the replacement worker is forked before the old one drains), matching multi-worker behavior. Requires clusterkit >= 2.0.
 
 ## Choosing a signal
 
