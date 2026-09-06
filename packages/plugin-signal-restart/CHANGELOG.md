@@ -1,5 +1,16 @@
 # @goopil/clusterkit-signal-restart
 
+## 1.2.0
+
+### Minor Changes
+
+- [#172](https://github.com/Goopil/clusterkit/pull/172) [`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d) Thanks [@Goopil](https://github.com/Goopil)! - feat: SIGHUP at count 1 now triggers an in-process rolling restart instead of exiting via SIGTERM (requires clusterkit 2.0)
+
+### Patch Changes
+
+- Updated dependencies [[`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d)]:
+  - @goopil/clusterkit@2.0.0
+
 ## 1.1.1
 
 ### Patch Changes

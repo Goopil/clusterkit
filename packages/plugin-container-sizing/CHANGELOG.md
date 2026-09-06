@@ -1,5 +1,12 @@
 # @goopil/clusterkit-sizing
 
+## 1.2.1
+
+### Patch Changes
+
+- Updated dependencies [[`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d)]:
+  - @goopil/clusterkit@2.0.0
+
 ## 1.2.0
 
 ### Minor Changes

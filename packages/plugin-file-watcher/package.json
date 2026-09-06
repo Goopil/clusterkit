@@ -1,6 +1,6 @@
 {
   "name": "@goopil/clusterkit-file-watcher",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "File watcher hot restart plugin for @goopil/clusterkit: watches files, .env, and process.env for changes and triggers rolling worker restarts",
   "keywords": [
     "cluster",

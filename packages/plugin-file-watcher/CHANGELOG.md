@@ -1,5 +1,16 @@
 # @goopil/clusterkit-file-watcher
 
+## 1.2.0
+
+### Minor Changes
+
+- [#172](https://github.com/Goopil/clusterkit/pull/172) [`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d) Thanks [@Goopil](https://github.com/Goopil)! - feat: file/env watching is now effective at workers.count 1 (requires clusterkit 2.0)
+
+### Patch Changes
+
+- Updated dependencies [[`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d)]:
+  - @goopil/clusterkit@2.0.0
+
 ## 1.1.4
 
 ### Patch Changes

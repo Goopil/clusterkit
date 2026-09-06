@@ -1,5 +1,11 @@
 # @goopil/clusterkit
 
+## 2.0.0
+
+### Major Changes
+
+- [#172](https://github.com/Goopil/clusterkit/pull/172) [`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d) Thanks [@Goopil](https://github.com/Goopil)! - feat!: always fork, even for a single worker — count: 1 forks one worker, the primary becomes a pure supervisor, health features and hot restarts work at every count
+
 ## 1.4.0
 
 ### Minor Changes
