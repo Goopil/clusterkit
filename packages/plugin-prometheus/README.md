@@ -14,6 +14,7 @@ endpoint on your own HTTP stack in the primary process.
 | Worker metrics aggregation | Uses `prom-client` `AggregatorRegistry` to collect worker default metrics |
 | Cached merged responses | Optional `metricsCacheTtlMs` cache for scrape bursts |
 | Primary/worker-aware behavior | Event listeners only on primary, default process metrics only on workers |
+| Primary-side HTTP server | `serve({ port, host })` binds `GET /metrics` + `GET /healthz` on the primary only (no-op in workers) |
 
 ## Installation
 

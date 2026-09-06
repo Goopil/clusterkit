@@ -70,7 +70,8 @@ Related support modules:
 - `types.ts` — exported types
 
 Use `new Orchestrator(config)` as the single creation path. Query `Orchestrator.getCapabilities()` /
-`Orchestrator.supportsReusePort()` explicitly when capability insight is needed.
+`Orchestrator.supportsReusePort()` explicitly when capability insight is needed, and `orchestrator.isPrimary` to
+gate primary-only resources (listeners, metrics endpoints) instead of reaching into `node:cluster`.
 
 ### Plugin lifecycle
 
@@ -86,8 +87,10 @@ Use `new Orchestrator(config)` as the single creation path. Query `Orchestrator.
 - orchestration metrics (`Counter`/`Gauge`) in the primary process, driven by orchestrator events
 - worker metrics aggregated through `prom-client` `AggregatorRegistry` cluster IPC
 
-There is no built-in HTTP server; the host app exposes the endpoint via `plugin.getMetrics()`. When editing plugin
-tests, use `new Registry()` per test and `defaultMetrics: false` to avoid global metric pollution and port conflicts.
+The plugin does not start a server by itself: `plugin.serve({ port, host })` binds a primary-side HTTP server
+(`GET /metrics` + `GET /healthz`, no-op in workers, closed on shutdown), or the host app mounts the endpoint itself
+via `plugin.getMetrics()`. When editing plugin tests, use `new Registry()` per test and `defaultMetrics: false` to
+avoid global metric pollution and port conflicts.
 
 ### Hot restart
 

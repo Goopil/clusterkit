@@ -165,6 +165,8 @@ orchestrator.registerOnShutdown(cb);    // called in each worker before exit
 // Observability
 orchestrator.getMetrics();              // WorkerMetrics snapshot
 orchestrator.getHealth();               // { ready: boolean, live: boolean } — live is always true by design
+orchestrator.getFleetHealth();          // { target, active, quarantined, breaker }
+orchestrator.isPrimary;                 // true in the primary (incl. single-worker mode), false in workers
 orchestrator.setNotReady();             // mark ready=false (e.g. during rolling deploys)
 orchestrator.setReady();                // restore ready=true (no-op during shutdown)
 orchestrator.resetCircuitBreaker();     // re-arm after a crash-loop trip; refills missing workers
@@ -286,8 +288,6 @@ pnpm add @goopil/clusterkit-prometheus prom-client
 ### Usage
 
 ```js
-import cluster from 'node:cluster';
-import http from 'node:http';
 import {Orchestrator} from '@goopil/clusterkit';
 import {createPrometheusPlugin} from '@goopil/clusterkit-prometheus';
 
@@ -299,28 +299,19 @@ const prometheus = createPrometheusPlugin({
   defaultMetrics: true,  // collect Node.js process metrics from workers only
 });
 
-if (cluster.isPrimary) {
-  const metricsServer = http.createServer(async (req, res) => {
-    if (req.url !== '/metrics' || req.method !== 'GET') {
-      res.statusCode = 404;
-      res.end('Not Found');
-      return;
-    }
-
-    res.setHeader('Content-Type', prometheus.registry.contentType);
-    res.end(await prometheus.getMetrics());
-  });
-
-  metricsServer.listen(9090, '127.0.0.1');
-}
-
 orchestrator
   .use(prometheus)
   .run(async () => { /* your app */
   });
+
+// Binds in the primary only (no-op in workers):
+//   GET /metrics  — merged orchestration + worker metrics
+//   GET /healthz  — JSON fleet health (503 when degraded)
+await prometheus.serve({port: 9090, host: '127.0.0.1'});
 ```
 
 The plugin starts automatically when `orchestrator.run()` is called and shuts down cleanly with the orchestrator.
+Alternatively, mount `prometheus.getMetrics()` on your own HTTP stack (primary process only).
 
 ### Options
 
@@ -340,6 +331,11 @@ The plugin starts automatically when `orchestrator.run()` is called and shuts do
 | `clusterkit_worker_restarts_total`       | Counter | Total worker restarts since start  |
 | `clusterkit_worker_crashes_total`        | Counter | Total worker crashes since start   |
 | `clusterkit_circuit_breaker_trips_total` | Counter | Total circuit breaker trips        |
+| `clusterkit_sizing_info` {computed_workers,configured_workers} | Gauge | Resolved vs configured worker count |
+| `clusterkit_max_rss_mb`                  | Gauge   | RSS recycle limit in MB (`0` = disabled) |
+
+Plus per-worker health gauges (RSS, heap, event-loop lag, heartbeat age), recycle / wedged-kill counters, and live
+fleet gauges — see the [detailed README](./packages/plugin-prometheus/README.md#metrics-exposed) for the full list.
 
 ### Architecture
 
@@ -350,14 +346,16 @@ The plugin uses a two-registry model to separate concerns:
 - **`AggregatorRegistry`** (prom-client built-in) — each worker collects its own Node.js default metrics and the primary
   harvests them all via the built-in cluster IPC channel.
 
-Use `prometheus.getMetrics()` from your own HTTP stack to expose `/metrics` (or any custom route).
+Use `prometheus.serve()` to expose `/metrics` and `/healthz` on the primary (recommended), or mount
+`prometheus.getMetrics()` on your own HTTP stack (primary process only).
 
 When `metricsCacheTtlMs > 0`, merged responses are cached in-memory for the configured TTL to reduce repeated
 aggregation cost during scrape bursts.
 
 ### Exposure and security
 
-- The plugin does not open sockets; the host application controls bind address, auth, TLS, and network policy.
+- The plugin only opens a socket if you call `serve()`; the host application still controls bind address, auth, TLS,
+  and network policy.
 - Prefer binding metrics to `127.0.0.1` or a private service network unless a scrape endpoint must be reachable outside
   the host.
 - Treat `/metrics` as operationally sensitive: it can reveal process, topology, runtime, and workload information.
@@ -369,6 +367,7 @@ aggregation cost during scrape bursts.
 ```ts
 prometheus.registry       // prom-client Registry instance (orchestration metrics, primary)
 prometheus.getMetrics()   // Promise<string> — Prometheus text format (merged)
+prometheus.serve(opts)    // Promise<http.Server | undefined> — primary-side /metrics + /healthz
 ```
 
 ---
@@ -467,8 +466,8 @@ The plugin is primary-only and runs entirely inside `install()`, before any work
 Detailed package README: [`packages/plugin-otlp-meter/README.md`](./packages/plugin-otlp-meter/README.md)
 
 OpenTelemetry OTLP metrics plugin that exports orchestration metrics (active workers,
-restarts, crashes, circuit-breaker trips) and optional host/process metrics via OTLP/HTTP
-or OTLP/gRPC to a collector.
+restarts, crashes, circuit-breaker trips), worker health / fleet / recovery metrics (parity with the Prometheus
+plugin), and optional host/process metrics via OTLP/HTTP or OTLP/gRPC to a collector.
 
 ```bash
 pnpm add @goopil/clusterkit-otlp-meter @opentelemetry/exporter-metrics-otlp-http
