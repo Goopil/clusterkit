@@ -1,6 +1,6 @@
+import cluster from "node:cluster";
 import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
-import cluster from "node:cluster";
 import type { FleetHealth, Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import type { MeterProvider as MeterProviderType } from "@opentelemetry/sdk-metrics";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
