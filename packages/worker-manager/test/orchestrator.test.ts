@@ -145,11 +145,28 @@ afterEach(() => {
 
 describe("Orchestrator", () => {
   // --------------------------------------------------------------------------
+  describe("isPrimary", () => {
+    it("is true in the primary in fork mode", () => {
+      mockCluster.isPrimary = true;
+      expect(new Orchestrator(cfg({ workers: 2 })).isPrimary).toBe(true);
+    });
+
+    it("is false in forked workers", () => {
+      mockCluster.isPrimary = false;
+      expect(new Orchestrator(cfg({ workers: 2 })).isPrimary).toBe(false);
+    });
+
+    it("is true in single-worker mode (primary runs the app)", () => {
+      mockCluster.isPrimary = true;
+      expect(new Orchestrator(cfg({ workers: 1 })).isPrimary).toBe(true);
+    });
+  });
+
+  // --------------------------------------------------------------------------
   describe("constructor", () => {
     it("should create an instance with no config", () => {
       expect(new Orchestrator(cfg())).toBeInstanceOf(Orchestrator);
     });
-
     it("should accept all valid grouped config options", () => {
       expect(
         () =>
@@ -707,6 +724,66 @@ describe("Orchestrator", () => {
       process.emit("SIGINT", "SIGINT");
       await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
       expect(onShutdown).toHaveBeenCalledTimes(1);
+    });
+
+    // Health policies silently disabled in single-worker mode (no fork, no IPC)
+    describe("health policy warnings (single-worker blind spot)", () => {
+      function loggerWithWarnSpy() {
+        const warn = vi.fn();
+        return { warn, logger: { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() } };
+      }
+
+      it("warns that maxRssMb recycling is disabled in single-worker mode", async () => {
+        mockCluster.isPrimary = true;
+        const { warn, logger } = loggerWithWarnSpy();
+        const orch = new Orchestrator(cfg({ workers: { count: 1, maxRssMb: 100 }, logger }));
+        await orch.run(() => {});
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toContain("maxRssMb");
+        expect(warn.mock.calls[0][0]).toContain("single-worker");
+      });
+
+      it("warns that wedgedTimeoutMs detection is disabled in single-worker mode", async () => {
+        mockCluster.isPrimary = true;
+        const { warn, logger } = loggerWithWarnSpy();
+        const orch = new Orchestrator(
+          cfg({ workers: 1, logger, health: { heartbeatMs: 1000, wedgedTimeoutMs: 2000 } }),
+        );
+        await orch.run(() => {});
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toContain("wedgedTimeoutMs");
+      });
+
+      it("warns that degradedAfterMs cannot fire in single-worker mode", async () => {
+        mockCluster.isPrimary = true;
+        const { warn, logger } = loggerWithWarnSpy();
+        const orch = new Orchestrator(cfg({ workers: 1, logger, health: { degradedAfterMs: 5000 } }));
+        await orch.run(() => {});
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toContain("degradedAfterMs");
+      });
+
+      it("does not warn when health policies are set with forked workers (count >= 2)", async () => {
+        mockCluster.isPrimary = true;
+        const { warn, logger } = loggerWithWarnSpy();
+        const orch = new Orchestrator(
+          cfg({
+            workers: { count: 2, maxRssMb: 100 },
+            logger,
+            health: { heartbeatMs: 1000, wedgedTimeoutMs: 2000, degradedAfterMs: 5000 },
+          }),
+        );
+        await orch.run(() => {});
+        expect(warn).not.toHaveBeenCalled();
+      });
+
+      it("does not warn with default config in single-worker mode", async () => {
+        mockCluster.isPrimary = true;
+        const { warn, logger } = loggerWithWarnSpy();
+        const orch = new Orchestrator(cfg({ workers: 1, logger }));
+        await orch.run(() => {});
+        expect(warn).not.toHaveBeenCalled();
+      });
     });
   });
 

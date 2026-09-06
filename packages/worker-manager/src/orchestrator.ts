@@ -330,6 +330,16 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   }
 
   /**
+   * True in the primary process (including single-worker mode, where the
+   * primary runs the app), false in forked workers. Plugin authors should
+   * gate primary-only resources (listeners, metrics endpoints) on this
+   * instead of reaching into node:cluster themselves.
+   */
+  get isPrimary(): boolean {
+    return this.clusterRef.isPrimary;
+  }
+
+  /**
    * Get the current resolved worker count.
    */
   get workerCount(): number {
@@ -658,6 +668,28 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
         // No-op - prevents Node.js default behavior
       },
     });
+
+    // Health policies are fed by worker heartbeats over IPC; without a fork
+    // they can never evaluate. A silent no-op on a safety feature is the
+    // worst failure mode — warn instead of letting users assume it is on.
+    if (this.cfg.workers.maxRssMb > 0) {
+      this.log?.warn(
+        "workers.maxRssMb is set but single-worker mode (no fork) disables health heartbeats — RSS recycling will never trigger. Set workers.count >= 2 to enable it.",
+        { maxRssMb: this.cfg.workers.maxRssMb },
+      );
+    }
+    if (this.cfg.health.wedgedTimeoutMs > 0) {
+      this.log?.warn(
+        "health.wedgedTimeoutMs is set but single-worker mode (no fork) disables health heartbeats — wedged detection will never trigger. Set workers.count >= 2 to enable it.",
+        { wedgedTimeoutMs: this.cfg.health.wedgedTimeoutMs },
+      );
+    }
+    if (this.cfg.health.degradedAfterMs > 0) {
+      this.log?.warn(
+        "health.degradedAfterMs is set but single-worker mode (no fork) means there are no workers to track — fleet:degraded will never fire.",
+        { degradedAfterMs: this.cfg.health.degradedAfterMs },
+      );
+    }
 
     this.log?.info("Primary started in single-worker mode (no fork)");
   }

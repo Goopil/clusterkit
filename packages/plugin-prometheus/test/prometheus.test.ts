@@ -1,5 +1,10 @@
 import cluster from "node:cluster";
 import { EventEmitter } from "node:events";
+import { readFileSync } from "node:fs";
+import type http from "node:http";
+import type { AddressInfo } from "node:net";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { FleetHealth, Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import { AggregatorRegistry, Registry } from "prom-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -632,5 +637,235 @@ describe("single-worker mode", () => {
 
     const out = await plugin.getMetrics();
     expect(out).toMatch(metricLine("clusterkit_active_workers", 1));
+  });
+});
+
+// ============================================================================
+// serve() — primary-side metrics/healthz HTTP server
+// ============================================================================
+
+describe("serve()", () => {
+  /** Install + serve on an ephemeral port; returns the bound server. */
+  async function serveOnEphemeralPort(
+    plugin: PrometheusPlugin,
+    orch: Orchestrator,
+    config: ResolvedConfig = singleWorkerConfig(),
+  ): Promise<http.Server> {
+    await plugin.install(orch, null, config);
+    const server = await plugin.serve({ port: 0 });
+    expect(server).toBeDefined();
+    return server!;
+  }
+
+  function baseUrl(server: http.Server): string {
+    const { port } = server.address() as AddressInfo;
+    return `http://127.0.0.1:${port}`;
+  }
+
+  it("serves merged metrics on GET /metrics (primary)", async () => {
+    const plugin = makePlugin();
+    const server = await serveOnEphemeralPort(plugin, mockOrchestrator(3, 2));
+
+    const res = await fetch(`${baseUrl(server)}/metrics`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe(plugin.registry.contentType);
+    expect(await res.text()).toMatch(metricLine("clusterkit_active_workers", 3));
+
+    await plugin.uninstall?.();
+  });
+
+  it("returns 404 for unknown paths", async () => {
+    const plugin = makePlugin();
+    const server = await serveOnEphemeralPort(plugin, mockOrchestrator());
+
+    const res = await fetch(`${baseUrl(server)}/nope`);
+    expect(res.status).toBe(404);
+
+    await plugin.uninstall?.();
+  });
+
+  it("serves /healthz with a healthy payload (200)", async () => {
+    const plugin = makePlugin();
+    const server = await serveOnEphemeralPort(plugin, mockOrchestrator(2, 2));
+
+    const res = await fetch(`${baseUrl(server)}/healthz`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      status: "healthy",
+      target: 2,
+      active: 2,
+      quarantined: 0,
+      breaker: { count: 0, tripped: false },
+    });
+
+    await plugin.uninstall?.();
+  });
+
+  it("serves /healthz as degraded (503) when active < target", async () => {
+    const plugin = makePlugin();
+    const server = await serveOnEphemeralPort(plugin, mockOrchestrator(1, 2));
+
+    const res = await fetch(`${baseUrl(server)}/healthz`);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ status: "degraded", active: 1, target: 2 });
+
+    await plugin.uninstall?.();
+  });
+
+  it("is a no-op in worker processes (returns undefined, logs at debug)", async () => {
+    const originalIsPrimary = cluster.isPrimary;
+    Object.defineProperty(cluster, "isPrimary", { value: false, configurable: true });
+    try {
+      const plugin = makePlugin();
+      const log = mockLogger();
+      await plugin.install(mockOrchestrator(), log, singleWorkerConfig());
+      const server = await plugin.serve({ port: 0 });
+      expect(server).toBeUndefined();
+      expect(log.debug.mock.calls.map((call) => String(call[0])).join("\n")).toContain("serve()");
+    } finally {
+      Object.defineProperty(cluster, "isPrimary", { value: originalIsPrimary, configurable: true });
+    }
+  });
+
+  it("throws when called twice", async () => {
+    const plugin = makePlugin();
+    await serveOnEphemeralPort(plugin, mockOrchestrator());
+
+    await expect(plugin.serve({ port: 0 })).rejects.toThrow(/serve\(\) already called/);
+    await plugin.uninstall?.();
+  });
+
+  it("closes the server on uninstall", async () => {
+    const plugin = makePlugin();
+    const server = await serveOnEphemeralPort(plugin, mockOrchestrator());
+    expect(server.listening).toBe(true);
+
+    await plugin.uninstall?.();
+    expect(server.listening).toBe(false);
+  });
+});
+
+// ============================================================================
+// sizing_info / max_rss_mb — scrapeable sizing plan
+// ============================================================================
+
+describe("sizing_info and max_rss_mb metrics", () => {
+  it("exports sizing_info with resolved vs configured worker count", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator(0, 4);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(/clusterkit_sizing_info\{[^}]*computed_workers="4"[^}]*configured_workers="1"[^}]*\} 1/);
+    await plugin.uninstall?.(orch);
+  });
+
+  it("exports sizing_info for 'auto' config", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator(0, 4);
+    await plugin.install(orch, null, autoWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(/clusterkit_sizing_info\{[^}]*computed_workers="4"[^}]*configured_workers="auto"/);
+    await plugin.uninstall?.(orch);
+  });
+
+  it("exports max_rss_mb when RSS recycling is configured", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator(0, 2);
+    await plugin.install(orch, null, {
+      ...singleWorkerConfig(),
+      workers: { count: 2, env: undefined, execArgv: undefined, maxAgeMs: 0, maxRssMb: 256 },
+    });
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_max_rss_mb", 256));
+    await plugin.uninstall?.(orch);
+  });
+
+  it("exports max_rss_mb as 0 when RSS recycling is disabled", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator(0, 2);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_max_rss_mb", 0));
+    await plugin.uninstall?.(orch);
+  });
+
+  it("removes sizing_info and max_rss_mb on uninstall", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator(0, 4);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    await plugin.uninstall?.(orch);
+    const out = await plugin.getMetrics();
+    expect(out).not.toContain("clusterkit_sizing_info");
+    expect(out).not.toContain("clusterkit_max_rss_mb");
+  });
+});
+
+// ============================================================================
+// Grafana dashboard
+// ============================================================================
+
+describe("grafana dashboard", () => {
+  const dashboardPath = resolve(dirname(fileURLToPath(import.meta.url)), "../grafana/clusterkit-dashboard.json");
+  const readDashboard = (): Record<string, unknown> => JSON.parse(readFileSync(dashboardPath, "utf8"));
+
+  const knownMetrics = new Set([
+    "clusterkit_active_workers",
+    "clusterkit_worker_restarts_total",
+    "clusterkit_worker_crashes_total",
+    "clusterkit_circuit_breaker_trips_total",
+    "clusterkit_worker_rss_bytes",
+    "clusterkit_worker_heap_used_bytes",
+    "clusterkit_worker_eventloop_lag_ms",
+    "clusterkit_worker_heartbeat_age_seconds",
+    "clusterkit_worker_recycles_total",
+    "clusterkit_worker_wedged_kills_total",
+    "clusterkit_recovery_duration_seconds",
+    "clusterkit_fleet_active_workers",
+    "clusterkit_fleet_target_workers",
+    "clusterkit_fleet_quarantined_slots",
+    "clusterkit_sizing_info",
+    "clusterkit_max_rss_mb",
+  ]);
+
+  it("is a valid dashboard with panels, a datasource variable, and prefix/namespace variables", () => {
+    const dashboard = readDashboard();
+    expect(dashboard.title).toBe("ClusterKit");
+    expect(Array.isArray(dashboard.panels)).toBe(true);
+    expect((dashboard.panels as unknown[]).length).toBeGreaterThan(5);
+    const templating = dashboard.templating as {
+      list: Array<Record<string, unknown> & { name: string; type: string }>;
+    };
+
+    const prefixVar = templating.list.find((v) => v.name === "prefix");
+    expect(prefixVar?.current?.value).toBe("clusterkit_");
+
+    const dsVar = templating.list.find((v) => v.name === "DS_PROMETHEUS");
+    expect(dsVar?.type).toBe("datasource");
+
+    const namespaceVar = templating.list.find((v) => v.name === "namespace");
+    expect(namespaceVar?.type).toBe("query");
+    expect(namespaceVar?.multi).toBe(true);
+    expect(namespaceVar?.includeAll).toBe(true);
+  });
+
+  it("only references metrics the plugin exports", () => {
+    const dashboard = readDashboard();
+    const referenced = new Set<string>();
+    for (const panel of dashboard.panels as Array<{ targets?: Array<{ expr: unknown }> }>) {
+      for (const target of panel.targets ?? []) {
+        for (const match of String(target.expr)
+          .replaceAll("${prefix}", "clusterkit_")
+          .matchAll(/[a-zA-Z_][a-zA-Z0-9_]*/g)) {
+          if (match[0].startsWith("clusterkit_")) referenced.add(match[0]);
+        }
+      }
+    }
+    expect(referenced.size).toBeGreaterThan(5);
+    expect([...referenced].every((name) => knownMetrics.has(name))).toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 import cluster from "node:cluster";
+import http from "node:http";
 import {
   type Logger,
   type Orchestrator,
@@ -154,6 +155,21 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     registers: [registry],
   });
 
+  // Sizing plan as an info metric: makes "configured 2, computed 4" mismatches
+  // (auto sizing, plugin overrides) scrapeable instead of log-only.
+  const sizingInfo = new Gauge({
+    name: `${prefix}sizing_info`,
+    help: "Resolved vs configured worker count (value is always 1)",
+    labelNames: ["computed_workers", "configured_workers"],
+    registers: [registry],
+  });
+
+  const maxRssMb = new Gauge({
+    name: `${prefix}max_rss_mb`,
+    help: "Configured RSS recycle limit in MB (0 = disabled)",
+    registers: [registry],
+  });
+
   // Aggregates per-worker metrics from all cluster workers via prom-client built-in IPC
   const aggregatorRegistry = new AggregatorRegistry();
   let primaryOrchestrator: Orchestrator | undefined;
@@ -165,6 +181,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
   let inflightMetrics: Promise<string> | undefined;
   let defaultMetricsInstalled = false;
   let installedDefaultMetricNames: string[] = [];
+  let metricsServer: http.Server | undefined;
 
   const clearMergedMetricsCache = (): void => {
     mergedMetricsCache = undefined;
@@ -193,6 +210,48 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     workerHeap.remove({ workerId: String(workerId) });
     workerLag.remove({ workerId: String(workerId) });
     heartbeatAge.remove({ workerId: String(workerId) });
+  };
+
+  const requestHandler = async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
+    const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+    if (req.method !== "GET") {
+      res.statusCode = 404;
+      res.end();
+      return;
+    }
+
+    try {
+      if (pathname === "/metrics") {
+        const body = await mergedMetrics();
+        res.setHeader("Content-Type", registry.contentType);
+        res.statusCode = 200;
+        res.end(body);
+        return;
+      }
+
+      if (pathname === "/healthz") {
+        const fleet = primaryOrchestrator?.getFleetHealth();
+        const degraded = !fleet || fleet.active < fleet.target || fleet.quarantined > 0 || fleet.breaker.tripped;
+        res.setHeader("Content-Type", "application/json");
+        res.statusCode = degraded ? 503 : 200;
+        res.end(JSON.stringify({ status: degraded ? "degraded" : "healthy", ...fleet }));
+        return;
+      }
+
+      res.statusCode = 404;
+      res.end();
+    } catch (err) {
+      pluginLog?.error("prometheus plugin: failed to serve endpoint", {
+        path: pathname,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      if (res.headersSent) {
+        res.destroy();
+      } else {
+        res.statusCode = 500;
+        res.end();
+      }
+    }
   };
 
   async function mergedMetrics(): Promise<string> {
@@ -244,7 +303,7 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
     name: "prometheus",
     registry,
 
-    async install(orchestrator: Orchestrator, logger: Logger | null, _config: ResolvedConfig): Promise<void> {
+    async install(orchestrator: Orchestrator, logger: Logger | null, config?: ResolvedConfig): Promise<void> {
       const log = withLoggerPrefix(logger, "clusterkit:prometheus");
       pluginLog = log;
 
@@ -253,6 +312,18 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
         clearMergedMetricsCache();
         primaryOrchestrator = orchestrator;
         log?.debug("Plugin installed on primary process");
+
+        sizingInfo.set(
+          {
+            computed_workers: String(orchestrator.workerCount),
+            configured_workers: String(config?.workers.count ?? "auto"),
+          },
+          1,
+        );
+        const resolvedMaxRssMb = config?.workers.maxRssMb ?? 0;
+        if (resolvedMaxRssMb > 0) {
+          maxRssMb.set(resolvedMaxRssMb);
+        }
 
         const bind = <E extends PrimaryEvent>(event: E, listener: (...args: OrchestratorEvents[E]) => void): void => {
           orchestrator.on(event, listener);
@@ -347,6 +418,16 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
       for (const gauge of fleetGauges) {
         registry.removeSingleMetric(gauge.name);
       }
+      registry.removeSingleMetric(sizingInfo.name);
+      registry.removeSingleMetric(maxRssMb.name);
+
+      if (metricsServer) {
+        const server = metricsServer;
+        metricsServer = undefined;
+        // Destroy lingering keep-alive scrape connections so close() resolves.
+        server.closeAllConnections();
+        await new Promise((resolve) => server.close(resolve));
+      }
 
       if (defaultMetricsInstalled) {
         defaultMetricsInstalled = false;
@@ -364,6 +445,30 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
         );
       }
       return mergedMetrics();
+    },
+
+    async serve({ port, host = "127.0.0.1" }): Promise<http.Server | undefined> {
+      if (!cluster.isPrimary) {
+        pluginLog?.debug(
+          "prometheus plugin: serve() is a no-op in worker processes — the metrics endpoint binds on the primary only",
+        );
+        return undefined;
+      }
+      if (metricsServer) {
+        throw new Error("prometheus plugin: serve() already called — the metrics server is already bound");
+      }
+
+      const server = http.createServer(requestHandler);
+      await new Promise<void>((resolve, reject) => {
+        server.once("error", reject);
+        server.listen(port, host, () => {
+          server.off("error", reject);
+          resolve();
+        });
+      });
+      server.unref();
+      metricsServer = server;
+      return server;
     },
   };
 }
