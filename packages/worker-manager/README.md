@@ -132,6 +132,11 @@ opt-in policies: RSS recycling (`workers.maxRssMb`) and wedged-worker detection 
 worker cannot ACK anything, so the drain escalates to SIGKILL. Both policies run through the same bounded drain as
 age-based recycling and never count toward the crash circuit breaker.
 
+All of these health features require forked workers (`workers.count >= 2`) — they are fed by worker heartbeats over
+IPC. In single-worker mode (`count: 1`, including `count: 'auto'` resolving to 1 CPU) the app runs in the primary with
+no fork, so health heartbeats never run and these policies never evaluate. The orchestrator logs a warning at startup
+for each policy that is configured but disabled this way.
+
 ## Runtime API (high level)
 
 ```ts
@@ -147,6 +152,8 @@ orchestrator.patchWorkerEnv({ NODE_OPTIONS: "--max-old-space-size=256" });
 const metrics = orchestrator.getMetrics();
 const health = orchestrator.getHealth();
 const fleet = orchestrator.getFleetHealth(); // { target, active, quarantined, breaker }
+
+orchestrator.isPrimary; // true in the primary (incl. single-worker mode), false in forked workers
 
 orchestrator.resetCircuitBreaker(); // after fixing a crash-loop cause
 

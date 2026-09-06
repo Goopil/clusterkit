@@ -1,3 +1,4 @@
+import type { Server } from "node:http";
 import type { OrchestratorPlugin } from "@goopil/clusterkit";
 import type { Registry } from "prom-client";
 
@@ -32,4 +33,11 @@ export interface PrometheusPlugin extends OrchestratorPlugin {
   getMetrics(): Promise<string>;
   /** The prom-client Registry used for orchestration metrics (primary only). */
   readonly registry: Registry;
+  /**
+   * Bind a primary-side HTTP server exposing `GET /metrics` and `GET /healthz`.
+   * No-op in workers (returns undefined) — always bind on the primary, on its own
+   * port: sharing the app's SO_REUSEPORT port would route scrape requests to
+   * workers non-deterministically. The server is closed on uninstall (shutdown).
+   */
+  serve(options: { port: number; host?: string }): Promise<Server | undefined>;
 }

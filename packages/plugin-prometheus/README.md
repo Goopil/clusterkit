@@ -3,7 +3,8 @@
 Prometheus metrics plugin for `@goopil/clusterkit`.
 
 This package exposes orchestration metrics and merged worker metrics through `getMetrics()`.
-It does **not** start an HTTP server by itself.
+It does not start an HTTP server by itself — use `serve()` (recommended) or mount the
+endpoint on your own HTTP stack in the primary process.
 
 ## Capabilities
 
@@ -13,6 +14,7 @@ It does **not** start an HTTP server by itself.
 | Worker metrics aggregation | Uses `prom-client` `AggregatorRegistry` to collect worker default metrics |
 | Cached merged responses | Optional `metricsCacheTtlMs` cache for scrape bursts |
 | Primary/worker-aware behavior | Event listeners only on primary, default process metrics only on workers |
+| Primary-side HTTP server | `serve({ port, host })` binds `GET /metrics` + `GET /healthz` on the primary only (no-op in workers) |
 
 ## Installation
 
@@ -23,7 +25,6 @@ pnpm add @goopil/clusterkit-prometheus prom-client
 ## Usage
 
 ```ts
-import http from "node:http";
 import { Orchestrator } from "@goopil/clusterkit";
 import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 
@@ -39,19 +40,30 @@ orchestrator.use(prometheus).run(async () => {
   // your app bootstrap
 });
 
-// Expose metrics from your own HTTP stack (primary process)
-const server = http.createServer(async (req, res) => {
-  if (req.url !== "/metrics" || req.method !== "GET") {
-    res.statusCode = 404;
-    res.end("Not Found");
-    return;
-  }
+// Binds in the primary only (no-op in workers), serves:
+//   GET /metrics  — merged orchestration + worker metrics
+//   GET /healthz  — JSON fleet health (503 when degraded)
+await prometheus.serve({ port: 9090, host: "127.0.0.1" });
+```
 
-  res.setHeader("Content-Type", prometheus.registry.contentType);
-  res.end(await prometheus.getMetrics());
-});
+`serve()` binds on its own port — never share the app's SO_REUSEPORT worker port, or scrape
+requests would be routed to workers non-deterministically. The server is closed on shutdown.
 
-server.listen(9090, "127.0.0.1");
+### Manual endpoint (alternative)
+
+Expose metrics from your own HTTP stack, in the primary process only:
+
+```ts
+import http from "node:http";
+
+if (orchestrator.isPrimary) {
+  http
+    .createServer(async (req, res) => {
+      res.setHeader("Content-Type", prometheus.registry.contentType);
+      res.end(await prometheus.getMetrics());
+    })
+    .listen(9090, "127.0.0.1");
+}
 ```
 
 ## Options (`PrometheusPluginOptions`)
@@ -69,11 +81,22 @@ server.listen(9090, "127.0.0.1");
 ```ts
 prometheus.registry;
 await prometheus.getMetrics();
+await prometheus.serve({ port: 9090, host: "127.0.0.1" });
 ```
 
 `getMetrics()` must be called in the primary process — orchestration metrics are only
 updated there (event listeners bind on the primary only). Calling it from a worker
 throws with an explicit error instead of silently returning all-zero metrics.
+
+`serve()` binds a primary-side HTTP server:
+
+- `GET /metrics` — `200` with the merged metrics (`registry.contentType`), `404` for other paths
+- `GET /healthz` — `200` `{"status":"healthy",...}` or `503` `{"status":"degraded",...}` when
+  `active < target`, quarantined slots exist, or the circuit breaker is tripped. Payload mirrors
+  `orchestrator.getFleetHealth()`.
+- No-op in workers (returns `undefined`, logs at debug) — gate on `orchestrator.isPrimary` if you
+  need to distinguish. Throws if called twice. Returns the bound `http.Server` for advanced
+  lifecycle control; it is closed on plugin uninstall (shutdown).
 
 ## Metrics exposed
 
@@ -105,6 +128,11 @@ Fleet gauges (read `getFleetHealth()` live on every scrape):
 - `clusterkit_fleet_target_workers` (Gauge) — Target worker count (live fleet health)
 - `clusterkit_fleet_quarantined_slots` (Gauge) — Quarantined worker slots (live fleet health)
 
+Sizing metrics (set at install, on the primary):
+
+- `clusterkit_sizing_info{computed_workers,configured_workers}` (Gauge) — Resolved vs configured worker count; makes "configured 2, computed 4" mismatches (auto sizing, plugin overrides) scrapeable instead of log-only
+- `clusterkit_max_rss_mb` (Gauge) — Configured RSS recycle limit in MB (`0` = disabled)
+
 Labeled counters (`worker_recycles_total`) only appear once their first series is recorded. Plus worker-level Node.js
 default metrics from `prom-client` when `defaultMetrics: true`.
 
@@ -113,10 +141,26 @@ primary process without forking. The plugin sets `clusterkit_active_workers` to 
 collects default process metrics in the primary, since there are no worker processes to
 aggregate from.
 
+## Grafana dashboard
+
+A ready-made dashboard lives in the repository (not shipped in the npm tarball):
+[`grafana/clusterkit-dashboard.json`](https://github.com/Goopil/clusterkit/blob/main/packages/plugin-prometheus/grafana/clusterkit-dashboard.json).
+Import it (Dashboards → Import) and select your Prometheus datasource. Panels: fleet slots, sizing plan, restarts /
+crashes / breaker trips, per-worker RSS vs the `maxRssMb` limit, event-loop lag, heartbeat age, recycle rate by reason,
+recovery duration.
+
+Variables:
+
+- `DS_PROMETHEUS` — datasource selection
+- `namespace` — multi-select filter on the `namespace` label; only filters if your metrics carry one (pass
+  `labels: { namespace: "my-app" }` to the plugin options to stamp it)
+- `prefix` — metric name prefix (defaults to `clusterkit_`, adjust if you changed it)
+
 ## Security / exposure notes
 
-- This plugin does not open sockets.
-- Your application controls network bind, auth, TLS, and access policy for `/metrics`.
+- The plugin only opens a socket if you call `serve()` — it binds where you point it (`127.0.0.1` by default) and the
+  server is unref'd so it never keeps the process alive on its own.
+- Your application controls network bind, auth, TLS, and access policy for `/metrics` and `/healthz`.
 - Prefer binding metrics to `127.0.0.1` or a private service network unless external scraping is explicitly required.
 - Treat metrics as operationally sensitive because they can expose process, topology, runtime, and workload details.
 - In Kubernetes, prefer a private `Service` plus network-level controls (`NetworkPolicy`, service mesh policy,
