@@ -363,14 +363,14 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
 
         registry.setDefaultLabels({ pid: process.pid, ...labels });
 
-        // Single-worker mode: the orchestrator runs the app in the primary
-        // process without forking — no worker:online event fires, so we
-        // seed the gauge to 1 (the primary IS the worker). We use the
-        // resolved workerCount (not config.workers.count) because plugins
-        // install before resolveWorkerCount() runs in runPrimary(), so
-        // config may still hold "auto". Reading workerCount here triggers
-        // the sync cgroup read once; the orchestrator's subsequent
-        // resolveWorkerCount() call hits the cache, so no redundant fs I/O.
+        // Count 1: the single worker is forked and tracked like any other
+        // count; seed the gauge to 1 at install so it reads correctly before
+        // the first worker:online event arrives. We use the resolved
+        // workerCount (not config.workers.count) because plugins install
+        // before resolveWorkerCount() runs in runPrimary(), so config may
+        // still hold "auto". Reading workerCount here triggers the sync
+        // cgroup read once; the orchestrator's subsequent resolveWorkerCount()
+        // call hits the cache, so no redundant fs I/O.
         const singleWorker = orchestrator.workerCount === 1;
         if (singleWorker) {
           activeWorkers.set(1);
@@ -378,12 +378,13 @@ export function createPrometheusPlugin(options: PrometheusPluginOptions = {}): P
           syncActiveWorkers();
         }
 
-        // Single-worker mode: collect default process metrics here since
-        // there are no worker processes to collect them via AggregatorRegistry.
-        // Default metrics use fixed metric names, so a double install without
-        // an uninstall in between would make prom-client throw on duplicate
-        // registration — the latch guards that. uninstall() removes the
-        // metrics again, so a reinstall re-collects them into a fresh registry.
+        // Count 1: also collect default process metrics on the primary; the
+        // forked worker collects its own, which the AggregatorRegistry merges
+        // via built-in IPC. Default metrics use fixed metric names, so a
+        // double install without an uninstall in between would make
+        // prom-client throw on duplicate registration — the latch guards
+        // that. uninstall() removes the metrics again, so a reinstall
+        // re-collects them into a fresh registry.
         if (defaultMetrics && singleWorker && !defaultMetricsInstalled) {
           const known = new Set((await registry.getMetricsAsJSON()).map((metric) => metric.name));
           collectDefaultMetrics({ register: registry });

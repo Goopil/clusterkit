@@ -14,7 +14,7 @@ transports.
 | Host/process metrics | Optional Node.js process metrics (CPU, memory, GC, event loop) via `@opentelemetry/host-metrics` |
 | OTLP/HTTP export | Push metrics to an OTLP/HTTP collector endpoint (default) |
 | OTLP/gRPC export | Push metrics to an OTLP/gRPC collector endpoint (optional) |
-| Primary/worker-aware behavior | Event listeners only on primary, host metrics on workers (or primary in single-worker mode) |
+| Primary/worker-aware behavior | Event listeners only on primary, host metrics on workers |
 
 ## Installation
 
@@ -126,9 +126,8 @@ Worker-sourced series (`worker.rss_bytes`, `worker.heap_used_bytes`, `worker.eve
 `worker.heartbeat_age_seconds`) only appear when core health monitoring is enabled and
 heartbeats flow; the fleet gauges and event counters report regardless.
 
-In single-worker mode (`workers: 1`), the orchestrator runs the app directly in the
-primary process without forking. The plugin collects host metrics on the primary since
-there are no worker processes to collect from.
+At `workers: 1`, the app runs in a forked worker like any other count; worker-sourced
+series appear as soon as heartbeats flow.
 
 ## Security / exposure notes
 

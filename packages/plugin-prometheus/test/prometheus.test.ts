@@ -74,7 +74,7 @@ function mockLogger(): LoggerSpy {
   };
 }
 
-/** A minimal ResolvedConfig with workers.count = 1 (single-worker mode). */
+/** A minimal ResolvedConfig with workers.count = 1. */
 function singleWorkerConfig(): ResolvedConfig {
   return {
     logger: null,
@@ -577,11 +577,11 @@ describe("getMetrics()", () => {
 });
 
 // ============================================================================
-// Single-worker mode (cluster.isPrimary with no fork)
+// Single worker (count 1) — the worker is forked and tracked
 // ============================================================================
 
-describe("single-worker mode", () => {
-  it("sets active_workers to 1 when workerCount resolves to 1 (primary IS the worker)", async () => {
+describe("single worker (count 1, forked)", () => {
+  it("sets active_workers to 1 when workerCount resolves to 1 (forked worker tracked by the primary)", async () => {
     const plugin = makePlugin();
     const orch = mockOrchestrator(0, 1);
     await plugin.install(orch, null, singleWorkerConfig());
@@ -590,7 +590,7 @@ describe("single-worker mode", () => {
     expect(out).toMatch(metricLine("clusterkit_active_workers", 1));
   });
 
-  it("collects default process metrics in the primary in single-worker mode", async () => {
+  it("collects default process metrics in the primary at count 1", async () => {
     const registry = new Registry();
     const plugin = createPrometheusPlugin({
       defaultMetrics: true,
@@ -603,7 +603,7 @@ describe("single-worker mode", () => {
     expect(out).toContain("process_cpu_user_seconds_total");
   });
 
-  it("does not re-register default metrics after uninstall and reinstall in single-worker mode", async () => {
+  it("does not re-register default metrics after uninstall and reinstall at count 1", async () => {
     const registry = new Registry();
     const plugin = createPrometheusPlugin({ defaultMetrics: true, registry });
     const orch = mockOrchestrator(0, 1);

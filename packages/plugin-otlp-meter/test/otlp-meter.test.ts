@@ -602,9 +602,9 @@ describe("plugin lifecycle", () => {
   });
 });
 
-// Single-worker mode =========================================================
+// Single worker (count 1, forked) ============================================
 
-describe("single-worker mode", () => {
+describe("single worker (count 1, forked)", () => {
   it("creates meter provider when workerCount is 1", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
@@ -629,7 +629,7 @@ describe("single-worker mode", () => {
 // Instrumentation ===========================================================
 
 describe("instrumentation", () => {
-  it("starts host metrics in single-worker mode when instrumentation is true", async () => {
+  it("starts host metrics at count 1 when instrumentation is true", async () => {
     const { createOtlpMeterPlugin } = await import("../src/index");
     const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 1000 });
     const orch = mockOrchestrator(1, 1);
