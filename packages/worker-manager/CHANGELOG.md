@@ -1,5 +1,13 @@
 # @goopil/clusterkit
 
+## 1.4.0
+
+### Minor Changes
+
+- [#170](https://github.com/Goopil/clusterkit/pull/170) [`94ebae6`](https://github.com/Goopil/clusterkit/commit/94ebae6098f9d3e088620dff8d3aa153a1204b71) Thanks [@Goopil](https://github.com/Goopil)! - feat: expose `orchestrator.isPrimary` — `true` in the primary process (including single-worker mode, where the primary runs the app), `false` in forked workers. Plugin authors should gate primary-only resources (listeners, metrics endpoints) on this instead of importing `node:cluster` themselves.
+
+- [#170](https://github.com/Goopil/clusterkit/pull/170) [`94ebae6`](https://github.com/Goopil/clusterkit/commit/94ebae6098f9d3e088620dff8d3aa153a1204b71) Thanks [@Goopil](https://github.com/Goopil)! - feat: warn at startup when health policies are configured but disabled by single-worker mode — `workers.maxRssMb`, `health.wedgedTimeoutMs` and `health.degradedAfterMs` are fed by worker heartbeats over IPC and never evaluate when the app runs in the primary without forking (`workers.count: 1`, including `count: 'auto'` resolving to 1 CPU).
+
 ## 1.3.0
 
 ### Minor Changes

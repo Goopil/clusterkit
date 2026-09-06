@@ -1,5 +1,13 @@
 # @goopil/clusterkit-prometheus
 
+## 1.3.0
+
+### Minor Changes
+
+- [#170](https://github.com/Goopil/clusterkit/pull/170) [`94ebae6`](https://github.com/Goopil/clusterkit/commit/94ebae6098f9d3e088620dff8d3aa153a1204b71) Thanks [@Goopil](https://github.com/Goopil)! - feat: add `clusterkit_sizing_info{computed_workers,configured_workers}` (scrapeable resolved-vs-configured worker count) and `clusterkit_max_rss_mb` metrics. A ready-to-import Grafana dashboard (fleet slots, sizing plan, recycles, RSS vs limit, event-loop lag, heartbeat age, recovery duration; datasource / multi-select `namespace` / prefix variables) lives in the repository at `packages/plugin-prometheus/grafana/clusterkit-dashboard.json`.
+
+- [#170](https://github.com/Goopil/clusterkit/pull/170) [`94ebae6`](https://github.com/Goopil/clusterkit/commit/94ebae6098f9d3e088620dff8d3aa153a1204b71) Thanks [@Goopil](https://github.com/Goopil)! - feat: primary-side HTTP server helper `serve({ port, host })` — binds in the primary only (no-op in workers), serves `GET /metrics` (merged metrics) and `GET /healthz` (JSON fleet health from `getFleetHealth()`, `503` when degraded), closes on shutdown. Fixes the cluster-mode README example, which bound the server at top level (executed by every worker, racing the primary on the same port with `getMetrics()` throwing in workers).
+
 ## 1.2.0
 
 ### Minor Changes
