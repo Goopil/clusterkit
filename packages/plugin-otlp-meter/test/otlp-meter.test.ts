@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
-import type { Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
+import type { FleetHealth, Logger, Orchestrator, ResolvedConfig } from "@goopil/clusterkit";
 import type { MeterProvider as MeterProviderType } from "@opentelemetry/sdk-metrics";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -65,11 +65,20 @@ function mockOrchestrator(activeWorkers = 0, workerCount = 0): Orchestrator {
     currentActiveWorkers: number;
     getMetrics: () => { activeWorkers: number };
     workerCount: number;
+    quarantined: number;
+    getFleetHealth: () => FleetHealth;
     registerOnShutdown: (cb: () => void | Promise<void>) => void;
   };
   emitter.currentActiveWorkers = activeWorkers;
   emitter.getMetrics = () => ({ activeWorkers: emitter.currentActiveWorkers });
   emitter.workerCount = workerCount;
+  emitter.quarantined = 0;
+  emitter.getFleetHealth = () => ({
+    target: emitter.workerCount,
+    active: emitter.currentActiveWorkers,
+    quarantined: emitter.quarantined,
+    breaker: { count: 0, tripped: false },
+  });
   emitter.registerOnShutdown = () => {};
   return emitter as unknown as Orchestrator;
 }
@@ -399,6 +408,90 @@ describe("metrics — worker health gauges", () => {
     expect(findPoints("clusterkit.worker.rss_bytes")).toEqual([]);
 
     await plugin.uninstall?.(orch);
+  });
+});
+
+describe("metrics — recovery and fleet", () => {
+  it("worker:recycle increments worker.recycles with the reason attribute", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const { spies, restore } = await spyOnCounters();
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    emit(orch, "worker:recycle", { workerId: 1, pid: 1, ageMs: 0, reason: "rss" });
+    emit(orch, "worker:recycle", { workerId: 2, pid: 2, ageMs: 0, reason: "maxAge" });
+    emit(orch, "worker:recycle", { workerId: 3, pid: 3, ageMs: 0, reason: "wedged" });
+
+    expect(spies["clusterkit.worker.recycles"]).toHaveBeenCalledWith(1, { reason: "rss" });
+    expect(spies["clusterkit.worker.recycles"]).toHaveBeenCalledWith(1, { reason: "maxAge" });
+    expect(spies["clusterkit.worker.recycles"]).toHaveBeenCalledWith(1, { reason: "wedged" });
+
+    restore();
+    await plugin.uninstall?.(orch);
+  });
+
+  it("worker:wedged increments worker.wedged.kills", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const { spies, restore } = await spyOnCounters();
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    emit(orch, "worker:wedged", { workerId: 4, pid: 4, silentMs: 5000 });
+
+    expect(spies["clusterkit.worker.wedged.kills"]).toHaveBeenCalledTimes(1);
+
+    restore();
+    await plugin.uninstall?.(orch);
+  });
+
+  it("fleet gauges observe live getFleetHealth() values", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator(2, 2);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    (orch as unknown as { currentActiveWorkers: number }).currentActiveWorkers = 1;
+    (orch as unknown as { quarantined: number }).quarantined = 1;
+
+    await plugin.meterProvider!.forceFlush();
+
+    expect(findPoints("clusterkit.fleet.active_workers")).toEqual([{ attributes: {}, value: 1 }]);
+    expect(findPoints("clusterkit.fleet.target_workers")).toEqual([{ attributes: {}, value: 2 }]);
+    expect(findPoints("clusterkit.fleet.quarantined_slots")).toEqual([{ attributes: {}, value: 1 }]);
+
+    await plugin.uninstall?.(orch);
+  });
+
+  it("fleet:recovered records recovery.duration_seconds", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    emit(orch, "fleet:recovered", { target: 2, active: 2, degradedDurationMs: 4321 });
+
+    await plugin.meterProvider!.forceFlush();
+
+    expect(findPoints("clusterkit.recovery.duration_seconds")).toEqual([{ attributes: {}, value: 4.321 }]);
+
+    await plugin.uninstall?.(orch);
+  });
+
+  it("no recycle listeners fire after uninstall", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const { spies, restore } = await spyOnCounters();
+    const plugin = createOtlpMeterPlugin({ instrumentation: false, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator();
+    await plugin.install(orch, null, singleWorkerConfig());
+    await plugin.uninstall?.(orch);
+
+    emit(orch, "worker:recycle", { workerId: 1, pid: 1, ageMs: 0, reason: "rss" });
+
+    expect(spies["clusterkit.worker.recycles"]).not.toHaveBeenCalled();
+
+    restore();
   });
 });
 

@@ -17,7 +17,15 @@ import type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
 
 export type { OtlpMeterPlugin, OtlpMeterPluginOptions } from "./types.js";
 
-type PrimaryEvent = "worker:crash" | "worker:restart" | "circuit-breaker:tripped" | "worker:health" | "worker:exit";
+type PrimaryEvent =
+  | "worker:crash"
+  | "worker:restart"
+  | "circuit-breaker:tripped"
+  | "worker:health"
+  | "worker:exit"
+  | "worker:recycle"
+  | "worker:wedged"
+  | "fleet:recovered";
 
 const DEFAULT_HTTP_ENDPOINT = "http://localhost:4318/v1/metrics";
 const DEFAULT_GRPC_ENDPOINT = "localhost:4317";
@@ -239,6 +247,37 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
           observeWorkerHealth(result, (s) => Math.max(0, (now - s.lastBeatAt) / 1000));
         });
 
+        const workerRecyclesCounter = meter.createCounter(`${prefix}worker.recycles`, {
+          description: "Total number of worker recycles by reason",
+        });
+        const wedgedKillsCounter = meter.createCounter(`${prefix}worker.wedged.kills`, {
+          description: "Total number of workers killed for being unresponsive",
+        });
+        const recoveryDurationGauge = meter.createGauge(`${prefix}recovery.duration_seconds`, {
+          description: "Duration of the last fleet degraded-to-recovered cycle",
+          unit: "s",
+        });
+
+        const fleetTargetGauge = meter.createObservableGauge(`${prefix}fleet.target_workers`, {
+          description: "Target worker count (live fleet health)",
+        });
+        const fleetActiveGauge = meter.createObservableGauge(`${prefix}fleet.active_workers`, {
+          description: "Currently active workers (live fleet health)",
+        });
+        const fleetQuarantinedGauge = meter.createObservableGauge(`${prefix}fleet.quarantined_slots`, {
+          description: "Quarantined worker slots (live fleet health)",
+        });
+
+        fleetTargetGauge.addCallback((result) => {
+          result.observe(orchestrator.getFleetHealth().target);
+        });
+        fleetActiveGauge.addCallback((result) => {
+          result.observe(orchestrator.getFleetHealth().active);
+        });
+        fleetQuarantinedGauge.addCallback((result) => {
+          result.observe(orchestrator.getFleetHealth().quarantined);
+        });
+
         const bind = <E extends PrimaryEvent>(event: E, listener: (...args: OrchestratorEvents[E]) => void): void => {
           orchestrator.on(event, listener);
           primaryListeners.push({ event, listener });
@@ -259,6 +298,16 @@ export function createOtlpMeterPlugin(options: OtlpMeterPluginOptions = {}): Otl
         });
         bind("worker:exit", ({ workerId }) => {
           workerHealth.delete(workerId);
+        });
+
+        bind("worker:recycle", ({ reason }) => {
+          workerRecyclesCounter.add(1, { reason });
+        });
+        bind("worker:wedged", () => {
+          wedgedKillsCounter.add(1);
+        });
+        bind("fleet:recovered", ({ degradedDurationMs }) => {
+          recoveryDurationGauge.record(degradedDurationMs / 1000);
         });
 
         const singleWorker = orchestrator.workerCount === 1;
