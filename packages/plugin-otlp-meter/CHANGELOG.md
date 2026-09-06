@@ -1,5 +1,11 @@
 # @goopil/clusterkit-otlp-meter
 
+## 1.3.0
+
+### Minor Changes
+
+- [#167](https://github.com/Goopil/clusterkit/pull/167) [`cdddebb`](https://github.com/Goopil/clusterkit/commit/cdddebb77249da1fc0a8e3fe48d4322cfb05bacf) Thanks [@Goopil](https://github.com/Goopil)! - feat: health, fleet and recovery metrics — per-worker rss/heap/eventloop lag/heartbeat age gauges from health heartbeats, recycle counts by reason, wedged kills, live fleet gauges (active/target/quarantined) and recovery.duration_seconds, matching the Prometheus plugin's metric set
+
 ## 1.2.0
 
 ### Minor Changes
