@@ -58,6 +58,10 @@ beforeEach(() => {
   capturedExports.length = 0;
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 // Helpers (reused by later tasks) ===========================================
 
 function mockOrchestrator(activeWorkers = 0, workerCount = 0): Orchestrator {

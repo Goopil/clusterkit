@@ -57,7 +57,8 @@ Notes:
 
 - **Primary process only.** New primary events bound via the existing `bind()` /
   `clearPrimaryListeners()` mechanism:
-  - `worker:health` — update a primary-side map keyed by `` `${workerId}:${pid}` `` storing
+  - `worker:health` — update a primary-side map keyed by `workerId` alone (cluster worker IDs are monotonic and never
+    reused), storing `pid` as an attribute alongside
     `{ rss, heapUsed, eventLoopLagMs, lastBeatAt }`.
   - `worker:exit` — delete the map entry; the worker's series stops being emitted on the next
     export (same drop semantics as prometheus).
