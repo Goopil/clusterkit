@@ -497,3 +497,131 @@ Expected: build green, all package tests green (Node 22), biome clean, packaging
 git add packages/worker-manager/README.md AGENTS.md examples/hot-reload/README.md .changeset/
 git commit -m "docs: v2 migration notes (always fork), AGENTS testing guidance, core changeset"
 ```
+
+---
+
+### Task 6: Remove vestigial count-1 branches in otlp-meter + prometheus (metrics double-count fix)
+
+**Files:**
+- Modify: `packages/plugin-otlp-meter/src/index.ts` (lines ~313-316)
+- Modify: `packages/plugin-otlp-meter/test/otlp-meter.test.ts` (instrumentation block, lines ~631-651)
+- Modify: `packages/plugin-prometheus/src/index.ts` (lines ~374-395)
+- Modify: `packages/plugin-prometheus/test/prometheus.test.ts` (describe "single worker (count 1, forked)")
+- Create: `.changeset/<name>.md` (one per plugin)
+
+**Interfaces:**
+- Consumes: Task 1's always-fork semantics — at count 1 the app runs in a forked worker; worker-side metric collection already exists for every count.
+- Produces: no primary-side host/default-metrics collection at count 1; worker-only collection, identical to multi-worker.
+
+**Context (review finding):** under always-fork, the otlp-meter's vestigial primary-side `startHostMetrics` at count 1 double-reports system-level metrics (`system.cpu.*`, `system.memory.*`) — two independent HostMetrics instruments with distinct `service.instance.id` push the same host to the collector. Prometheus's count-1 primary-side default-metrics branch adds an idle-primary series and a `singleWorker` seed that diverges from the multi-worker path.
+
+- [ ] **Step 1: Rewrite tests to the new contract (red)**
+
+In `packages/plugin-otlp-meter/test/otlp-meter.test.ts`, replace `"starts host metrics at count 1 when instrumentation is true"` with:
+
+```ts
+  it("does not start host metrics in the primary at count 1 — the forked worker collects them", async () => {
+    const { createOtlpMeterPlugin } = await import("../src/index");
+    const plugin = createOtlpMeterPlugin({ instrumentation: true, exportIntervalMs: 1000 });
+    const orch = mockOrchestrator(1, 1);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    expect(mockHostMetricsStart).not.toHaveBeenCalled();
+    await plugin.uninstall?.(orch);
+  });
+```
+
+Keep `"does not start host metrics when instrumentation is false"` unchanged.
+
+In `packages/plugin-prometheus/test/prometheus.test.ts`, describe block `"single worker (count 1, forked)"`:
+
+- Replace `"sets active_workers to 1 when workerCount resolves to 1 (forked worker tracked by the primary)"` with a live-state assertion (no seed):
+
+```ts
+  it("reads active_workers from live fleet state at count 1", async () => {
+    const plugin = makePlugin();
+    const orch = mockOrchestrator(1, 1);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).toMatch(metricLine("clusterkit_active_workers", 1));
+  });
+```
+
+- Replace `"collects default process metrics in the primary in single-worker mode"` with:
+
+```ts
+  it("does not collect default process metrics in the primary at count 1 (the forked worker reports them)", async () => {
+    const registry = new Registry();
+    const plugin = createPrometheusPlugin({ defaultMetrics: true, registry });
+    const orch = mockOrchestrator(0, 1);
+    await plugin.install(orch, null, singleWorkerConfig());
+
+    const out = await plugin.getMetrics();
+    expect(out).not.toContain("process_cpu_user_seconds_total");
+  });
+```
+
+- Delete `"does not re-register default metrics after uninstall and reinstall in single-worker mode"` and `"removes default metrics on uninstall and collects them again on reinstall"` (no primary-side default metrics exist anymore; the worker path keeps its own coverage).
+- Apply the same live-state rewrite to `"sets active_workers to 1 when workers is 'auto' and resolves to 1"` (use `autoWorkerConfig()`).
+
+- [ ] **Step 2: Run both suites to verify red**
+
+```bash
+source ~/.nvm/nvm.sh && nvm use
+corepack pnpm --filter @goopil/clusterkit-otlp-meter exec vitest run test/otlp-meter.test.ts -t "does not start host metrics in the primary"
+corepack pnpm --filter @goopil/clusterkit-prometheus exec vitest run test/prometheus.test.ts -t "count 1"
+```
+
+Expected: new/rewritten tests FAIL against the vestigial branches.
+
+- [ ] **Step 3: Delete the vestigial branches**
+
+In `packages/plugin-otlp-meter/src/index.ts`, delete (primary branch only):
+
+```ts
+        const singleWorker = orchestrator.workerCount === 1;
+        if (singleWorker && instrumentation) {
+          await startHostMetrics(meterProvider);
+        }
+```
+
+In `packages/plugin-prometheus/src/index.ts`, delete the seed and the primary-side default-metrics block (lines ~374-395), leaving the unconditional `syncActiveWorkers();`:
+
+```ts
+        const singleWorker = orchestrator.workerCount === 1;
+        if (singleWorker) {
+          activeWorkers.set(1);
+        } else {
+          syncActiveWorkers();
+        }
+```
+becomes:
+```ts
+        syncActiveWorkers();
+```
+
+and delete the entire `if (defaultMetrics && singleWorker && !defaultMetricsInstalled) { ... }` block plus its explanatory comment. Then check `defaultMetricsInstalled` / `installedDefaultMetricNames`: if `uninstall()` still references them, keep the declarations; if nothing else uses them, delete the declarations too.
+
+- [ ] **Step 4: Run both suites + builds**
+
+```bash
+corepack pnpm --filter @goopil/clusterkit-otlp-meter test
+corepack pnpm --filter @goopil/clusterkit-otlp-meter build
+corepack pnpm --filter @goopil/clusterkit-prometheus test
+corepack pnpm --filter @goopil/clusterkit-prometheus build
+```
+
+Expected: all green.
+
+- [ ] **Step 5: Changesets (one per plugin, minor)**
+
+- `@goopil/clusterkit-otlp-meter`: `fix: no longer collects host metrics in the primary at count 1 — system metrics were double-counted once count 1 forked (requires clusterkit 2.0)`
+- `@goopil/clusterkit-prometheus`: `fix: no longer collects default process metrics in the primary at count 1 (the forked worker reports them, as in multi-worker mode)`
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/plugin-otlp-meter packages/plugin-prometheus .changeset/
+git commit -m "fix(plugin): drop vestigial primary-side metric collection at count 1"
+```
