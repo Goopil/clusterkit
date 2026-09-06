@@ -1,5 +1,16 @@
 # @goopil/clusterkit-prometheus
 
+## 1.4.0
+
+### Minor Changes
+
+- [#172](https://github.com/Goopil/clusterkit/pull/172) [`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d) Thanks [@Goopil](https://github.com/Goopil)! - fix: no longer collects default process metrics in the primary at count 1 (the forked worker reports them, as in multi-worker mode)
+
+### Patch Changes
+
+- Updated dependencies [[`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d)]:
+  - @goopil/clusterkit@2.0.0
+
 ## 1.3.0
 
 ### Minor Changes

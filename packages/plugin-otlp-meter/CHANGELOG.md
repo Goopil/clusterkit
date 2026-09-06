@@ -1,5 +1,16 @@
 # @goopil/clusterkit-otlp-meter
 
+## 1.4.0
+
+### Minor Changes
+
+- [#172](https://github.com/Goopil/clusterkit/pull/172) [`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d) Thanks [@Goopil](https://github.com/Goopil)! - fix: no longer collects host metrics in the primary at count 1 — system metrics were double-counted once count 1 forked (requires clusterkit 2.0)
+
+### Patch Changes
+
+- Updated dependencies [[`8dfabbb`](https://github.com/Goopil/clusterkit/commit/8dfabbbb079a714ff488f3b49a8abaa42d46424d)]:
+  - @goopil/clusterkit@2.0.0
+
 ## 1.3.0
 
 ### Minor Changes
