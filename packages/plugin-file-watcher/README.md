@@ -82,7 +82,7 @@ createFileWatcherPlugin({
 })
 ```
 
-## Single-worker mode
+## Single worker (count 1)
 
 The watcher is effective at every worker count (>= 1); changes trigger an in-process rolling restart.
 

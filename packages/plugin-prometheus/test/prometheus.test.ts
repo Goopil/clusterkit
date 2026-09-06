@@ -593,7 +593,7 @@ describe("single worker (count 1, forked)", () => {
   it("does not collect default process metrics in the primary at count 1 (the forked worker reports them)", async () => {
     const registry = new Registry();
     const plugin = createPrometheusPlugin({ defaultMetrics: true, registry });
-    const orch = mockOrchestrator(0, 1);
+    const orch = mockOrchestrator(1, 1);
     await plugin.install(orch, null, singleWorkerConfig());
 
     const out = await plugin.getMetrics();

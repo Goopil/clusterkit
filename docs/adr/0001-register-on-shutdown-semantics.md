@@ -41,6 +41,10 @@ already completed) nor skip the remaining callbacks or plugin uninstall.
 
 ### Single-worker mode
 
+> **Superseded (2.0):** since 2.0 there is no single-worker mode — the primary
+> is always a supervisor and `shutdownPrimary()` is the only primary shutdown
+> path. The description below applies to 1.x.
+
 `shutdownSingleWorker()` runs callbacks in the primary process from the signal
 handler (SIGTERM/SIGINT), after handlers are unregistered and under the forced
 exit timer — before `uninstallPlugins()` and process exit.

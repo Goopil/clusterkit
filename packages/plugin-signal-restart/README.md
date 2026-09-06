@@ -29,7 +29,7 @@ Send `SIGHUP` to the process to trigger a rolling restart:
 kill -HUP <pid>
 ```
 
-## Single-worker mode
+## Single worker (count 1)
 
 At `workers: { count: 1 }`, SIGHUP performs an in-process rolling restart (the replacement worker is forked before the old one drains), matching multi-worker behavior. Requires clusterkit >= 2.0.
 
