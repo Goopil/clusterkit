@@ -288,7 +288,7 @@ describe("validation", () => {
   describe("health options", () => {
     it("defaults everything off", () => {
       const resolved = validateConfig({});
-      expect(resolved.health).toEqual({ heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 0 });
+      expect(resolved.health).toEqual({ heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 0, maxEventLoopLagMs: 0 });
       expect(resolved.workers.maxRssMb).toBe(0);
       expect(resolved.restart.bootFailQuarantine).toBe(0);
     });
@@ -296,7 +296,7 @@ describe("validation", () => {
     it("accepts a valid health config and rss/quarantine options", () => {
       expect(() =>
         validateConfig({
-          health: { heartbeatMs: 5_000, wedgedTimeoutMs: 15_000, degradedAfterMs: 2_000 },
+          health: { heartbeatMs: 5_000, wedgedTimeoutMs: 15_000, degradedAfterMs: 2_000, maxEventLoopLagMs: 200 },
           workers: { maxRssMb: 512 },
           restart: { bootFailQuarantine: 3 },
         }),
@@ -313,6 +313,11 @@ describe("validation", () => {
       );
     });
 
+    it("rejects maxEventLoopLagMs without heartbeatMs", () => {
+      expect(() => validateConfig({ health: { maxEventLoopLagMs: 100 } })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ health: { heartbeatMs: 5_000, maxEventLoopLagMs: 100 } })).not.toThrow();
+    });
+
     it("rejects non-positive or tiny heartbeatMs", () => {
       expect(() => validateConfig({ health: { heartbeatMs: 50 } })).toThrow(WorkerManagerValidationError);
     });
@@ -326,6 +331,7 @@ describe("validation", () => {
       ["health.heartbeatMs", { health: { heartbeatMs: 2.5 } }],
       ["health.wedgedTimeoutMs", { health: { wedgedTimeoutMs: 2.5 } }],
       ["health.degradedAfterMs", { health: { degradedAfterMs: 2.5 } }],
+      ["health.maxEventLoopLagMs", { health: { maxEventLoopLagMs: 2.5 } }],
       ["workers.maxRssMb", { workers: { maxRssMb: 1.5 } }],
       ["restart.bootFailQuarantine", { restart: { bootFailQuarantine: 1.5 } }],
     ])("rejects non-integer %s", (_field, config) => {
@@ -335,6 +341,13 @@ describe("validation", () => {
     it("accepts degradedAfterMs 0 (disabled) but rejects negative values", () => {
       expect(() => validateConfig({ health: { degradedAfterMs: 0 } })).not.toThrow();
       expect(() => validateConfig({ health: { degradedAfterMs: -1 } })).toThrow(WorkerManagerValidationError);
+    });
+
+    it("accepts maxEventLoopLagMs 0 (disabled) but rejects negative values", () => {
+      expect(() => validateConfig({ health: { heartbeatMs: 5_000, maxEventLoopLagMs: 0 } })).not.toThrow();
+      expect(() => validateConfig({ health: { heartbeatMs: 5_000, maxEventLoopLagMs: -1 } })).toThrow(
+        WorkerManagerValidationError,
+      );
     });
   });
 });

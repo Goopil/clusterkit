@@ -15,7 +15,7 @@ const config: ResolvedConfig = {
     bootFailQuarantine: 0,
   },
   shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, messagePrefix: "__hm", sigtermDelayMs: 100, sigintDelayMs: 100 },
-  health: { heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 10_000 },
+  health: { heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 10_000, maxEventLoopLagMs: 0 },
   clusterModule: undefined,
 };
 
@@ -202,6 +202,47 @@ describe("HealthMonitor — policies", () => {
     }
     expect(events.filter((e) => e.kind === "report")).toHaveLength(6);
     expect(events.filter((e) => e.kind === "wedged" || e.kind === "recycle:wedged")).toHaveLength(0);
+  });
+});
+
+describe("HealthMonitor — lag policy", () => {
+  it("recycles a worker after 3 consecutive beats above the threshold, once per instance", () => {
+    const { monitor, events } = makeMonitor({ health: { maxEventLoopLagMs: 50 } });
+    const lagRecycles = () => events.filter((e) => e.kind === "recycle:lag").length;
+
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    expect(lagRecycles()).toBe(0);
+
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    expect(lagRecycles()).toBe(1);
+
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 })); // one-shot per worker instance
+    expect(lagRecycles()).toBe(1);
+  });
+
+  it("resets the consecutive-beat counter when a beat is below the threshold", () => {
+    const { monitor, events } = makeMonitor({ health: { maxEventLoopLagMs: 50 } });
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 10 })); // below — counter resets
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    expect(events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 })); // 3rd consecutive beat
+    expect(events.filter((e) => e.kind === "recycle:lag")).toHaveLength(1);
+  });
+
+  it("does not recycle below the threshold, while shutting down, or when disabled", () => {
+    const { monitor, events } = makeMonitor({ health: { maxEventLoopLagMs: 50 } });
+    for (let i = 0; i < 4; i++) monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 40 })); // below threshold
+    const shutting = makeMonitor({ health: { maxEventLoopLagMs: 50 } }, { shuttingDown: true });
+    for (let i = 0; i < 4; i++) shutting.monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 100 }));
+    const off = makeMonitor();
+    for (let i = 0; i < 4; i++) off.monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 100 }));
+    expect(events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
+    expect(shutting.events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
+    expect(off.events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
   });
 });
 
