@@ -248,7 +248,7 @@ crash record, so one bad slot cannot trip the fleet circuit breaker.
 fresh boot attempt as part of the roll. `resetCircuitBreaker()` also refills missing capacity but does not clear the
 quarantine counters, so `getFleetHealth().quarantined` can over-report while such a refill is already serving the slot.
 
-**Recycle path.** All recycle reasons (`maxAge`, `rss`, `wedged`) share one bounded drain: the replacement is forked
+**Recycle path.** All recycle reasons (`maxAge`, `rss`, `wedged`, `lag`) share one bounded drain: the replacement is forked
 first, then the old worker is retired through IPC shutdown → disconnect → SIGTERM → SIGKILL. RSS and wedged recycles
 never count toward the crash circuit breaker.
 
