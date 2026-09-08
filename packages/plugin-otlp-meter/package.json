@@ -77,7 +77,7 @@
   "devDependencies": {
     "@goopil/clusterkit": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.222.0",
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.221.0",
     "@opentelemetry/host-metrics": "^0.39.0",
     "@opentelemetry/otlp-transformer": "^0.221.0",
