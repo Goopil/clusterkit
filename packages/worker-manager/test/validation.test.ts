@@ -288,7 +288,13 @@ describe("validation", () => {
   describe("health options", () => {
     it("defaults everything off", () => {
       const resolved = validateConfig({});
-      expect(resolved.health).toEqual({ heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 0, maxEventLoopLagMs: 0 });
+      expect(resolved.health).toEqual({
+        heartbeatMs: 0,
+        wedgedTimeoutMs: 0,
+        degradedAfterMs: 0,
+        maxEventLoopLagMs: 0,
+        lagRecycleBeats: 3,
+      });
       expect(resolved.workers.maxRssMb).toBe(0);
       expect(resolved.restart.bootFailQuarantine).toBe(0);
     });
@@ -318,6 +324,12 @@ describe("validation", () => {
       expect(() => validateConfig({ health: { heartbeatMs: 5_000, maxEventLoopLagMs: 100 } })).not.toThrow();
     });
 
+    it("rejects lagRecycleBeats below 1, accepts custom counts", () => {
+      expect(() => validateConfig({ health: { lagRecycleBeats: 0 } })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ health: { lagRecycleBeats: -1 } })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ health: { lagRecycleBeats: 10 } })).not.toThrow();
+    });
+
     it("rejects non-positive or tiny heartbeatMs", () => {
       expect(() => validateConfig({ health: { heartbeatMs: 50 } })).toThrow(WorkerManagerValidationError);
     });
@@ -332,6 +344,7 @@ describe("validation", () => {
       ["health.wedgedTimeoutMs", { health: { wedgedTimeoutMs: 2.5 } }],
       ["health.degradedAfterMs", { health: { degradedAfterMs: 2.5 } }],
       ["health.maxEventLoopLagMs", { health: { maxEventLoopLagMs: 2.5 } }],
+      ["health.lagRecycleBeats", { health: { lagRecycleBeats: 2.5 } }],
       ["workers.maxRssMb", { workers: { maxRssMb: 1.5 } }],
       ["restart.bootFailQuarantine", { restart: { bootFailQuarantine: 1.5 } }],
     ])("rejects non-integer %s", (_field, config) => {

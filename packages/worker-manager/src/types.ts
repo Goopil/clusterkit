@@ -88,8 +88,10 @@ export interface HealthConfig {
   /** Duration `active < target` must persist before `fleet:degraded` fires. 0 = disabled. @default 0 */
   degradedAfterMs?: number;
   /** Recycle a worker whose reported event-loop lag exceeded this value (ms) for
-   * 3 consecutive beats. Requires heartbeatMs > 0. 0 = disabled. @default 0 */
+   * `lagRecycleBeats` consecutive beats. Requires heartbeatMs > 0. 0 = disabled. @default 0 */
   maxEventLoopLagMs?: number;
+  /** Consecutive heartbeats above `maxEventLoopLagMs` before recycling. @default 3 */
+  lagRecycleBeats?: number;
 }
 
 export interface OrchestratorConfig {
@@ -142,6 +144,7 @@ export type ResolvedConfig = {
     wedgedTimeoutMs: number;
     degradedAfterMs: number;
     maxEventLoopLagMs: number;
+    lagRecycleBeats: number;
   };
   clusterModule: typeof cluster | undefined;
 };

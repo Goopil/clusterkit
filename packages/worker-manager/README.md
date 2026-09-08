@@ -126,7 +126,8 @@ unless `crashThreshold` is reached inside `crashWindowMs`.
 | `heartbeatMs` | `number` | `0` | Worker health report (RSS, heap, event-loop lag) interval in ms (`0` disables) |
 | `wedgedTimeoutMs` | `number` | `0` | Recycle a worker whose heartbeat has been silent this long (`0` disables). Requires `heartbeatMs > 0` and ≥ 2 × `heartbeatMs` |
 | `degradedAfterMs` | `number` | `0` | Duration `active < target` must persist before `fleet:degraded` fires (`0` disables) |
-| `maxEventLoopLagMs` | `number` | `0` | Recycle a worker whose reported event-loop lag exceeded this value (ms) for 3 consecutive beats (`0` disables). Requires `heartbeatMs > 0` |
+| `maxEventLoopLagMs` | `number` | `0` | Recycle a worker whose reported event-loop lag exceeded this value (ms) for `lagRecycleBeats` consecutive beats (`0` disables). Requires `heartbeatMs > 0` |
+| `lagRecycleBeats` | `number` | `3` | Consecutive heartbeats above `maxEventLoopLagMs` before the lag recycle fires (`1` = first beat above the threshold) |
 
 Workers report RSS, heap, and event-loop beat drift over IPC every `heartbeatMs`; the primary-side monitor feeds three
 opt-in policies: RSS recycling (`workers.maxRssMb`), wedged-worker detection (`health.wedgedTimeoutMs`), and sustained
@@ -208,7 +209,7 @@ container or process supervisor kills the primary process.
 | `worker:crash` | A worker exits non-gracefully and is recorded in the crash window. |
 | `worker:restart` | A replacement worker is forked after restart backoff. |
 | `worker:draining` | A worker was marked for replacement, before the network drain starts — the moment new work should stop being routed to it: `{ workerId, pid, reason }`. |
-| `worker:recycle` | A worker is replaced through the bounded drain. `reason` is `"maxAge"` (default), `"rss"` (`workers.maxRssMb` exceeded), `"wedged"` (heartbeat silent for `health.wedgedTimeoutMs`), or `"lag"` (event-loop lag above `health.maxEventLoopLagMs` for 3 consecutive beats). |
+| `worker:recycle` | A worker is replaced through the bounded drain. `reason` is `"maxAge"` (default), `"rss"` (`workers.maxRssMb` exceeded), `"wedged"` (heartbeat silent for `health.wedgedTimeoutMs`), or `"lag"` (event-loop lag above `health.maxEventLoopLagMs` for `health.lagRecycleBeats` consecutive beats). |
 | `worker:health` | A worker reported health (requires `health.heartbeatMs > 0`): `{ workerId, pid, rss, heapUsed, eventLoopLagMs }`. |
 | `worker:wedged` | A worker's heartbeat was silent for `health.wedgedTimeoutMs` — it is recycled through the bounded drain: `{ workerId, pid, silentMs }`. |
 | `worker:quarantined` | A slot was quarantined after `restart.bootFailQuarantine` consecutive boot failures while other workers serve: `{ consecutiveBootFailures }`. |

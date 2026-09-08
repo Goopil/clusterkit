@@ -15,7 +15,7 @@ const config: ResolvedConfig = {
     bootFailQuarantine: 0,
   },
   shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, messagePrefix: "__hm", sigtermDelayMs: 100, sigintDelayMs: 100 },
-  health: { heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 10_000, maxEventLoopLagMs: 0 },
+  health: { heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 10_000, maxEventLoopLagMs: 0, lagRecycleBeats: 3 },
   clusterModule: undefined,
 };
 
@@ -207,7 +207,7 @@ describe("HealthMonitor — policies", () => {
 
 describe("HealthMonitor — lag policy", () => {
   it("recycles a worker after 3 consecutive beats above the threshold, once per instance", () => {
-    const { monitor, events } = makeMonitor({ health: { maxEventLoopLagMs: 50 } });
+    const { monitor, events } = makeMonitor({ health: { maxEventLoopLagMs: 50, lagRecycleBeats: 3 } });
     const lagRecycles = () => events.filter((e) => e.kind === "recycle:lag").length;
 
     monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
@@ -219,6 +219,18 @@ describe("HealthMonitor — lag policy", () => {
 
     monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 })); // one-shot per worker instance
     expect(lagRecycles()).toBe(1);
+  });
+
+  it("honors a custom lagRecycleBeats count, including 1 (fire on first beat)", () => {
+    const two = makeMonitor({ health: { maxEventLoopLagMs: 50, lagRecycleBeats: 2 } });
+    two.monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    expect(two.events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
+    two.monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    expect(two.events.filter((e) => e.kind === "recycle:lag")).toHaveLength(1);
+
+    const one = makeMonitor({ health: { maxEventLoopLagMs: 50, lagRecycleBeats: 1 } });
+    one.monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 60 }));
+    expect(one.events.filter((e) => e.kind === "recycle:lag")).toHaveLength(1);
   });
 
   it("resets the consecutive-beat counter when a beat is below the threshold", () => {

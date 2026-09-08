@@ -3,9 +3,6 @@ import { isTypedMessage } from "./types";
 
 export type RecycleTrigger = "rss" | "wedged" | "lag";
 
-/** Consecutive beats above the lag threshold before recycling. */
-const LAG_RECYCLE_BEATS = 3;
-
 export interface HealthMonitorDeps {
   isShuttingDown: () => boolean;
   recycleWorker: (workerId: number, reason: RecycleTrigger) => void;
@@ -98,15 +95,16 @@ export class HealthMonitor {
   }
 
   /** Recycle a worker whose event-loop lag exceeded the threshold for
-   * LAG_RECYCLE_BEATS consecutive beats — catches "slow but alive" workers
-   * that the wedged (silence) policy never sees. One-shot per worker instance. */
+   * `cfg.health.lagRecycleBeats` consecutive beats — catches "slow but alive"
+   * workers that the wedged (silence) policy never sees. One-shot per worker instance. */
   private checkLagLimit(workerId: number, report: WorkerHealthReport): void {
     const thresholdMs = this.cfg.health.maxEventLoopLagMs;
+    const recycleBeats = this.cfg.health.lagRecycleBeats;
     if (thresholdMs <= 0 || this.deps.isShuttingDown()) return;
     if (this.lagRecycled.has(workerId)) return;
     if (report.eventLoopLagMs > thresholdMs) {
       const beats = (this.lagBeats.get(workerId) ?? 0) + 1;
-      if (beats < LAG_RECYCLE_BEATS) {
+      if (beats < recycleBeats) {
         this.lagBeats.set(workerId, beats);
         return;
       }
@@ -116,7 +114,7 @@ export class HealthMonitor {
         workerId,
         eventLoopLagMs: report.eventLoopLagMs,
         maxEventLoopLagMs: thresholdMs,
-        consecutiveBeats: LAG_RECYCLE_BEATS,
+        consecutiveBeats: recycleBeats,
       });
       this.deps.recycleWorker(workerId, "lag");
       return;
