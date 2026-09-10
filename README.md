@@ -141,6 +141,15 @@ console.log(sizing.sizing);
 
 Details: [plugin README](./packages/plugin-container-sizing/README.md).
 
+**Grafana dashboard.** A ready-made dashboard covering the fleet, per-worker health, and stability metrics ships in
+[`grafana/`](./grafana/): import `clusterkit-dashboard.json` into Grafana (pick your Prometheus datasource on import).
+
+![ClusterKit Grafana dashboard](./grafana/screenshot.png)
+
+It works with either metrics pipeline: the Prometheus plugin's exposition, or the OTLP plugin pushed through a
+collector whose Prometheus exporter applies the standard OpenTelemetry name normalization
+(`clusterkit.worker.restarts` → `clusterkit_worker_restarts_total`).
+
 ## Level 3 — Automation
 
 **Hot restart on signal.** `kill -HUP <pid>` rolls workers without dropping connections:
