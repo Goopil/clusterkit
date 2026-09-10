@@ -12,9 +12,15 @@ import { Hono } from "hono";
   console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // App server  → :3005  (workers)
-  // Metrics endpoint is exposed by your host app using prometheus.getMetrics().
+  // Metrics server → :9092  (primary, bound by the plugin's serve())
   const sizing = createContainerSizingPlugin();
   const prometheus = createPrometheusPlugin({ metricsCacheTtlMs: 250 });
+
+  // Binds in the primary only (no-op in workers); closed on shutdown by the plugin.
+  await prometheus.serve({
+    port: +(process.env?.METRICS_PORT || 9092),
+    host: process.env.METRICS_HOST ?? "0.0.0.0",
+  });
 
   orchestrator
     .use(sizing)
@@ -43,29 +49,8 @@ import { Hono } from "hono";
         );
       });
 
-      const metricsApp = new Hono();
-      metricsApp.get("/metrics", async (c) => {
-        c.header("Content-Type", prometheus.registry.contentType);
-        return c.body(await prometheus.getMetrics());
-      });
-      const metricsServer = createAdaptorServer({ fetch: metricsApp.fetch });
-      await new Promise((resolve, reject) => {
-        metricsServer.once("error", reject);
-        metricsServer.listen(
-          {
-            port: +(process.env?.METRICS_PORT || 9092),
-            host: process.env.METRICS_HOST ?? "0.0.0.0",
-          },
-          () => {
-            metricsServer.off("error", reject);
-            resolve();
-          },
-        );
-      });
-
       orchestrator.registerOnShutdown(() => {
         server.close();
-        metricsServer.close();
       });
     });
 })().catch((err) => {

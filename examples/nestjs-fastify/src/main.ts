@@ -14,7 +14,7 @@ async function bootstrap() {
   console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // App server  → :3008  (workers)
-  // Metrics endpoint is exposed by your host app using prometheus.getMetrics().
+  // Metrics can be exposed by the host app on the primary via prometheus.serve() — see the plugin README.
   const sizing = createContainerSizingPlugin();
   const prometheus = createPrometheusPlugin({ metricsCacheTtlMs: 250 });
 
