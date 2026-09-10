@@ -192,6 +192,16 @@ function validateHealthOptions(health: HealthConfig): void {
       throw new WorkerManagerValidationError("health.degradedAfterMs", "must be a non-negative integer");
     }
   }
+  if (health.maxEventLoopLagMs !== undefined) {
+    if (!Number.isInteger(health.maxEventLoopLagMs) || health.maxEventLoopLagMs < 0) {
+      throw new WorkerManagerValidationError("health.maxEventLoopLagMs", "must be a non-negative integer");
+    }
+  }
+  if (health.lagRecycleBeats !== undefined) {
+    if (!Number.isInteger(health.lagRecycleBeats) || health.lagRecycleBeats < 1) {
+      throw new WorkerManagerValidationError("health.lagRecycleBeats", "must be an integer >= 1");
+    }
+  }
 }
 
 function validateCrossFieldConstraints(resolved: ResolvedConfig): void {
@@ -224,6 +234,9 @@ function validateCrossFieldConstraints(resolved: ResolvedConfig): void {
         `must be >= 2 × health.heartbeatMs (${resolved.health.heartbeatMs}ms)`,
       );
     }
+  }
+  if ((resolved.health.maxEventLoopLagMs ?? 0) > 0 && (resolved.health.heartbeatMs ?? 0) <= 0) {
+    throw new WorkerManagerValidationError("health.maxEventLoopLagMs", "requires health.heartbeatMs > 0");
   }
 }
 
@@ -260,6 +273,8 @@ const DEFAULTS = {
     heartbeatMs: 0,
     wedgedTimeoutMs: 0,
     degradedAfterMs: 0,
+    maxEventLoopLagMs: 0,
+    lagRecycleBeats: 3,
   },
   clusterModule: undefined,
 } satisfies ResolvedConfig;
@@ -318,6 +333,8 @@ export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig 
       heartbeatMs: health.heartbeatMs ?? DEFAULTS.health.heartbeatMs,
       wedgedTimeoutMs: health.wedgedTimeoutMs ?? DEFAULTS.health.wedgedTimeoutMs,
       degradedAfterMs: health.degradedAfterMs ?? DEFAULTS.health.degradedAfterMs,
+      maxEventLoopLagMs: health.maxEventLoopLagMs ?? DEFAULTS.health.maxEventLoopLagMs,
+      lagRecycleBeats: health.lagRecycleBeats ?? DEFAULTS.health.lagRecycleBeats,
     },
   };
 

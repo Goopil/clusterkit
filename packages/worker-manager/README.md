@@ -12,7 +12,7 @@ For monorepo context and examples catalog, see the [root README](../../README.md
 | Worker orchestration | Spawns and supervises workers with `cluster` |
 | Platform capability detection | `Orchestrator.getCapabilities()` reports `platform`, `reusePort` |
 | Crash protection | Exponential restart backoff + circuit breaker (`restart.*`) |
-| Health & recovery | Worker heartbeats, RSS recycling, wedged-worker detection, fleet health, boot-loop quarantine (`health.*`, `workers.maxRssMb`) |
+| Health & recovery | Worker heartbeats, RSS recycling, wedged-worker detection, sustained-lag recycling, fleet health, boot-loop quarantine (`health.*`, `workers.maxRssMb`) |
 | Graceful shutdown | ACK-based worker shutdown, configurable timeouts/signals (`shutdown.*`) |
 | Lifecycle controls | Worker recycling (`workers.maxAgeMs`), env patching and worker-count override APIs |
 | Observability | Typed events, `getMetrics()`, `getHealth()`, `getFleetHealth()` |
@@ -126,10 +126,13 @@ unless `crashThreshold` is reached inside `crashWindowMs`.
 | `heartbeatMs` | `number` | `0` | Worker health report (RSS, heap, event-loop lag) interval in ms (`0` disables) |
 | `wedgedTimeoutMs` | `number` | `0` | Recycle a worker whose heartbeat has been silent this long (`0` disables). Requires `heartbeatMs > 0` and ≥ 2 × `heartbeatMs` |
 | `degradedAfterMs` | `number` | `0` | Duration `active < target` must persist before `fleet:degraded` fires (`0` disables) |
+| `maxEventLoopLagMs` | `number` | `0` | Recycle a worker whose reported event-loop lag exceeded this value (ms) for `lagRecycleBeats` consecutive beats (`0` disables). Requires `heartbeatMs > 0` |
+| `lagRecycleBeats` | `number` | `3` | Consecutive heartbeats above `maxEventLoopLagMs` before the lag recycle fires (`1` = first beat above the threshold) |
 
-Workers report RSS, heap, and event-loop beat drift over IPC every `heartbeatMs`; the primary-side monitor feeds two
-opt-in policies: RSS recycling (`workers.maxRssMb`) and wedged-worker detection (`health.wedgedTimeoutMs`). A wedged
-worker cannot ACK anything, so the drain escalates to SIGKILL. Both policies run through the same bounded drain as
+Workers report RSS, heap, and event-loop beat drift over IPC every `heartbeatMs`; the primary-side monitor feeds three
+opt-in policies: RSS recycling (`workers.maxRssMb`), wedged-worker detection (`health.wedgedTimeoutMs`), and sustained
+lag recycling (`health.maxEventLoopLagMs`). A wedged
+worker cannot ACK anything, so the drain escalates to SIGKILL. All policies run through the same bounded drain as
 age-based recycling and never count toward the crash circuit breaker.
 
 Health features work at every worker count: at `count: 1` a single worker is forked and reports heartbeats over IPC
@@ -205,7 +208,8 @@ container or process supervisor kills the primary process.
 | `worker:exit` | A worker exits, including graceful disconnects and crashes. |
 | `worker:crash` | A worker exits non-gracefully and is recorded in the crash window. |
 | `worker:restart` | A replacement worker is forked after restart backoff. |
-| `worker:recycle` | A worker is replaced through the bounded drain. `reason` is `"maxAge"` (default), `"rss"` (`workers.maxRssMb` exceeded), or `"wedged"` (heartbeat silent for `health.wedgedTimeoutMs`). |
+| `worker:draining` | A worker was marked for replacement, before the network drain starts — the moment new work should stop being routed to it: `{ workerId, pid, reason }`. |
+| `worker:recycle` | A worker is replaced through the bounded drain. `reason` is `"maxAge"` (default), `"rss"` (`workers.maxRssMb` exceeded), `"wedged"` (heartbeat silent for `health.wedgedTimeoutMs`), or `"lag"` (event-loop lag above `health.maxEventLoopLagMs` for `health.lagRecycleBeats` consecutive beats). |
 | `worker:health` | A worker reported health (requires `health.heartbeatMs > 0`): `{ workerId, pid, rss, heapUsed, eventLoopLagMs }`. |
 | `worker:wedged` | A worker's heartbeat was silent for `health.wedgedTimeoutMs` — it is recycled through the bounded drain: `{ workerId, pid, silentMs }`. |
 | `worker:quarantined` | A slot was quarantined after `restart.bootFailQuarantine` consecutive boot failures while other workers serve: `{ consecutiveBootFailures }`. |
