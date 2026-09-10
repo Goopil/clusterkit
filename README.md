@@ -8,36 +8,147 @@
 [![npm version](https://img.shields.io/npm/v/@goopil/clusterkit.svg?label=%40goopil%2Fclusterkit)](https://www.npmjs.com/package/@goopil/clusterkit)
 [![npm downloads](https://img.shields.io/npm/dm/@goopil/clusterkit.svg)](https://www.npmjs.com/package/@goopil/clusterkit)
 
-Production-ready Node.js cluster orchestrator for multi-core HTTP servers in containers. Bring your own web
-framework — ClusterKit handles worker lifecycle, kernel-level load balancing, crash recovery, and graceful
-shutdown so you don't have to.
+Multi-worker Node.js, made boring.
 
-**Why clusterkit?**
+ClusterKit forks your app one worker per core, balances connections at the kernel level, restarts crashed workers with
+backoff, and drains them cleanly on shutdown. Bring your web framework — the supervision is handled.
 
-- **Kernel-level load balancing** via `SO_REUSEPORT` detection — workers bind directly to the same port and let
-  the Linux kernel distribute connections (no primary-as-proxy bottleneck).
-- **Container-native** — reads cgroup v1/v2 CPU and memory limits to size workers automatically, with
-  per-worker `--max-old-space-size` injection.
-- **Production-grade shutdown** — per-worker ACK protocol with configurable timeouts and `SIGTERM → SIGINT →
-  SIGKILL` escalation, tuned to fit inside a Kubernetes `terminationGracePeriodSeconds` budget.
-- **Crash resilient** — exponential backoff with a sliding-window circuit breaker prevents infinite crash loops
-  from exhausting resources.
-- **Framework-agnostic** — works with Express, Fastify, Hono, Koa, NestJS, and more (10 ready-to-run examples).
-- **Zero runtime dependencies** — the core package ships only TypeScript types and ESM/CJS bundles.
+## Getting started in 5 minutes
 
-**What this provides:**
+```bash
+pnpm add @goopil/clusterkit
+```
 
-- Automatic worker spawning with SO_REUSEPORT detection (kernel-level load balancing on Linux)
-- Crash recovery with exponential backoff and a configurable circuit breaker
-- Graceful shutdown with per-worker ACK protocol and configurable timeouts
-- Worker age recycling, health checks, and typed EventEmitter events
-- A plugin system for first-party and third-party extensions
+Create `server.js`:
 
-**What this does NOT provide:**
+```js
+import {createServer} from 'node:http';
+import {Orchestrator} from '@goopil/clusterkit';
 
-- Request routing or proxying — workers bind directly via SO_REUSEPORT or via Node.js cluster IPC
-- A web framework — bring your own (Express, Fastify, Hono, Koa, NestJS, …)
-- A process manager — designed to run inside an existing container / systemd unit
+const orchestrator = new Orchestrator({logger: console});
+
+orchestrator.run(async () => {
+  const capabilities = await Orchestrator.getCapabilities();
+
+  // This callback runs in every worker process
+  const server = createServer((_req, res) => {
+    res.end(`hello from pid ${process.pid}`);
+  });
+
+  server.listen({
+    port: 3000,
+    host: '0.0.0.0',
+    // On Linux with SO_REUSEPORT: each worker binds directly, the kernel balances.
+    // On macOS / without SO_REUSEPORT: cluster IPC handles distribution.
+    reusePort: capabilities.reusePort,
+    exclusive: capabilities.reusePort,
+  });
+
+  orchestrator.registerOnShutdown(() => server.close());
+});
+```
+
+```bash
+node server.js
+```
+
+On Linux you get one worker per core, each accepting connections directly. On macOS, force multi-worker mode with
+`WEB_CONCURRENCY=4`.
+
+What you just got:
+
+- **Kernel-level load balancing** — workers bind the same port with `SO_REUSEPORT` and the kernel distributes
+  connections; no primary-as-proxy bottleneck.
+- **Crash recovery** — exponential backoff with a sliding-window circuit breaker.
+- **Graceful shutdown** — per-worker ACK protocol with `SIGTERM → SIGINT → SIGKILL` escalation.
+
+## Level 1 — Ready to deploy
+
+**Worker count.** `workers.count: 'auto'` (the default) reads `WEB_CONCURRENCY`, or falls back to
+`os.availableParallelism()`. Set an explicit number when you know better. The full resolution rules are in the
+[core README](./packages/worker-manager/README.md#worker-count).
+
+**Health checks.** Expose readiness to Kubernetes or any supervisor:
+
+```ts
+const {ready, live} = orchestrator.getHealth();
+// ready = false during shutdown, after a circuit-breaker trip, or via setNotReady()
+```
+
+**Shutdown budget.** Set `shutdown.timeoutMs` below your platform's grace period (for example Kubernetes
+`terminationGracePeriodSeconds`) so escalation to `SIGKILL` happens inside the budget:
+
+```ts
+const orchestrator = new Orchestrator({
+  shutdown: {timeoutMs: 10_000},
+});
+```
+
+Everything else — full configuration, API, events, security guards — lives in the
+[core README](./packages/worker-manager/README.md).
+
+## Level 2 — Observability
+
+**Prometheus.** Merged orchestration + worker metrics behind one endpoint:
+
+```bash
+pnpm add @goopil/clusterkit-prometheus prom-client
+```
+
+```js
+import {createPrometheusPlugin} from '@goopil/clusterkit-prometheus';
+
+const prometheus = createPrometheusPlugin({prefix: 'clusterkit_'});
+orchestrator.use(prometheus).run(async () => { /* your app */ });
+
+// Binds in the primary only: GET /metrics + GET /healthz
+await prometheus.serve({port: 9090, host: '127.0.0.1'});
+```
+
+Options and the full metric list: [plugin README](./packages/plugin-prometheus/README.md).
+
+**OpenTelemetry.** Push the same metrics to any OTLP collector:
+
+```js
+import {createOtlpMeterPlugin} from '@goopil/clusterkit-otlp-meter';
+
+orchestrator.use(createOtlpMeterPlugin({
+  endpoint: 'http://otel-collector:4318/v1/metrics',
+  serviceName: 'my-app',
+}));
+```
+
+Details: [plugin README](./packages/plugin-otlp-meter/README.md).
+
+**Container sizing.** On Kubernetes or Docker, `@goopil/clusterkit-sizing` reads cgroup v1/v2 limits and computes both
+the worker count and each worker's `--max-old-space-size`:
+[plugin README](./packages/plugin-container-sizing/README.md).
+
+## Level 3 — Automation
+
+**Hot restart on signal.** `kill -HUP <pid>` rolls workers without dropping connections:
+
+```js
+import {createSignalRestartPlugin} from '@goopil/clusterkit-signal-restart';
+
+orchestrator.use(createSignalRestartPlugin());
+```
+
+Details: [plugin README](./packages/plugin-signal-restart/README.md).
+
+**Hot restart on file or env change.** Watch source files or `.env` and roll workers:
+
+```js
+import {createFileWatcherPlugin} from '@goopil/clusterkit-file-watcher';
+
+orchestrator.use(createFileWatcherPlugin({watch: ['./src'], envFile: './.env'}));
+```
+
+Details: [plugin README](./packages/plugin-file-watcher/README.md).
+
+**Custom plugins.** Hook the install/uninstall lifecycle, listen to typed events, patch worker env, or override the
+worker count before forking. The `OrchestratorPlugin` interface and helpers are documented in the
+[core README](./packages/worker-manager/README.md#plugins).
 
 ## Packages
 
@@ -50,551 +161,8 @@ shutdown so you don't have to.
 | [`@goopil/clusterkit-signal-restart`](#goopilclusterkit-signal-restart) | Signal-based hot restart plugin (SIGHUP → rolling restart) | [`packages/plugin-signal-restart/README.md`](./packages/plugin-signal-restart/README.md) |
 | [`@goopil/clusterkit-file-watcher`](#goopilclusterkit-file-watcher) | File watcher hot restart plugin (file/env changes → rolling restart) | [`packages/plugin-file-watcher/README.md`](./packages/plugin-file-watcher/README.md) |
 
-This root README gives the monorepo overview. Each package also has a dedicated README focused on its own capabilities,
-options, and API surface.
-
----
-
-## `@goopil/clusterkit`
-
-Detailed package README: [`packages/worker-manager/README.md`](./packages/worker-manager/README.md)
-
-### Installation
-
-```bash
-pnpm add @goopil/clusterkit
-```
-
-### Quick start
-
-```js
-import {Orchestrator} from '@goopil/clusterkit';
-
-// Create the orchestrator explicitly, then query capabilities when needed
-const orchestrator = new Orchestrator({logger: console});
-
-orchestrator.run(async () => {
-  const capabilities = await Orchestrator.getCapabilities();
-
-  // Start your HTTP server here — this callback runs in every worker
-  const server = createServer(/* ... */);
-
-  server.listen({
-    port: 3000,
-    host: '0.0.0.0',
-    // On Linux with SO_REUSEPORT: each worker binds directly (kernel balances)
-    // On macOS / without SO_REUSEPORT: cluster IPC handles distribution
-    reusePort: capabilities.reusePort,
-    exclusive: capabilities.reusePort,
-  });
-
-  // Register a graceful shutdown callback
-  orchestrator.registerOnShutdown(() => server.close());
-});
-```
-
-### Worker count
-
-| Condition                                        | Workers spawned             |
-|--------------------------------------------------|-----------------------------|
-| `workers.count: 'auto'` + `WEB_CONCURRENCY` set | Value of `WEB_CONCURRENCY`  |
-| `workers.count: 'auto'` + SO_REUSEPORT available | `os.availableParallelism()` |
-| `workers.count: 'auto'` + no SO_REUSEPORT        | `os.availableParallelism()` with cluster round-robin |
-| `workers.count: N`                               | Exactly N workers           |
-
-> **macOS note** — SO_REUSEPORT detection is unreliable on macOS. Use `WEB_CONCURRENCY=4` to force multi-worker mode, or
-> test on Linux with the [Docker harness](#docker-test-harness).
-
-### Configuration
-
-```ts
-const orchestrator = new Orchestrator({
-    logger: null, // pino/winston/console-compatible logger, null = silent
-
-    workers: {
-      count: 'auto', // number | 'auto' — worker count
-      env: {NODE_ENV: 'production'}, // env vars injected into each worker
-      execArgv: ['--max-old-space-size=512'],
-      maxAgeMs: 0, // worker recycling (0 = disabled)
-    },
-
-    restart: {
-      crashThreshold: 5, // crashes before stopping restarts
-      crashWindowMs: 60_000, // sliding window for crash counting
-      backoffMs: 1_000, // initial restart delay
-      maxBackoffMs: 30_000, // upper bound for restart delay
-      backoffMultiplier: 2, // exponential multiplier after each crash
-      stabilityWindowMs: 30_000, // reset backoff only after this crash-free window (0 = immediate reset)
-    },
-
-    shutdown: {
-      timeoutMs: 12_000, // graceful shutdown timeout before force kill
-      ackTimeoutMs: 3_000,
-      messagePrefix: '__wm',
-      sigtermDelayMs: 2_000,
-      sigintDelayMs: 1_000,
-    },
-});
-```
-
-Backoff resets are stability-based: the delay returns to the initial value only after a crash-free period of
-`restart.stabilityWindowMs`.
-
-> **Security defaults** — `workers.execArgv` rejects code-loading/debug flags (`--require`/`-r`, `--eval`/`-e`,
-> `--print`/`-p`, `--inspect`/`--inspect-brk`/`--inspect-port`, `--import`, `--loader`/`--experimental-loader`) and
-> side-effect flags (`--tls-keylog`, `--cpu-prof*`, `--heap-prof*`, `--report-*`, `--diagnostic-dir`,
-> `--redirect-warnings`), because a JSON/YAML config could otherwise carry remote code into workers or make them write
-> diagnostics to disk. `workers.env` rejects
-> `__proto__`/`constructor`/`prototype` keys in every env path (config, `patchWorkerEnv()`, restart env overlay), and
-> a `NODE_OPTIONS` entry in `workers.env` triggers a `ClusterKitSecurityWarning` advisory since it can bypass the
-> `execArgv` blocklist. See the [core README](./packages/worker-manager/README.md) for details.
-
-### API
-
-```ts
-// Construction + static platform helpers
-const orchestrator = new Orchestrator(config);
-const supports = await Orchestrator.supportsReusePort();
-const caps = await Orchestrator.getCapabilities();
-
-// Entry point
-orchestrator.run(start);                 // runs primary or worker logic
-orchestrator.use(plugin);               // register a plugin (chainable, must be called before run())
-orchestrator.registerOnShutdown(cb);    // called in each worker before exit
-
-// Observability
-orchestrator.getMetrics();              // WorkerMetrics snapshot
-orchestrator.getHealth();               // { ready: boolean, live: boolean } — live is always true by design
-orchestrator.getFleetHealth();          // { target, active, quarantined, breaker }
-orchestrator.isPrimary;                 // true in the primary (the supervisor), false in workers — incl. the app process at count 1 (2.0)
-orchestrator.setNotReady();             // mark ready=false (e.g. during rolling deploys)
-orchestrator.setReady();                // restore ready=true (no-op during shutdown)
-orchestrator.resetCircuitBreaker();     // re-arm after a crash-loop trip; refills missing workers
-orchestrator.restartWorkers(opts);     // rolling-restart workers without dropping connections
-orchestrator.workerCount;               // resolved worker count (number)
-
-// restartWorkers opts: { env?: NodeJS.ProcessEnv, filter?: (id: number) => boolean, staggerMs?: number, reason?: string }
-
-// Plugin helpers — available to plugins during install(), throw once workers are forked
-orchestrator.patchWorkerEnv(env);       // merge additional env vars into workerEnv (chainable)
-orchestrator.overrideWorkerCount(n);    // change worker count when configured as 'auto' (chainable, max 256)
-```
-
-### Events
-
-```ts
-orchestrator.on('worker:online', ({workerId, pid}) => {
-});
-orchestrator.on('worker:exit', ({workerId, pid, code, signal, graceful}) => {
-});
-orchestrator.on('worker:crash', ({workerId, pid, code, signal}) => {
-});
-orchestrator.on('worker:restart', ({newWorkerId, newPid}) => {
-});
-orchestrator.on('worker:draining', ({workerId, pid, reason}) => {
-  // Emitted at the recycle decision, before the network drain starts — the
-  // moment new work should stop being routed to the worker.
-});
-orchestrator.on('worker:recycle', ({workerId, pid, ageMs}) => {
-});
-orchestrator.on('shutdown:start', ({signal}) => {
-});
-orchestrator.on('shutdown:complete', ({metrics}) => {
-});
-orchestrator.on('circuit-breaker:tripped', ({crashCount, windowMs}) => {
-});
-orchestrator.on('restart:start', ({reason, workerIds}) => {
-});
-orchestrator.on('restart:complete', ({restartedWorkerIds, reason}) => {
-});
-```
-
-> **Stop accepting early on `worker:draining`** — for TCP, the listening socket and the established connections are
-> separate: calling `server.close()` in the `worker:draining` handler removes the worker from the `SO_REUSEPORT` group
-> immediately (the kernel stops routing new connections to it) while existing connections keep draining, and
-> Linux ≥ 5.10 migrates in-flight connection requests to the remaining group members. On `worker:recycle` the drain is
-> already underway — `worker:draining` fires earlier.
-
-### Graceful shutdown
-
-The orchestrator intercepts `SIGTERM` and `SIGINT` on the primary process and coordinates a clean shutdown:
-
-1. Sends an IPC shutdown message to all workers
-2. Waits for each worker to ACK, exit, or disconnect (max `shutdown.ackTimeoutMs` per worker)
-3. Calls `worker.disconnect()` on all workers
-4. Waits up to `shutdown.timeoutMs` for workers to exit cleanly
-5. Force-kills any remaining workers (`SIGTERM` → `SIGINT` → `SIGKILL`)
-6. Calls `plugin.uninstall()` on all registered plugins
-7. Exits the primary with code `0`
-
-`SIGHUP` is a silent no-op (the handler is registered so Node's default behavior — terminating the process — does not apply). If you need rolling restart functionality (e.g. for zero-downtime deployments on bare metal), use a dedicated plugin instead.
-
-ACK is the preferred cooperative signal, but a worker that terminates before sending ACK is also treated as complete for
-that ACK wait. This keeps container shutdown predictable when an application closes quickly or the process exits during
-its own cleanup path.
-
-`shutdown.timeoutMs` is the global graceful budget after the disconnect phase starts. Tune it to be lower than your
-orchestrator's termination grace period (for example Kubernetes `terminationGracePeriodSeconds`) so ClusterKit still has
-time to escalate from `SIGTERM` to `SIGINT` and finally `SIGKILL` if a worker hangs.
-
-In each worker, the shutdown sequence is:
-
-1. Receives IPC message (or `SIGTERM`/`SIGINT`)
-2. Sends ACK to primary
-3. Calls your `registerOnShutdown()` callback (e.g. `server.close()`)
-4. Exits with code `0`
-
-### Circuit breaker
-
-If workers crash more than `crashThreshold` times within `crashWindowMs`, the orchestrator stops restarting them and
-emits `circuit-breaker:tripped`. This prevents infinite crash loops that would otherwise exhaust system resources.
-Each trip also emits a `process.emitWarning` (code `ClusterKitCrashLoop`) so setups without a configured logger are not
-fully silent. Restart queue entries are dropped once the breaker is tripped — after a `resetCircuitBreaker()` call,
-missing capacity is refilled.
-
-A failed worker fork (for example `EMFILE`/`ENOMEM` under resource exhaustion) no longer permanently shrinks the
-fleet: the restart is re-queued and retried through the normal backoff. After 3 consecutive fork failures the
-environment is treated as unrecoverable and the pending restarts are abandoned.
-
-### Exit codes
-
-The primary flags a failure exit code (`process.exitCode = 1`) when the fleet becomes unrecoverable:
-
-- the circuit breaker trips (restarts stopped),
-- the last worker crashes outside of a graceful shutdown, or
-- 3 consecutive fork failures exhaust the restart queue (an environment that can no longer fork).
-
-The flag is cleared (`process.exitCode = 0`) as soon as full capacity is restored (all workers back online) or a
-successful `resetCircuitBreaker()` refill brings the fleet back. Since all restart timers are unref'd, an
-unrecoverable fleet lets the primary drain and exit naturally — with the failure now visible to supervisors,
-Kubernetes, and process managers instead of masked as a clean exit `0`. Graceful shutdowns always exit with code `0`.
-
-### Health checks
-
-```ts
-const health = orchestrator.getHealth();
-// { ready: boolean, live: boolean }
-
-// live is always true by design — readiness is the signal, not liveness
-// ready becomes false during shutdown, after a circuit-breaker trip, or via setNotReady()
-```
-
-Use these with your Kubernetes liveness / readiness probes.
-
----
-
-## `@goopil/clusterkit-prometheus`
-
-Detailed package README: [`packages/plugin-prometheus/README.md`](./packages/plugin-prometheus/README.md)
-
-Exports cluster metrics via [prom-client](https://github.com/siimon/prom-client).
-
-### Installation
-
-```bash
-pnpm add @goopil/clusterkit-prometheus prom-client
-```
-
-### Usage
-
-```js
-import {Orchestrator} from '@goopil/clusterkit';
-import {createPrometheusPlugin} from '@goopil/clusterkit-prometheus';
-
-const orchestrator = new Orchestrator({logger: console});
-
-const prometheus = createPrometheusPlugin({
-  prefix: 'clusterkit_',
-  metricsCacheTtlMs: 250, // cache merged metrics for short scrape bursts
-  defaultMetrics: true,  // collect Node.js process metrics from workers only
-});
-
-orchestrator
-  .use(prometheus)
-  .run(async () => { /* your app */
-  });
-
-// Binds in the primary only (no-op in workers):
-//   GET /metrics  — merged orchestration + worker metrics
-//   GET /healthz  — JSON fleet health (503 when degraded)
-await prometheus.serve({port: 9090, host: '127.0.0.1'});
-```
-
-The plugin starts automatically when `orchestrator.run()` is called and shuts down cleanly with the orchestrator.
-Alternatively, mount `prometheus.getMetrics()` on your own HTTP stack (primary process only).
-
-### Options
-
-| Option              | Type                               | Default          | Description                                                        |
-|---------------------|------------------------------------|------------------|--------------------------------------------------------------------|
-| `prefix`            | `string`                           | `'clusterkit_'`  | Metric name prefix                                                 |
-| `registry`          | `Registry`                         | `new Registry()` | Custom prom-client registry                                        |
-| `defaultMetrics`    | `boolean`                          | `true`           | Collect Node.js default process metrics from workers only          |
-| `metricsCacheTtlMs` | `number`                           | `1000`           | Cache TTL in ms for merged metrics responses (`0` disables cache). |
-| `labels`            | `Record<string, string \| number>` | `{}`             | Static labels added to every metric (pid is always included)       |
-
-### Metrics exposed
-
-| Metric                                       | Type    | Description                        |
-|----------------------------------------------|---------|------------------------------------|
-| `clusterkit_active_workers`              | Gauge   | Number of currently active workers |
-| `clusterkit_worker_restarts_total`       | Counter | Total worker restarts since start  |
-| `clusterkit_worker_crashes_total`        | Counter | Total worker crashes since start   |
-| `clusterkit_circuit_breaker_trips_total` | Counter | Total circuit breaker trips        |
-| `clusterkit_sizing_info` {computed_workers,configured_workers} | Gauge | Resolved vs configured worker count |
-| `clusterkit_max_rss_mb`                  | Gauge   | RSS recycle limit in MB (`0` = disabled) |
-
-Plus per-worker health gauges (RSS, heap, event-loop lag, heartbeat age), recycle / wedged-kill counters, and live
-fleet gauges — see the [detailed README](./packages/plugin-prometheus/README.md#metrics-exposed) for the full list.
-
-### Architecture
-
-The plugin uses a two-registry model to separate concerns:
-
-- **Orchestration registry** (primary only) — tracks `active_workers`, restarts, crashes, and circuit breaker trips by
-  listening to orchestrator events. It does not collect Node.js process default metrics.
-- **`AggregatorRegistry`** (prom-client built-in) — each worker collects its own Node.js default metrics and the primary
-  harvests them all via the built-in cluster IPC channel.
-
-Use `prometheus.serve()` to expose `/metrics` and `/healthz` on the primary (recommended), or mount
-`prometheus.getMetrics()` on your own HTTP stack (primary process only).
-
-When `metricsCacheTtlMs > 0`, merged responses are cached in-memory for the configured TTL to reduce repeated
-aggregation cost during scrape bursts.
-
-### Exposure and security
-
-- The plugin only opens a socket if you call `serve()`; the host application still controls bind address, auth, TLS,
-  and network policy.
-- Prefer binding metrics to `127.0.0.1` or a private service network unless a scrape endpoint must be reachable outside
-  the host.
-- Treat `/metrics` as operationally sensitive: it can reveal process, topology, runtime, and workload information.
-- In Kubernetes, expose metrics through a private `Service` and protect it with `NetworkPolicy`, service mesh policy, or
-  ingress rules rather than publishing it directly on a public route.
-
-### API
-
-```ts
-prometheus.registry       // prom-client Registry instance (orchestration metrics, primary)
-prometheus.getMetrics()   // Promise<string> — Prometheus text format (merged)
-prometheus.serve(opts)    // Promise<http.Server | undefined> — primary-side /metrics + /healthz
-```
-
----
-
-## `@goopil/clusterkit-sizing`
-
-Detailed package README: [`packages/plugin-container-sizing/README.md`](./packages/plugin-container-sizing/README.md)
-
-Reads CPU and memory limits from Linux cgroups (v1 and v2), then automatically configures the optimal number of workers
-and injects `--max-old-space-size` into each worker's `NODE_OPTIONS`.
-
-This plugin is primarily intended for Kubernetes pods, Docker containers, and any environment where CPU/memory limits
-are enforced at the OS level. On bare metal or macOS, it falls back to OS-level resources.
-
-### Installation
-
-```bash
-pnpm add @goopil/clusterkit-sizing
-```
-
-### Usage
-
-```js
-import {Orchestrator} from '@goopil/clusterkit';
-import {createContainerSizingPlugin} from '@goopil/clusterkit-sizing';
-import {createPrometheusPlugin} from '@goopil/clusterkit-prometheus';
-
-const orchestrator = new Orchestrator({logger: console});
-
-const sizing = createContainerSizingPlugin();
-const prometheus = createPrometheusPlugin({
-  metricsCacheTtlMs: 250,
-});
-
-orchestrator
-  .use(sizing)
-  .use(prometheus)
-  .run(async () => { /* your app */
-  });
-```
-
-After `run()` is called, inspect what the plugin decided:
-
-```js
-console.log(sizing.sizing);
-// {
-//   workers: 4,
-//   memoryPerWorkerMb: 192,
-//   v8HeapMb: 144,
-//   nodeOptions: '--max-old-space-size=144',
-//   source: { cpuLimit: 4, memoryLimitBytes: 805306368, osCpus: 8, osTotalMemoryBytes: ... }
-// }
-```
-
-### Options
-
-| Option                 | Type                                          | Default      | Description                                                                                                                                       |
-|------------------------|-----------------------------------------------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| `overrideWorkerCount`  | `boolean`                                     | `true`       | Set worker count from cgroup CPU limit. Skipped if `workers` was set to an explicit number.                                                       |
-| `injectNodeOptions`    | `boolean`                                     | `true`       | Inject `--max-old-space-size` into each worker's `NODE_OPTIONS`.                                                                                  |
-| `fallback`             | `boolean`                                     | `true`       | Fall back to OS CPU/memory when no cgroup limits are detected (e.g. on macOS or bare metal). Set to `false` to skip sizing entirely in that case. |
-| `strategy`             | `'balanced' \| 'cpu-first'`                   | `'balanced'` | Worker count strategy (see below).                                                                                                                |
-| `memoryOverheadFactor` | `number`                                      | `0.80`       | Fraction of total memory allocated to workers (remaining reserved for OS/buffers).                                                                |
-| `heapRatio`            | `number`                                      | `0.75`       | Fraction of per-worker memory allocated to the V8 old-generation heap.                                                                            |
-| `minWorkers`           | `number`                                      | `1`          | Minimum number of workers regardless of CPU limit. Must stay within `1..256`.                                                                    |
-| `maxWorkers`           | `number`                                      | `64`         | Maximum number of workers regardless of CPU limit. Must stay within `1..256` and be `>= minWorkers`.                                             |
-| `extraNodeOptions`     | `string`                                      | —            | Additional flags appended to `NODE_OPTIONS` (e.g. `'--experimental-vm-modules'`).                                                                 |
-
-### Strategies
-
-| Strategy       | Behaviour                                                                                    |
-|----------------|----------------------------------------------------------------------------------------------|
-| `balanced`     | Workers = `floor(cpuLimit)`, stepped down until each worker has at least 128 MB of heap (default) |
-| `cpu-first`    | Full CPU count regardless of memory; heap clamped to the 128 MB viability floor (`constrained: true`) |
-
-### How it works
-
-1. **Cgroup detection** — reads `/sys/fs/cgroup/cgroup.controllers` to distinguish v2 from v1, then resolves the
-   process cgroup path from `/proc/self/cgroup` before reading controller files. If the resolved path is unavailable,
-   it falls back to the canonical `/sys/fs/cgroup/...` locations (`cpu.max` / `memory.max` for v2,
-   `cpu.cfs_quota_us` / `memory.limit_in_bytes` for v1).
-2. **Sizing calculation** — computes `workers`, `memoryPerWorkerMb`, and `v8HeapMb` from the detected limits and your
-   chosen strategy.
-3. **Worker count override** — calls `orchestrator.overrideWorkerCount(n)` only if the config
-   is `workers.count: 'auto'`. Explicit `workers.count: N` in the config is always respected.
-4. **NODE_OPTIONS injection** — calls `orchestrator.patchWorkerEnv({ NODE_OPTIONS: '...' })`, merging with any existing
-   `NODE_OPTIONS` in `workerEnv` config or `process.env`. An existing `--max-old-space-size` flag is replaced, not
-   duplicated.
-
-The plugin is primary-only and runs entirely inside `install()`, before any worker is forked.
-
----
-
-## `@goopil/clusterkit-otlp-meter`
-
-Detailed package README: [`packages/plugin-otlp-meter/README.md`](./packages/plugin-otlp-meter/README.md)
-
-OpenTelemetry OTLP metrics plugin that exports orchestration metrics (active workers,
-restarts, crashes, circuit-breaker trips), worker health / fleet / recovery metrics (parity with the Prometheus
-plugin), and optional host/process metrics via OTLP/HTTP or OTLP/gRPC to a collector.
-
-```bash
-pnpm add @goopil/clusterkit-otlp-meter @opentelemetry/exporter-metrics-otlp-http
-```
-
-```ts
-import {createOtlpMeterPlugin} from '@goopil/clusterkit-otlp-meter';
-
-const otlp = createOtlpMeterPlugin({
-  endpoint: 'http://otel-collector:4318/v1/metrics',
-  serviceName: 'my-app',
-});
-```
-
----
-
-## `@goopil/clusterkit-signal-restart`
-
-Detailed package README: [`packages/plugin-signal-restart/README.md`](./packages/plugin-signal-restart/README.md)
-
-Triggers a rolling worker restart on `SIGHUP` (or a custom signal) without dropping connections.
-
-### Installation
-
-```bash
-pnpm add @goopil/clusterkit-signal-restart
-```
-
-### Usage
-
-```js
-import { Orchestrator } from '@goopil/clusterkit';
-import { createSignalRestartPlugin } from '@goopil/clusterkit-signal-restart';
-
-const orchestrator = new Orchestrator({ logger: console });
-
-orchestrator
-  .use(createSignalRestartPlugin())  // SIGHUP → rolling restart
-  .run(async () => { /* ... */ });
-```
-
-Send `kill -HUP <pid>` to trigger a rolling restart.
-
----
-
-## `@goopil/clusterkit-file-watcher`
-
-Detailed package README: [`packages/plugin-file-watcher/README.md`](./packages/plugin-file-watcher/README.md)
-
-Watches source files, `.env` files, and `process.env` for changes and triggers a rolling worker restart.
-
-### Installation
-
-```bash
-pnpm add @goopil/clusterkit-file-watcher
-```
-
-### Usage
-
-```js
-import { Orchestrator } from '@goopil/clusterkit';
-import { createFileWatcherPlugin } from '@goopil/clusterkit-file-watcher';
-
-const orchestrator = new Orchestrator({ logger: console });
-
-orchestrator
-  .use(createFileWatcherPlugin({
-    watch: ['./src'],    // source file changes
-    envFile: './.env',  // .env file changes
-    debounceMs: 300,
-  }))
-  .run(async () => { /* ... */ });
-```
-
-## Plugin system
-
-Extend the orchestrator with custom plugins:
-
-```ts
-import type {OrchestratorPlugin, Orchestrator} from '@goopil/clusterkit';
-
-const myPlugin: OrchestratorPlugin = {
-    name: 'my-plugin',
-
-    async install(orchestrator: Orchestrator) {
-        // Runs on the primary before workers are forked.
-        // Use orchestrator.patchWorkerEnv() or orchestrator.overrideWorkerCount()
-        // to influence worker configuration.
-        orchestrator.on('worker:crash', ({workerId}) => {
-            // send alert, update dashboard, etc.
-        });
-    },
-
-    async uninstall(orchestrator: Orchestrator) {
-        // cleanup — called automatically during shutdown
-    },
-};
-
-orchestrator.use(myPlugin).run(/* ... */);
-```
-
-`use()` is chainable and plugins are installed in registration order. Plugins must be registered before `run()` —
-calling `use()` afterwards throws.
-
-**Plugin helpers available in `install()`:**
-
-```ts
-// install(orchestrator, logger, config) receives the ResolvedConfig —
-// read config.workers.count / config.workers.env for the current settings.
-orchestrator.patchWorkerEnv(env)        // merge env vars into workerEnv
-orchestrator.overrideWorkerCount(n)     // override an 'auto' worker count (max 256)
-```
-
-Plugins install **before** the initial fork, so both helpers apply to the whole
-fleet. They throw if called after workers have been forked.
-
----
+This README is the product tour. Each package README is the detailed reference for its capabilities, options, and API
+surface.
 
 ## Examples
 
@@ -690,30 +258,6 @@ curl -s -X POST http://127.0.0.1:13714/render \
 
 **Adding pages:** drop `.vue` files in `src/Pages/`, rebuild with `pnpm build`, then restart. Laravel components are referenced by name (e.g. `Home` → `src/Pages/Home.vue`).
 
----
-
-## Development
-
-This repository is a [pnpm](https://pnpm.io) monorepo managed with [Turborepo](https://turbo.build).
-
-```bash
-pnpm build           # build all packages (in dependency order)
-pnpm test            # run all test suites in parallel
-pnpm test:coverage   # run tests with coverage reports
-pnpm dev             # watch mode for all packages
-pnpm clean           # delete all dist/ and coverage/ directories
-```
-
-To run a single package:
-
-```bash
-pnpm --filter @goopil/clusterkit test
-pnpm --filter @goopil/clusterkit-prometheus build
-pnpm --filter @goopil/clusterkit-sizing test
-```
-
----
-
 ## Platform support
 
 | Feature                              | Linux | macOS                           |
@@ -727,8 +271,6 @@ pnpm --filter @goopil/clusterkit-sizing test
 
 On macOS, set `WEB_CONCURRENCY=<n>` to force multi-worker mode, or use the Docker harness below to test on a real Linux
 kernel.
-
----
 
 ## Docker
 
@@ -760,7 +302,7 @@ pnpm examples:start
 for apps; 9090–9093 for metrics). The two inertia SSR examples (ports 13714–13715) are not part of the Docker setup —
 run them standalone from their `examples/` directory.
 
-### Benchmarks
+## Benchmarks
 
 The `benchmarks/` package compares clusterkit against other Node.js process orchestrators (native cluster, throng, pm2)
 on 3 HTTP workloads. Results are written to `benchmarks/results/` (`latest.json` + auto-generated `REPORT.generated.md`);
@@ -776,20 +318,29 @@ pnpm --filter benchmarks smoke                                         # boot ch
 
 See [`benchmarks/README.md`](./benchmarks/README.md) for the target/workload contract and CLI flags.
 
----
+## Development
 
-## External audit
+This repository is a [pnpm](https://pnpm.io) monorepo managed with [Turborepo](https://turbo.build).
 
-A point-in-time external audit of clusterkit v1.1.x is archived in [`docs/audit/README.md`](./docs/audit/README.md) —
-findings may be stale; remediation is tracked in #101 and #140.
+```bash
+pnpm build           # build all packages (in dependency order)
+pnpm test            # run all test suites in parallel
+pnpm test:coverage   # run tests with coverage reports
+pnpm dev             # watch mode for all packages
+pnpm clean           # delete all dist/ and coverage/ directories
+```
 
----
+To run a single package:
+
+```bash
+pnpm --filter @goopil/clusterkit test
+pnpm --filter @goopil/clusterkit-prometheus build
+pnpm --filter @goopil/clusterkit-sizing test
+```
 
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
-
----
 
 ## License
 
