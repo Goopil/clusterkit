@@ -100,7 +100,7 @@ importers:
         version: link:../../packages/worker-manager
       '@goopil/clusterkit-otlp-meter':
         specifier: workspace:*
-        version: file:packages/plugin-otlp-meter(@goopil/clusterkit@file:packages/worker-manager)(@opentelemetry/api@1.9.1)(@opentelemetry/exporter-metrics-otlp-http@0.222.0(@opentelemetry/api@1.9.1))(@opentelemetry/host-metrics@0.39.0(@opentelemetry/api@1.9.1))(@opentelemetry/resources@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-metrics@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/semantic-conventions@1.43.0)
+        version: link:../../packages/plugin-otlp-meter
       '@goopil/clusterkit-sizing':
         specifier: workspace:*
         version: link:../../packages/plugin-container-sizing
@@ -696,30 +696,6 @@ packages:
 
   '@fastify/proxy-addr@5.1.0':
     resolution: {integrity: sha512-INS+6gh91cLUjB+PVHfu1UqcB76Sqtpyp7bnL+FYojhjygvOPA9ctiD/JDKsyD9Xgu4hUhCSJBPig/w7duNajw==}
-
-  '@goopil/clusterkit-otlp-meter@file:packages/plugin-otlp-meter':
-    resolution: {directory: packages/plugin-otlp-meter, type: directory}
-    engines: {node: '>=22.12.0'}
-    peerDependencies:
-      '@goopil/clusterkit': workspace:^
-      '@opentelemetry/api': ^1.9.0
-      '@opentelemetry/exporter-metrics-otlp-grpc': '*'
-      '@opentelemetry/exporter-metrics-otlp-http': '*'
-      '@opentelemetry/host-metrics': '*'
-      '@opentelemetry/resources': ^2.0.0
-      '@opentelemetry/sdk-metrics': ^2.0.0
-      '@opentelemetry/semantic-conventions': ^1.30.0
-    peerDependenciesMeta:
-      '@opentelemetry/exporter-metrics-otlp-grpc':
-        optional: true
-      '@opentelemetry/exporter-metrics-otlp-http':
-        optional: true
-      '@opentelemetry/host-metrics':
-        optional: true
-
-  '@goopil/clusterkit@file:packages/worker-manager':
-    resolution: {directory: packages/worker-manager, type: directory}
-    engines: {node: '>=22.12.0'}
 
   '@grpc/grpc-js@1.14.4':
     resolution: {integrity: sha512-k9Dj3DV/itK9D06Y8f190Qgop7/Ui+D0njFV3LHMPwPT75DpXLQohE9Wmz0QElrJnzsjB7KPWiKJbOl7IPDArQ==}
@@ -3524,19 +3500,6 @@ snapshots:
     dependencies:
       '@fastify/forwarded': 3.0.2
       ipaddr.js: 2.5.0
-
-  '@goopil/clusterkit-otlp-meter@file:packages/plugin-otlp-meter(@goopil/clusterkit@file:packages/worker-manager)(@opentelemetry/api@1.9.1)(@opentelemetry/exporter-metrics-otlp-http@0.222.0(@opentelemetry/api@1.9.1))(@opentelemetry/host-metrics@0.39.0(@opentelemetry/api@1.9.1))(@opentelemetry/resources@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-metrics@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/semantic-conventions@1.43.0)':
-    dependencies:
-      '@goopil/clusterkit': file:packages/worker-manager
-      '@opentelemetry/api': 1.9.1
-      '@opentelemetry/resources': 2.11.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/sdk-metrics': 2.11.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/semantic-conventions': 1.43.0
-    optionalDependencies:
-      '@opentelemetry/exporter-metrics-otlp-http': 0.222.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/host-metrics': 0.39.0(@opentelemetry/api@1.9.1)
-
-  '@goopil/clusterkit@file:packages/worker-manager': {}
 
   '@grpc/grpc-js@1.14.4':
     dependencies:
