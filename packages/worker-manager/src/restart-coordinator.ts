@@ -69,6 +69,12 @@ export class RestartCoordinator {
   // One process warning per breaker trip
   private breakerWarningEmitted = false;
 
+  // While the fleet is empty and restarts are pending, a ref'd no-op timer
+  // holds the event loop so the (unref'd) backoff timers can fire and re-fork.
+  // Without it, an empty fleet drains the loop and the primary exits before
+  // the first replacement — the recovery path would be unreachable.
+  private emptyFleetHold?: NodeJS.Timeout;
+
   constructor(
     cfg: ResolvedConfig,
     log: Logger | null,
@@ -115,10 +121,12 @@ export class RestartCoordinator {
     // ALWAYS record, even if restart is locked
     this.crashTracker.record();
 
-    // An empty fleet cannot recover on its own once the event loop drains
-    // (all restart/backoff timers are unref'd): flag a failure exit code so
-    // supervisors do not read the death of the primary as a clean stop.
+    // An empty fleet cannot recover once the event loop drains (all
+    // restart/backoff timers are unref'd): flag a failure exit code so
+    // supervisors never read the death of the primary as a clean stop.
     // Cleared when capacity is restored (Orchestrator.handleWorkerOnline).
+    // The hold keeps the loop alive while the queue re-forks — the flag
+    // describes "capacity down", not "process doomed".
     if (this.metrics.activeWorkers === 0) {
       process.exitCode = 1;
     }
@@ -130,6 +138,7 @@ export class RestartCoordinator {
       // and exit 0 would mask the crash. Cleared by resetCircuitBreaker() or
       // restored capacity (Orchestrator.handleWorkerOnline).
       process.exitCode = 1;
+      this.releaseEmptyFleetHold(); // no more forks are coming — let the loop drain
       // The default logger is null: without this, a minimal setup loses
       // restart capacity with zero output. One warning per trip.
       if (!this.breakerWarningEmitted) {
@@ -149,12 +158,14 @@ export class RestartCoordinator {
 
     // Queue restart and process asynchronously
     this.pendingRestartQueue.push({ kind: "crash", workerId, code, signal });
+    if (this.metrics.activeWorkers === 0) this.armEmptyFleetHold(); // before returning to the loop
     this.kickRestartQueue();
   }
 
-  /** A replacement came online: any successful boot resets the boot-failure streak. */
+  /** A worker came online: live worker handles hold the event loop again. */
   onWorkerOnline(workerId: number): void {
     this.consecutiveBootFailures = 0;
+    this.releaseEmptyFleetHold();
 
     // Reset backoff only after a sustained crash-free window
     if (this.restartBackoffDelay > 0) {
@@ -194,6 +205,7 @@ export class RestartCoordinator {
     for (let i = 0; i < count; i++) {
       this.pendingRestartQueue.push({ kind: "refill" });
     }
+    if (this.metrics.activeWorkers === 0) this.armEmptyFleetHold(); // refills must be able to fork
     this.kickRestartQueue();
   }
 
@@ -210,6 +222,30 @@ export class RestartCoordinator {
   /** True once the fork environment is declared unrecoverable. */
   isForkEnvUnrecoverable(): boolean {
     return this.consecutiveForkFailures >= MAX_CONSECUTIVE_FORK_FAILURES;
+  }
+
+  /**
+   * Hold the event loop while the fleet is empty and restarts are pending.
+   * All restart/backoff timers are unref'd, so an empty fleet would otherwise
+   * drain the loop — and exit — before the first replacement forks. The hold
+   * is released when a worker comes online, when shutdown starts (so it never
+   * delays a graceful exit), or when no more forks are coming (breaker trip,
+   * unrecoverable fork environment).
+   */
+  private armEmptyFleetHold(): void {
+    if (this.emptyFleetHold || this.deps.isShuttingDown()) return;
+    this.log?.warn("Fleet empty — holding the primary alive while restarts are pending", {
+      pendingRestarts: this.pendingRestartQueue.length,
+    });
+    this.emptyFleetHold = setTimeout(() => {}, 2_147_483_647);
+    this.emptyFleetHold.ref();
+  }
+
+  /** Release the empty-fleet event-loop hold, if armed. */
+  releaseEmptyFleetHold(): void {
+    if (!this.emptyFleetHold) return;
+    clearTimeout(this.emptyFleetHold);
+    this.emptyFleetHold = undefined;
   }
 
   private scheduleBackoffReset(workerId: number): void {
@@ -340,6 +376,7 @@ export class RestartCoordinator {
           maxAttempts: MAX_CONSECUTIVE_FORK_FAILURES,
         });
         process.exitCode = 1;
+        this.releaseEmptyFleetHold(); // no more forks are coming — let the loop drain
         this.pendingRestartQueue.length = 0;
         return;
       }

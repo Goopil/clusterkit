@@ -1900,9 +1900,10 @@ describe("Orchestrator", () => {
 
   // --------------------------------------------------------------------------
   // Exit-code protocol: the primary must not report success (exit 0) when the
-  // fleet is unrecoverable. All restart/backoff timers are unref'd, so an
-  // empty fleet drains the event loop and the process would otherwise exit
-  // with code 0, masking a total crash from supervisors/K8s.
+  // fleet is unrecoverable. An empty fleet flags exit code 1 immediately, but
+  // an event-loop hold keeps the primary alive while the restart queue forks
+  // replacements — recovery clears the flag. The loop only drains (exit 1)
+  // when no more forks are coming: breaker trip or unrecoverable fork env.
   // --------------------------------------------------------------------------
   describe("exit code protocol", () => {
     async function setupPrimary(workerCount: number | "auto" = 2, extra = {}) {
@@ -1920,16 +1921,16 @@ describe("Orchestrator", () => {
       process.exitCode = savedExitCode;
     });
 
-    it("flags exit code 1 when the fleet crashes to empty below the breaker threshold", async () => {
+    it("flags exit code 1 while the fleet is empty, re-forks anyway, and clears it on recovery", async () => {
       vi.useFakeTimers();
       const orch = await setupPrimary(2, {
         restart: { backoffMs: 5_000, crashThreshold: 10, crashWindowMs: 60_000 },
       });
       await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
 
-      // Both workers crash below the threshold: restarts queue behind the
-      // unref'd backoff timer, the event loop drains — the process must not
-      // report success.
+      // Both workers crash below the threshold: the fleet is down, the
+      // process must not report success — and the empty-fleet hold keeps the
+      // event loop alive so the queued restarts can still fork replacements.
       const fleet = Object.values(mockCluster.workers);
       for (const w of fleet) {
         mockCluster.emit("exit", w, 1, null);
@@ -1937,7 +1938,60 @@ describe("Orchestrator", () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(orch.getMetrics().activeWorkers).toBe(0);
-      expect(orch.getMetrics().workerRestarts).toBe(0); // restarts never forked: the loop drains first
+      expect(process.exitCode).toBe(1);
+
+      // Backoff fires (the hold kept the loop alive), replacements come
+      // online — sequentially, with exponential backoff (5 s, then 10 s)
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(orch.getMetrics().activeWorkers).toBe(2);
+      expect(process.exitCode).toBe(0);
+    });
+
+    it("releases the empty-fleet hold on shutdown so a graceful exit is never delayed", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 5_000, crashThreshold: 10, crashWindowMs: 60_000 },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      const fleet = Object.values(mockCluster.workers);
+      for (const w of fleet) {
+        mockCluster.emit("exit", w, 1, null);
+      }
+      await vi.advanceTimersByTimeAsync(0);
+      expect(process.exitCode).toBe(1);
+
+      // Operator-initiated shutdown while the hold is armed: it must not
+      // delay the graceful exit past the shutdown sequence (#79 regression guard).
+      for (const w of Object.values(mockCluster.workers)) {
+        w.autoExitOnDisconnect = true;
+      }
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+      expect(process.exitCode).toBe(0);
+      expect(orch.getMetrics().workerRestarts).toBe(0); // no forks after shutdown started
+    });
+
+    it("lets the fleet drain when the breaker trips while empty", async () => {
+      vi.useFakeTimers();
+      const orch = await setupPrimary(2, {
+        restart: { backoffMs: 1_000, crashThreshold: 2, crashWindowMs: 60_000 },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      const fleet = Object.values(mockCluster.workers);
+      for (const w of fleet) {
+        mockCluster.emit("exit", w, 1, null);
+      }
+      await vi.advanceTimersByTimeAsync(0);
+      expect(process.exitCode).toBe(1);
+
+      // The breaker tripped on the empty fleet: no forks are coming, the hold
+      // is released and the process drains with the failure exit code.
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(orch.getMetrics().workerRestarts).toBe(0);
+      expect(orch.getMetrics().activeWorkers).toBe(0);
       expect(process.exitCode).toBe(1);
     });
 
@@ -1960,26 +2014,6 @@ describe("Orchestrator", () => {
       // Missing capacity is refilled once the breaker is reset
       await new Promise((r) => setImmediate(r));
       expect(orch.getMetrics().activeWorkers).toBe(2);
-    });
-
-    it("clears the exit code once the fleet recovers to full capacity", async () => {
-      vi.useFakeTimers();
-      const orch = await setupPrimary(2, {
-        restart: { backoffMs: 100, crashThreshold: 10, crashWindowMs: 60_000 },
-      });
-      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
-
-      // Both workers crash below the threshold — the fleet is down
-      const fleet = Object.values(mockCluster.workers);
-      for (const w of fleet) {
-        mockCluster.emit("exit", w, 1, null);
-      }
-      expect(process.exitCode).toBe(1);
-
-      // Queued restarts fork replacements, which come online: capacity restored
-      await vi.advanceTimersByTimeAsync(1_000);
-      expect(orch.getMetrics().activeWorkers).toBe(2);
-      expect(process.exitCode).toBe(0);
     });
 
     it("keeps a graceful shutdown at exit code 0 even after a breaker trip", async () => {
