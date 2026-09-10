@@ -22,7 +22,11 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 16, "x": 0, "y": 1 },
       "fieldConfig": {
-        "defaults": { "unit": "short", "min": 0, "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" } },
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }
+        },
         "overrides": []
       },
       "options": {
@@ -63,7 +67,13 @@
       "title": "Active workers (process)",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 4, "x": 20, "y": 1 },
-      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
       "targets": [{ "refId": "A", "expr": "clusterkit_active_workers", "legendFormat": "workers" }]
     },
@@ -82,7 +92,11 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 10, "x": 0, "y": 10 },
       "fieldConfig": {
-        "defaults": { "unit": "bytes", "min": 0, "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" } },
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }
+        },
         "overrides": []
       },
       "options": {
@@ -101,7 +115,11 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 7, "x": 10, "y": 10 },
       "fieldConfig": {
-        "defaults": { "unit": "bytes", "min": 0, "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" } },
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }
+        },
         "overrides": []
       },
       "options": {
@@ -141,7 +159,11 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
       "fieldConfig": {
-        "defaults": { "unit": "ops", "min": 0, "custom": { "fillOpacity": 30, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } } },
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "custom": { "fillOpacity": 30, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
         "overrides": []
       },
       "options": {
@@ -149,7 +171,11 @@
         "tooltip": { "mode": "multi", "sort": "desc" }
       },
       "targets": [
-        { "refId": "A", "expr": "sum by (reason) (rate(clusterkit_worker_recycles_total[$__rate_interval]))", "legendFormat": "{{reason}}" }
+        {
+          "refId": "A",
+          "expr": "sum by (reason) (rate(clusterkit_worker_recycles_total[$__rate_interval]))",
+          "legendFormat": "{{reason}}"
+        }
       ]
     },
     {
@@ -166,7 +192,13 @@
         "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
         "tooltip": { "mode": "multi", "sort": "desc" }
       },
-      "targets": [{ "refId": "A", "expr": "sum(rate(clusterkit_worker_crashes_total[$__rate_interval]))", "legendFormat": "crashes" }]
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(clusterkit_worker_crashes_total[$__rate_interval]))",
+          "legendFormat": "crashes"
+        }
+      ]
     },
     {
       "type": "timeseries",
@@ -182,7 +214,13 @@
         "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
         "tooltip": { "mode": "multi", "sort": "desc" }
       },
-      "targets": [{ "refId": "A", "expr": "sum(rate(clusterkit_worker_restarts_total[$__rate_interval]))", "legendFormat": "restarts" }]
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(clusterkit_worker_restarts_total[$__rate_interval]))",
+          "legendFormat": "restarts"
+        }
+      ]
     },
     {
       "type": "stat",
@@ -195,10 +233,7 @@
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
-            ]
+            "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }]
           }
         },
         "overrides": []
@@ -217,10 +252,7 @@
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
-            ]
+            "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }]
           }
         },
         "overrides": []
@@ -234,7 +266,16 @@
       "title": "Last recovery duration",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 7, "w": 6, "x": 12, "y": 27 },
-      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 5 }] } }, "overrides": [] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 5 }]
+          }
+        },
+        "overrides": []
+      },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
       "targets": [{ "refId": "A", "expr": "clusterkit_recovery_duration_seconds", "legendFormat": "recovery" }]
     },
