@@ -50,6 +50,18 @@ orchestrator.run(async () => {
 });
 ```
 
+## Worker count
+
+| Condition                                        | Workers spawned             |
+|--------------------------------------------------|-----------------------------|
+| `workers.count: 'auto'` + `WEB_CONCURRENCY` set | Value of `WEB_CONCURRENCY`  |
+| `workers.count: 'auto'` + SO_REUSEPORT available | `os.availableParallelism()` |
+| `workers.count: 'auto'` + no SO_REUSEPORT        | `os.availableParallelism()` with cluster round-robin |
+| `workers.count: N`                               | Exactly N workers           |
+
+> **macOS note** — SO_REUSEPORT detection is unreliable on macOS. Use `WEB_CONCURRENCY=4` to force multi-worker mode, or
+> test on Linux with the Docker harness described in the [root README](../../README.md#docker).
+
 ## Configuration options
 
 ### Top-level (`OrchestratorConfig`)
@@ -170,7 +182,14 @@ const fleet = orchestrator.getFleetHealth(); // { target, active, quarantined, b
 
 orchestrator.isPrimary; // true in the primary (the supervisor), false in forked workers — incl. the app process at count 1
 
-orchestrator.resetCircuitBreaker(); // after fixing a crash-loop cause
+orchestrator.setNotReady(); // mark ready=false (e.g. during rolling deploys)
+orchestrator.setReady();    // restore ready=true (no-op during shutdown)
+
+orchestrator.resetCircuitBreaker(); // after fixing a crash-loop cause; refills missing workers
+orchestrator.restartWorkers(opts);  // rolling-restart workers without dropping connections
+orchestrator.workerCount;           // resolved worker count (number)
+
+// restartWorkers opts: { env?: NodeJS.ProcessEnv, filter?: (id: number) => boolean, staggerMs?: number, reason?: string }
 
 const supportsReusePort = await Orchestrator.supportsReusePort();
 const capabilities = await Orchestrator.getCapabilities();
@@ -182,9 +201,30 @@ The primary process owns worker supervision, restart policy, plugin installation
 processes only run the application bootstrap passed to `run()` and any shutdown callbacks registered with
 `registerOnShutdown()`.
 
-During `SIGTERM` or `SIGINT`, the primary sends a shutdown IPC message to each worker and waits for one terminal outcome:
-worker ACK, worker `exit`, worker `disconnect`, or `shutdown.ackTimeoutMs`. It then disconnects remaining workers, waits
-up to `shutdown.timeoutMs`, and escalates hung workers through `SIGTERM`, `SIGINT`, then `SIGKILL`.
+During `SIGTERM` or `SIGINT`, the primary coordinates a clean shutdown:
+
+1. Sends an IPC shutdown message to all workers
+2. Waits for each worker to ACK, exit, or disconnect (max `shutdown.ackTimeoutMs` per worker)
+3. Calls `worker.disconnect()` on all workers
+4. Waits up to `shutdown.timeoutMs` for workers to exit cleanly
+5. Force-kills any remaining workers (`SIGTERM` → `SIGINT` → `SIGKILL`)
+6. Calls `plugin.uninstall()` on all registered plugins
+7. Exits the primary with code `0`
+
+In each worker, the shutdown sequence is:
+
+1. Receives IPC message (or `SIGTERM`/`SIGINT`)
+2. Sends ACK to primary
+3. Calls your `registerOnShutdown()` callback (e.g. `server.close()`)
+4. Exits with code `0`
+
+`SIGHUP` is a silent no-op on the primary (the handler is registered so Node's default behavior — terminating the
+process — does not apply). If you need rolling restart functionality (e.g. for zero-downtime deployments on bare metal),
+use a dedicated plugin instead.
+
+ACK is the preferred cooperative signal, but a worker that terminates before sending ACK is also treated as complete for
+that ACK wait. This keeps container shutdown predictable when an application closes quickly or the process exits during
+its own cleanup path.
 
 Register server cleanup in workers, not the primary:
 
@@ -199,6 +239,43 @@ orchestrator.run(async () => {
 
 Set `shutdown.timeoutMs` below your platform termination grace period so forced escalation can happen before the
 container or process supervisor kills the primary process.
+
+## Circuit breaker
+
+If workers crash more than `restart.crashThreshold` times within `restart.crashWindowMs`, the orchestrator stops
+restarting them and emits `circuit-breaker:tripped`. This prevents infinite crash loops that would otherwise exhaust
+system resources. Each trip also emits a `process.emitWarning` (code `ClusterKitCrashLoop`) so setups without a
+configured logger are not fully silent. Restart queue entries are dropped once the breaker is tripped — after a
+`resetCircuitBreaker()` call, missing capacity is refilled.
+
+A failed worker fork (for example `EMFILE`/`ENOMEM` under resource exhaustion) no longer permanently shrinks the
+fleet: the restart is re-queued and retried through the normal backoff. After 3 consecutive fork failures the
+environment is treated as unrecoverable and the pending restarts are abandoned.
+
+## Exit codes
+
+The primary flags a failure exit code (`process.exitCode = 1`) when the fleet becomes unrecoverable:
+
+- the circuit breaker trips (restarts stopped),
+- the last worker crashes outside of a graceful shutdown, or
+- 3 consecutive fork failures exhaust the restart queue (an environment that can no longer fork).
+
+The flag is cleared (`process.exitCode = 0`) as soon as full capacity is restored (all workers back online) or a
+successful `resetCircuitBreaker()` refill brings the fleet back. Since all restart timers are unref'd, an
+unrecoverable fleet lets the primary drain and exit naturally — with the failure now visible to supervisors,
+Kubernetes, and process managers instead of masked as a clean exit `0`. Graceful shutdowns always exit with code `0`.
+
+## Health checks
+
+```ts
+const health = orchestrator.getHealth();
+// { ready: boolean, live: boolean }
+
+// live is always true by design — readiness is the signal, not liveness
+// ready becomes false during shutdown, after a circuit-breaker trip, or via setNotReady()
+```
+
+Use these with your Kubernetes liveness / readiness probes.
 
 ## Typed events (`OrchestratorEvents`)
 
@@ -220,6 +297,12 @@ container or process supervisor kills the primary process.
 | `circuit-breaker:tripped` | Crash count reached `restart.crashThreshold` inside `restart.crashWindowMs`. |
 | `restart:start` | A hot restart cycle begins via `restartWorkers()`. |
 | `restart:complete` | A hot restart cycle finishes — all targeted workers replaced. |
+
+> **Stop accepting early on `worker:draining`** — for TCP, the listening socket and the established connections are
+> separate: calling `server.close()` in the `worker:draining` handler removes the worker from the `SO_REUSEPORT` group
+> immediately (the kernel stops routing new connections to it) while existing connections keep draining, and
+> Linux ≥ 5.10 migrates in-flight connection requests to the remaining group members. On `worker:recycle` the drain is
+> already underway — `worker:draining` fires earlier.
 
 ## Capability helpers
 
@@ -252,7 +335,48 @@ quarantine counters, so `getFleetHealth().quarantined` can over-report while suc
 first, then the old worker is retired through IPC shutdown → disconnect → SIGTERM → SIGKILL. RSS and wedged recycles
 never count toward the crash circuit breaker.
 
+## Plugins
+
+Extend the orchestrator with custom plugins:
+
+```ts
+import type {OrchestratorPlugin, Orchestrator} from '@goopil/clusterkit';
+
+const myPlugin: OrchestratorPlugin = {
+    name: 'my-plugin',
+
+    async install(orchestrator: Orchestrator) {
+        // Runs on the primary before workers are forked.
+        // Use orchestrator.patchWorkerEnv() or orchestrator.overrideWorkerCount()
+        // to influence worker configuration.
+        orchestrator.on('worker:crash', ({workerId}) => {
+            // send alert, update dashboard, etc.
+        });
+    },
+
+    async uninstall(orchestrator: Orchestrator) {
+        // cleanup — called automatically during shutdown
+    },
+};
+
+orchestrator.use(myPlugin).run(/* ... */);
+```
+
+`use()` is chainable and plugins are installed in registration order. Plugins must be registered before `run()` —
+calling `use()` afterwards throws.
+
+**Plugin helpers available in `install()`:**
+
+```ts
+// install(orchestrator, logger, config) receives the ResolvedConfig —
+// read config.workers.count / config.workers.env for the current settings.
+orchestrator.patchWorkerEnv(env)        // merge env vars into workerEnv
+orchestrator.overrideWorkerCount(n)     // override an 'auto' worker count (max 256)
+```
+
+Plugins install **before** the initial fork, so both helpers apply to the whole fleet. They throw if called after
+workers have been forked.
+
 ## Related docs
 
 - [Root README](../../README.md)
-- [Audit report](../../docs/audit/README.md)
