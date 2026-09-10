@@ -96,12 +96,27 @@ export class HealthMonitor {
 
   /** Recycle a worker whose event-loop lag exceeded the threshold for
    * `cfg.health.lagRecycleBeats` consecutive beats — catches "slow but alive"
-   * workers that the wedged (silence) policy never sees. One-shot per worker instance. */
+   * workers that the wedged (silence) policy never sees. A single beat above
+   * `cfg.health.lagSpikeMs` recycles immediately (one-off long sync blocks).
+   * One-shot per worker instance. */
   private checkLagLimit(workerId: number, report: WorkerHealthReport): void {
+    if (this.deps.isShuttingDown()) return;
+    if (this.lagRecycled.has(workerId)) return;
+    const spikeMs = this.cfg.health.lagSpikeMs;
+    if (spikeMs > 0 && report.eventLoopLagMs > spikeMs) {
+      this.lagBeats.delete(workerId);
+      this.lagRecycled.add(workerId);
+      this.log?.warn("Worker event-loop lag spike, recycling", {
+        workerId,
+        eventLoopLagMs: report.eventLoopLagMs,
+        lagSpikeMs: spikeMs,
+      });
+      this.deps.recycleWorker(workerId, "lag");
+      return;
+    }
     const thresholdMs = this.cfg.health.maxEventLoopLagMs;
     const recycleBeats = this.cfg.health.lagRecycleBeats;
-    if (thresholdMs <= 0 || this.deps.isShuttingDown()) return;
-    if (this.lagRecycled.has(workerId)) return;
+    if (thresholdMs <= 0) return;
     if (report.eventLoopLagMs > thresholdMs) {
       const beats = (this.lagBeats.get(workerId) ?? 0) + 1;
       if (beats < recycleBeats) {

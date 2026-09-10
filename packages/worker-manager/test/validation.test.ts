@@ -201,6 +201,52 @@ describe("validation", () => {
     });
   });
 
+  describe("validateConfig — misplaced or unknown section keys", () => {
+    it("warns and suggests the right section for a misplaced key", () => {
+      const emitWarning = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+      try {
+        validateConfig({ health: { maxRssMb: 100 } });
+        expect(emitWarning).toHaveBeenCalledWith(
+          expect.stringContaining("Unknown option 'health.maxRssMb'"),
+          "ClusterKitConfigWarning",
+        );
+        expect(emitWarning).toHaveBeenCalledWith(
+          expect.stringContaining("did you mean 'workers.maxRssMb'"),
+          "ClusterKitConfigWarning",
+        );
+      } finally {
+        emitWarning.mockRestore();
+      }
+    });
+
+    it("warns without a suggestion for a key that exists nowhere", () => {
+      const emitWarning = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+      try {
+        validateConfig({ workers: { nope: 1 } });
+        expect(emitWarning).toHaveBeenCalledWith(
+          expect.stringContaining("Unknown option 'workers.nope'"),
+          "ClusterKitConfigWarning",
+        );
+        expect(emitWarning).not.toHaveBeenCalledWith(
+          expect.stringContaining("did you mean"),
+          "ClusterKitConfigWarning",
+        );
+      } finally {
+        emitWarning.mockRestore();
+      }
+    });
+
+    it("does not warn for a valid config", () => {
+      const emitWarning = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+      try {
+        validateConfig({ workers: { maxRssMb: 100 }, health: { heartbeatMs: 1_000 } });
+        expect(emitWarning).not.toHaveBeenCalled();
+      } finally {
+        emitWarning.mockRestore();
+      }
+    });
+  });
+
   describe("restart block", () => {
     it("should validate restart numeric ranges", () => {
       expect(() => validateConfig({ restart: { crashThreshold: 3 } })).not.toThrow();
@@ -294,6 +340,7 @@ describe("validation", () => {
         degradedAfterMs: 0,
         maxEventLoopLagMs: 0,
         lagRecycleBeats: 3,
+        lagSpikeMs: 0,
       });
       expect(resolved.workers.maxRssMb).toBe(0);
       expect(resolved.restart.bootFailQuarantine).toBe(0);
@@ -324,6 +371,11 @@ describe("validation", () => {
       expect(() => validateConfig({ health: { heartbeatMs: 5_000, maxEventLoopLagMs: 100 } })).not.toThrow();
     });
 
+    it("rejects lagSpikeMs without heartbeatMs", () => {
+      expect(() => validateConfig({ health: { lagSpikeMs: 1_000 } })).toThrow(WorkerManagerValidationError);
+      expect(() => validateConfig({ health: { heartbeatMs: 5_000, lagSpikeMs: 1_000 } })).not.toThrow();
+    });
+
     it("rejects lagRecycleBeats below 1, accepts custom counts", () => {
       expect(() => validateConfig({ health: { lagRecycleBeats: 0 } })).toThrow(WorkerManagerValidationError);
       expect(() => validateConfig({ health: { lagRecycleBeats: -1 } })).toThrow(WorkerManagerValidationError);
@@ -345,6 +397,7 @@ describe("validation", () => {
       ["health.degradedAfterMs", { health: { degradedAfterMs: 2.5 } }],
       ["health.maxEventLoopLagMs", { health: { maxEventLoopLagMs: 2.5 } }],
       ["health.lagRecycleBeats", { health: { lagRecycleBeats: 2.5 } }],
+      ["health.lagSpikeMs", { health: { lagSpikeMs: 2.5 } }],
       ["workers.maxRssMb", { workers: { maxRssMb: 1.5 } }],
       ["restart.bootFailQuarantine", { restart: { bootFailQuarantine: 1.5 } }],
     ])("rejects non-integer %s", (_field, config) => {
