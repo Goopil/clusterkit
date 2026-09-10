@@ -254,16 +254,18 @@ environment is treated as unrecoverable and the pending restarts are abandoned.
 
 ## Exit codes
 
-The primary flags a failure exit code (`process.exitCode = 1`) when the fleet becomes unrecoverable:
+The primary flags a failure exit code (`process.exitCode = 1`) while the fleet is down or unrecoverable:
 
-- the circuit breaker trips (restarts stopped),
-- the last worker crashes outside of a graceful shutdown, or
-- 3 consecutive fork failures exhaust the restart queue (an environment that can no longer fork).
+- any crash that empties the fleet (all workers down, replacements pending),
+- the circuit breaker tripping (restarts stopped),
+- 3 consecutive fork failures exhausting the restart queue (an environment that can no longer fork).
 
-The flag is cleared (`process.exitCode = 0`) as soon as full capacity is restored (all workers back online) or a
-successful `resetCircuitBreaker()` refill brings the fleet back. Since all restart timers are unref'd, an
-unrecoverable fleet lets the primary drain and exit naturally — with the failure now visible to supervisors,
-Kubernetes, and process managers instead of masked as a clean exit `0`. Graceful shutdowns always exit with code `0`.
+While the fleet is empty with restarts pending, the primary holds its event loop alive so the restart queue can
+still fork replacements — the flag clears (`process.exitCode = 0`) as soon as full capacity is restored or a
+`resetCircuitBreaker()` refill brings the fleet back. The primary only drains and exits — with the failure visible
+to supervisors, Kubernetes, and process managers instead of masked as a clean exit `0` — when no more forks are
+coming: a breaker trip or a dead fork environment. The hold is released on shutdown, so a graceful exit is never
+delayed. Graceful shutdowns always exit with code `0`.
 
 ## Health checks
 

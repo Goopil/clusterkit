@@ -625,6 +625,17 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // Wedged-worker watch (opt-in via health.wedgedTimeoutMs)
     this.healthMonitor.startWedgedWatch();
 
+    // Legible death: a natural drain with a failure exit code means the fleet
+    // was lost and unrecoverable (breaker tripped or fork environment dead).
+    // Make the reason explicit for supervisors and on-call operators.
+    process.on("beforeExit", (code) => {
+      if (code === 1) {
+        this.log?.error(
+          "Primary event loop drained with a failure exit code — fleet unrecoverable, exiting for supervisor restart",
+        );
+      }
+    });
+
     this.log?.info("Primary started", { workerCount });
   }
 
@@ -781,6 +792,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     // Stop intervals
     clearInterval(this.crashCleanupInterval);
     this.restartCoordinator.cancelBackoffReset();
+    this.restartCoordinator.releaseEmptyFleetHold(); // never delay a graceful exit (#79)
     this.workerManager.stopRecycling();
     this.healthMonitor.stop();
 
