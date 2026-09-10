@@ -48,9 +48,9 @@
   "packageManager": "pnpm@10.30.1",
   "type": "module",
   "devDependencies": {
-    "@biomejs/biome": "^2.5.11",
-    "@changesets/changelog-github": "^1.0.0",
-    "@changesets/cli": "^3.0.1",
+    "@biomejs/biome": "^2.5.12",
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.2",
     "publint": "^0.3.24",
     "turbo": "^2.10.12",
     "vitest": "catalog:"
