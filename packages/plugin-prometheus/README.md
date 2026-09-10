@@ -118,7 +118,7 @@ Worker health metrics (per worker, driven by `worker:health` events — require 
 
 Recovery metrics:
 
-- `clusterkit_worker_recycles_total{reason}` (Counter) — Total number of worker recycles by reason (`maxAge`, `rss`, `wedged`)
+- `clusterkit_worker_recycles_total{reason}` (Counter) — Total number of worker recycles by reason (`maxAge`, `rss`, `wedged`, `lag`)
 - `clusterkit_worker_wedged_kills_total` (Counter) — Total number of workers killed for being wedged
 - `clusterkit_recovery_duration_seconds` (Gauge) — Duration of the last fleet degradation until recovery
 

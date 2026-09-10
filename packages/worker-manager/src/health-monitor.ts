@@ -1,7 +1,7 @@
 import type { Logger, ResolvedConfig, WorkerHealthReport } from "./types";
 import { isTypedMessage } from "./types";
 
-export type RecycleTrigger = "rss" | "wedged";
+export type RecycleTrigger = "rss" | "wedged" | "lag";
 
 export interface HealthMonitorDeps {
   isShuttingDown: () => boolean;
@@ -22,6 +22,8 @@ export class HealthMonitor {
   private readonly deps: HealthMonitorDeps;
   private readonly registry = new Map<number, { pid: number; lastReport: number; report: WorkerHealthReport }>();
   private readonly rssRecycled = new Set<number>();
+  private readonly lagRecycled = new Set<number>();
+  private readonly lagBeats = new Map<number, number>();
   private readonly exitedWorkerIds = new Set<number>();
   private reportTimer?: NodeJS.Timeout;
   private wedgedTimer?: NodeJS.Timeout;
@@ -75,6 +77,7 @@ export class HealthMonitor {
     this.registry.set(workerId, { pid, lastReport: Date.now(), report });
     this.deps.onHealthReport(report);
     this.checkRssLimit(workerId, report);
+    this.checkLagLimit(workerId, report);
   }
 
   private checkRssLimit(workerId: number, report: WorkerHealthReport): void {
@@ -89,6 +92,34 @@ export class HealthMonitor {
       maxRssMb: limitMb,
     });
     this.deps.recycleWorker(workerId, "rss");
+  }
+
+  /** Recycle a worker whose event-loop lag exceeded the threshold for
+   * `cfg.health.lagRecycleBeats` consecutive beats — catches "slow but alive"
+   * workers that the wedged (silence) policy never sees. One-shot per worker instance. */
+  private checkLagLimit(workerId: number, report: WorkerHealthReport): void {
+    const thresholdMs = this.cfg.health.maxEventLoopLagMs;
+    const recycleBeats = this.cfg.health.lagRecycleBeats;
+    if (thresholdMs <= 0 || this.deps.isShuttingDown()) return;
+    if (this.lagRecycled.has(workerId)) return;
+    if (report.eventLoopLagMs > thresholdMs) {
+      const beats = (this.lagBeats.get(workerId) ?? 0) + 1;
+      if (beats < recycleBeats) {
+        this.lagBeats.set(workerId, beats);
+        return;
+      }
+      this.lagBeats.delete(workerId);
+      this.lagRecycled.add(workerId);
+      this.log?.warn("Worker exceeded event-loop lag threshold, recycling", {
+        workerId,
+        eventLoopLagMs: report.eventLoopLagMs,
+        maxEventLoopLagMs: thresholdMs,
+        consecutiveBeats: recycleBeats,
+      });
+      this.deps.recycleWorker(workerId, "lag");
+      return;
+    }
+    this.lagBeats.delete(workerId);
   }
 
   /** Primary-side watch for wedged workers. Only workers that reported at least
@@ -114,6 +145,8 @@ export class HealthMonitor {
     this.exitedWorkerIds.add(workerId);
     this.registry.delete(workerId);
     this.rssRecycled.delete(workerId);
+    this.lagRecycled.delete(workerId);
+    this.lagBeats.delete(workerId);
   }
 
   stop(): void {

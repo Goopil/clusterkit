@@ -750,13 +750,16 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     const ageMs = this.workerManager.getWorkerAge(oldWorker.id);
     const reason = this.recycleReasons.get(oldWorker.id) ?? "maxAge";
     this.recycleReasons.delete(oldWorker.id);
+    // Draining fires at the recycle decision — before the network drain starts —
+    // so listeners can stop routing new work to this worker immediately.
+    this.safeEmit("worker:draining", { workerId: oldWorker.id, pid: oldWorker.process.pid ?? 0, reason });
     this.safeEmit("worker:recycle", { workerId: oldWorker.id, pid: oldWorker.process.pid ?? 0, ageMs, reason });
     this.drainCoordinator.recycle(oldWorker, newWorker);
   }
 
   // The monitor spends its rss one-shot before the outcome is known: a declined
   // recycle (shutdown, mid-drain, fork failure) is not retried — maxAge/crash paths own the worker.
-  private triggerWorkerRecycle(workerId: number, reason: "rss" | "wedged"): void {
+  private triggerWorkerRecycle(workerId: number, reason: "rss" | "wedged" | "lag"): void {
     if (this.workerManager.isMarkedForRecycling(workerId)) return;
     this.recycleReasons.set(workerId, reason);
     const ok = this.workerManager.recycleWorkerNow(

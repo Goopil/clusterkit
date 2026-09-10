@@ -87,6 +87,11 @@ export interface HealthConfig {
   wedgedTimeoutMs?: number;
   /** Duration `active < target` must persist before `fleet:degraded` fires. 0 = disabled. @default 0 */
   degradedAfterMs?: number;
+  /** Recycle a worker whose reported event-loop lag exceeded this value (ms) for
+   * `lagRecycleBeats` consecutive beats. Requires heartbeatMs > 0. 0 = disabled. @default 0 */
+  maxEventLoopLagMs?: number;
+  /** Consecutive heartbeats above `maxEventLoopLagMs` before recycling. @default 3 */
+  lagRecycleBeats?: number;
 }
 
 export interface OrchestratorConfig {
@@ -138,6 +143,8 @@ export type ResolvedConfig = {
     heartbeatMs: number;
     wedgedTimeoutMs: number;
     degradedAfterMs: number;
+    maxEventLoopLagMs: number;
+    lagRecycleBeats: number;
   };
   clusterModule: typeof cluster | undefined;
 };
@@ -146,7 +153,7 @@ export type ResolvedConfig = {
 // Worker health & recovery
 // ============================================================================
 
-export type RecycleReason = "maxAge" | "rss" | "wedged";
+export type RecycleReason = "maxAge" | "rss" | "wedged" | "lag";
 
 export interface WorkerHealthReport {
   workerId: number;
@@ -185,6 +192,9 @@ export interface OrchestratorEvents {
   "worker:crash": [data: { workerId: number; pid: number; code: number | null; signal: string | null }];
   "worker:restart": [data: { newWorkerId: number; newPid: number }];
   "worker:recycle": [data: { workerId: number; pid: number; ageMs: number; reason: RecycleReason }];
+  /** Emitted at the recycle decision, before the network drain starts — the
+   * moment new work should stop being routed to the worker. */
+  "worker:draining": [data: { workerId: number; pid: number; reason: RecycleReason }];
   "shutdown:start": [data: { signal: string }];
   "shutdown:complete": [data: { metrics: WorkerMetrics }];
   "circuit-breaker:tripped": [data: { crashCount: number; windowMs: number }];

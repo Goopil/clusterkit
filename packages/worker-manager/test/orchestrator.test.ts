@@ -111,14 +111,14 @@ function cfg(extra: TestConfig = {}): Parameters<typeof Orchestrator>[0] {
 }
 
 /** Report worker health through the real monitor tap (mirrors the worker IPC heartbeat). */
-function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number): void {
+function reportHealth(orch: Orchestrator, workerId: number, pid: number, rss: number, eventLoopLagMs = 0): void {
   (
     orch as unknown as { healthMonitor: { onWorkerMessage: (id: number, pid: number, msg: unknown) => void } }
   ).healthMonitor.onWorkerMessage(workerId, pid, {
     type: "__wm:hb",
     rss,
     heapUsed: 0,
-    eventLoopLagMs: 0,
+    eventLoopLagMs,
   });
 }
 
@@ -1070,6 +1070,67 @@ describe("Orchestrator", () => {
 
       expect(wedgedEvents).toHaveLength(0); // draining, not wedged
       expect(Object.keys(mockCluster.workers)).toHaveLength(2); // no recycle on top of the drain
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  describe("draining event", () => {
+    it("emits worker:draining before worker:recycle, with the recycle reason", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(cfg({ workers: { count: 2, maxRssMb: 100 } }));
+      const order: string[] = [];
+      const drainingEvents: Array<{ workerId: number; pid: number; reason: string }> = [];
+      orch.on("worker:draining", (d) => {
+        order.push("draining");
+        drainingEvents.push(d);
+      });
+      orch.on("worker:recycle", () => order.push("recycle"));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const worker = Object.values(mockCluster.workers)[0];
+      reportHealth(orch, worker.id, worker.process.pid, 200 * 1024 * 1024);
+      await vi.advanceTimersByTimeAsync(0); // let the replacement fork + drain start
+
+      expect(order).toEqual(["draining", "recycle"]);
+      expect(drainingEvents).toMatchObject([{ workerId: worker.id, pid: worker.process.pid, reason: "rss" }]);
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  describe("lag recycling", () => {
+    it("drains a worker with sustained event-loop lag and emits worker:recycle with reason lag", async () => {
+      vi.useFakeTimers();
+      mockCluster.isPrimary = true;
+      const orch = new Orchestrator(
+        cfg({ workers: { count: 2 }, health: { heartbeatMs: 500, maxEventLoopLagMs: 100 } }),
+      );
+      const recycleEvents: Array<{ workerId: number; reason: string }> = [];
+      orch.on("worker:recycle", (d) => recycleEvents.push(d));
+      await orch.run(() => {});
+      await vi.advanceTimersByTimeAsync(0); // flush initial "online" setImmediates
+
+      const worker = Object.values(mockCluster.workers)[0];
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024, 150); // beat 1
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024, 150); // beat 2
+      expect(recycleEvents).toHaveLength(0);
+      reportHealth(orch, worker.id, worker.process.pid, 10 * 1024 * 1024, 150); // beat 3 → recycle
+      await vi.advanceTimersByTimeAsync(0); // let the replacement fork + drain start
+
+      expect(recycleEvents).toMatchObject([{ workerId: worker.id, reason: "lag" }]);
+      expect(Object.keys(mockCluster.workers)).toHaveLength(3); // replacement forked
+      expect(orch.getMetrics().crashLoopBackoffs).toBe(0); // NOT a crash — breaker untouched
+
+      for (const w of Object.values(mockCluster.workers)) w.autoExitOnDisconnect = true;
+      const shutdownPromise = orch.shutdownPrimary("SIGTERM");
+      await vi.runAllTimersAsync();
+      await shutdownPromise;
     });
   });
 

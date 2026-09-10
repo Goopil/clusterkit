@@ -191,6 +191,10 @@ orchestrator.on('worker:crash', ({workerId, pid, code, signal}) => {
 });
 orchestrator.on('worker:restart', ({newWorkerId, newPid}) => {
 });
+orchestrator.on('worker:draining', ({workerId, pid, reason}) => {
+  // Emitted at the recycle decision, before the network drain starts — the
+  // moment new work should stop being routed to the worker.
+});
 orchestrator.on('worker:recycle', ({workerId, pid, ageMs}) => {
 });
 orchestrator.on('shutdown:start', ({signal}) => {
@@ -204,6 +208,12 @@ orchestrator.on('restart:start', ({reason, workerIds}) => {
 orchestrator.on('restart:complete', ({restartedWorkerIds, reason}) => {
 });
 ```
+
+> **Stop accepting early on `worker:draining`** — for TCP, the listening socket and the established connections are
+> separate: calling `server.close()` in the `worker:draining` handler removes the worker from the `SO_REUSEPORT` group
+> immediately (the kernel stops routing new connections to it) while existing connections keep draining, and
+> Linux ≥ 5.10 migrates in-flight connection requests to the remaining group members. On `worker:recycle` the drain is
+> already underway — `worker:draining` fires earlier.
 
 ### Graceful shutdown
 
