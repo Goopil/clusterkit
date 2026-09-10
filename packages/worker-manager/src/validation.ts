@@ -39,6 +39,12 @@ function assertPositiveInteger(val: unknown, field: string): void {
   }
 }
 
+function assertNonNegativeInteger(val: unknown, field: string): void {
+  if (!Number.isInteger(val) || (val as number) < 0) {
+    throw new WorkerManagerValidationError(field, `must be a non-negative integer (got ${val})`);
+  }
+}
+
 function assertPlainObject(val: unknown, field: string): void {
   if (val === undefined) {
     return;
@@ -84,6 +90,26 @@ const DANGEROUS_ARG_PATTERNS = [
   /^-p(?:$|\s)/,
 ];
 
+function validateExecArgv(execArgv: unknown): void {
+  if (execArgv === undefined) {
+    return;
+  }
+  if (!Array.isArray(execArgv)) {
+    throw new WorkerManagerValidationError("workers.execArgv", "must be an array of strings");
+  }
+  const hasInvalidArg = execArgv.some((arg) => typeof arg !== "string" || !arg.trim());
+  if (hasInvalidArg) {
+    throw new WorkerManagerValidationError("workers.execArgv", "must contain only non-empty strings");
+  }
+  const dangerousArg = execArgv.find((arg) => DANGEROUS_ARG_PATTERNS.some((p) => p.test(arg.trim())));
+  if (dangerousArg) {
+    throw new WorkerManagerValidationError(
+      "workers.execArgv",
+      `contains a potentially dangerous flag '${dangerousArg}' (--require, --eval, --inspect, etc. are blocked)`,
+    );
+  }
+}
+
 function validateWorkersOptions(workers: WorkersConfig): void {
   if (workers.count !== undefined && workers.count !== "auto") {
     assertPositiveInteger(workers.count, "workers.count");
@@ -92,9 +118,7 @@ function validateWorkersOptions(workers: WorkersConfig): void {
     assertRange(workers.maxAgeMs, "workers.maxAgeMs", 1_000, Infinity);
   }
   if (workers.maxRssMb !== undefined) {
-    if (!Number.isInteger(workers.maxRssMb) || workers.maxRssMb < 0) {
-      throw new WorkerManagerValidationError("workers.maxRssMb", "must be a non-negative integer");
-    }
+    assertNonNegativeInteger(workers.maxRssMb, "workers.maxRssMb");
   }
   if (workers.env !== undefined && (typeof workers.env !== "object" || Array.isArray(workers.env))) {
     throw new WorkerManagerValidationError("workers.env", "must be a plain object");
@@ -106,22 +130,7 @@ function validateWorkersOptions(workers: WorkersConfig): void {
       "ClusterKitSecurityWarning",
     );
   }
-  if (workers.execArgv !== undefined) {
-    if (!Array.isArray(workers.execArgv)) {
-      throw new WorkerManagerValidationError("workers.execArgv", "must be an array of strings");
-    }
-    const hasInvalidArg = workers.execArgv.some((arg) => typeof arg !== "string" || !arg.trim());
-    if (hasInvalidArg) {
-      throw new WorkerManagerValidationError("workers.execArgv", "must contain only non-empty strings");
-    }
-    const dangerousArg = workers.execArgv.find((arg) => DANGEROUS_ARG_PATTERNS.some((p) => p.test(arg.trim())));
-    if (dangerousArg) {
-      throw new WorkerManagerValidationError(
-        "workers.execArgv",
-        `contains a potentially dangerous flag '${dangerousArg}' (--require, --eval, --inspect, etc. are blocked)`,
-      );
-    }
-  }
+  validateExecArgv(workers.execArgv);
 }
 
 function validateRestartOptions(restart: RestartConfig): void {
@@ -175,27 +184,19 @@ function validateShutdownOptions(shutdown: ShutdownConfig): void {
 
 function validateHealthOptions(health: HealthConfig): void {
   if (health.heartbeatMs !== undefined) {
-    if (!Number.isInteger(health.heartbeatMs) || health.heartbeatMs < 0) {
-      throw new WorkerManagerValidationError("health.heartbeatMs", "must be a non-negative integer");
-    }
+    assertNonNegativeInteger(health.heartbeatMs, "health.heartbeatMs");
     if (health.heartbeatMs > 0 && health.heartbeatMs < 100) {
       throw new WorkerManagerValidationError("health.heartbeatMs", "must be >= 100 when enabled (IPC protection)");
     }
   }
   if (health.wedgedTimeoutMs !== undefined) {
-    if (!Number.isInteger(health.wedgedTimeoutMs) || health.wedgedTimeoutMs < 0) {
-      throw new WorkerManagerValidationError("health.wedgedTimeoutMs", "must be a non-negative integer");
-    }
+    assertNonNegativeInteger(health.wedgedTimeoutMs, "health.wedgedTimeoutMs");
   }
   if (health.degradedAfterMs !== undefined) {
-    if (!Number.isInteger(health.degradedAfterMs) || health.degradedAfterMs < 0) {
-      throw new WorkerManagerValidationError("health.degradedAfterMs", "must be a non-negative integer");
-    }
+    assertNonNegativeInteger(health.degradedAfterMs, "health.degradedAfterMs");
   }
   if (health.maxEventLoopLagMs !== undefined) {
-    if (!Number.isInteger(health.maxEventLoopLagMs) || health.maxEventLoopLagMs < 0) {
-      throw new WorkerManagerValidationError("health.maxEventLoopLagMs", "must be a non-negative integer");
-    }
+    assertNonNegativeInteger(health.maxEventLoopLagMs, "health.maxEventLoopLagMs");
   }
   if (health.lagRecycleBeats !== undefined) {
     if (!Number.isInteger(health.lagRecycleBeats) || health.lagRecycleBeats < 1) {

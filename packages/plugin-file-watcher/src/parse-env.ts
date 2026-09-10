@@ -12,6 +12,16 @@ function isQuoted(value: string): boolean {
   );
 }
 
+function parseEnvValue(value: string): string {
+  if (isQuoted(value)) {
+    return value.slice(1, -1);
+  }
+  const commentIdx = value.indexOf(" #");
+  if (commentIdx !== -1) value = value.slice(0, commentIdx).trimEnd();
+  if (isQuoted(value)) return value.slice(1, -1);
+  return value;
+}
+
 export function parseEnvFile(content: string): Record<string, string> {
   const env: Record<string, string> = {};
   for (const rawLine of content.split("\n")) {
@@ -21,15 +31,7 @@ export function parseEnvFile(content: string): Record<string, string> {
     if (eqIdx === -1) continue;
     const key = line.slice(0, eqIdx).trim();
     if (FORBIDDEN_KEYS.has(key)) continue;
-    let value = line.slice(eqIdx + 1).trim();
-    if (isQuoted(value)) {
-      value = value.slice(1, -1);
-    } else {
-      const commentIdx = value.indexOf(" #");
-      if (commentIdx !== -1) value = value.slice(0, commentIdx).trimEnd();
-      if (isQuoted(value)) value = value.slice(1, -1);
-    }
-    env[key] = value;
+    env[key] = parseEnvValue(line.slice(eqIdx + 1).trim());
   }
   return env;
 }

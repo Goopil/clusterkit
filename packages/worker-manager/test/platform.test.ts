@@ -25,32 +25,18 @@ describe("platform", () => {
       expect(result1).toBe(result2);
     });
 
-    it("should always return false on Windows", async (ctx) => {
-      if (process.platform !== "win32") {
-        ctx.skip();
-        return;
-      }
-      const result = await detectReusePortSupport();
-      expect(result).toBe(false);
-    });
-
-    it("should always return false on macOS (unreliable SO_REUSEPORT)", async (ctx) => {
-      if (process.platform !== "darwin") {
-        ctx.skip();
-        return;
-      }
-      const result = await detectReusePortSupport();
-      expect(result).toBe(false);
-    });
-
     // Runs for real inside the Linux docker test job (compose service `test`)
-    it("should always return true on Linux (kernel >= 3.9)", async (ctx) => {
-      if (process.platform !== "linux") {
+    it.for([
+      { platform: "win32", expected: false, os: "Windows" },
+      { platform: "darwin", expected: false, os: "macOS (unreliable SO_REUSEPORT)" },
+      { platform: "linux", expected: true, os: "Linux (kernel >= 3.9)" },
+    ])("should always return $expected on $os", async ({ platform, expected }, ctx) => {
+      if (process.platform !== platform) {
         ctx.skip();
         return;
       }
       const result = await detectReusePortSupport();
-      expect(result).toBe(true);
+      expect(result).toBe(expected);
     });
 
     it("should not throw on any platform", async () => {

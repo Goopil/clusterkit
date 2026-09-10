@@ -26,6 +26,12 @@ import { WorkerManager } from "./worker-manager";
 /** Upper bound applied to WEB_CONCURRENCY to guard against fork bombs from inherited env vars. */
 const MAX_AUTO_WORKERS = 256;
 
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+type RollOutcome = "complete" | "aborted-by-shutdown" | "fork-bailout";
+
 /**
  * Main orchestrator that coordinates worker lifecycle, shutdown, and health.
  * Delegates specific concerns to specialized services:
@@ -43,7 +49,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   private readonly shutdownCoordinator: ShutdownCoordinator;
   private readonly restartCoordinator: RestartCoordinator;
   private readonly drainCoordinator: DrainCoordinator;
-  private healthMonitor!: HealthMonitor;
+  private readonly healthMonitor: HealthMonitor;
 
   // IPC message types
   private readonly shutdownType: string;
@@ -221,6 +227,19 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     }
   }
 
+  private async rollbackInstalledPlugins(installed: OrchestratorPlugin[]): Promise<void> {
+    for (const done of installed) {
+      try {
+        await done.uninstall?.(this);
+      } catch (rollbackErr) {
+        this.log?.error("Plugin rollback failed", {
+          plugin: done.name,
+          error: errorText(rollbackErr),
+        });
+      }
+    }
+  }
+
   private async installPlugins(): Promise<void> {
     const installed: OrchestratorPlugin[] = [];
     for (const plugin of this.plugins) {
@@ -231,17 +250,8 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
         // Roll back plugins already installed in this pass so a failing install
         // does not leave the instance half-configured. A failing uninstall must
         // not mask the original install error.
-        for (const done of installed) {
-          try {
-            await done.uninstall?.(this);
-          } catch (rollbackErr) {
-            this.log?.error("Plugin rollback failed", {
-              plugin: done.name,
-              error: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
-            });
-          }
-        }
-        throw new Error(`Plugin '${plugin.name}' install failed: ${err instanceof Error ? err.message : String(err)}`, {
+        await this.rollbackInstalledPlugins(installed);
+        throw new Error(`Plugin '${plugin.name}' install failed: ${errorText(err)}`, {
           cause: err,
         });
       }
@@ -477,69 +487,14 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
       this.log?.info("Hot restart initiated", { reason, workerIds });
       this.safeEmit("restart:start", { reason, workerIds });
 
-      const restartedWorkerIds: number[] = [];
-      let abortedByShutdown = false;
-      let forkFailureBailout = false;
+      const { outcome, restartedWorkerIds } = await this.rollWorkers(targeted, opts?.env, staggerMs);
 
-      for (const oldWorker of targeted) {
-        if (this.shutdownCoordinator.isShutdownInProgress()) {
-          abortedByShutdown = true;
-          break;
-        }
-
-        // A worker that exited between the snapshot and its turn already had
-        // its replacement forked by the crash-restart path: marking a dead id
-        // would leak a stale recycling mark (the 'exit' cleanup already ran)
-        // and inflate the recycling count, and the bounded exit wait would
-        // stall for the full drain budget on an exit event that already fired.
-        if (oldWorker.isDead()) {
-          this.log?.warn("Hot restart skipped worker — already exited", { workerId: oldWorker.id });
-          continue;
-        }
-
-        let newWorker: Worker;
-        try {
-          newWorker = this.workerManager.forkWorker(opts?.env);
-        } catch (err) {
-          // A fork failure (EMFILE/ENOMEM...) leaves the old worker running
-          // (still serving) — better than an unhandled exception killing the
-          // primary. The worker is NOT marked for recycling.
-          const attempt = this.restartCoordinator.noteForkFailure();
-          this.log?.error("Hot restart fork failed — old worker left running", {
-            workerId: oldWorker.id,
-            attempt,
-            maxAttempts: MAX_CONSECUTIVE_FORK_FAILURES,
-            error: err instanceof Error ? err.message : String(err),
-          });
-          if (this.restartCoordinator.isForkEnvUnrecoverable()) {
-            forkFailureBailout = true;
-            break;
-          }
-          continue;
-        }
-        this.restartCoordinator.noteForkSuccess();
-
-        // Mark only once the replacement exists, so a failed fork never leaks
-        // a recycling mark for a worker that is still alive and serving.
-        this.workerManager.markForRecycling(oldWorker.id);
-
-        this.handleWorkerRecycle(oldWorker, newWorker);
-
-        await this.drainCoordinator.awaitBoundedWorkerExit(oldWorker);
-
-        restartedWorkerIds.push(oldWorker.id);
-
-        if (staggerMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, staggerMs));
-        }
-      }
-
-      if (abortedByShutdown) {
+      if (outcome === "aborted-by-shutdown") {
         // A partial roll is not a complete roll: emit nothing — listeners
         // must not mistake a partial restartedWorkerIds list for a finished
         // restart (e.g. plugins that release resources on completion).
         this.log?.warn("Hot restart aborted by shutdown", { reason, restartedWorkerIds });
-      } else if (forkFailureBailout) {
+      } else if (outcome === "fork-bailout") {
         // Unrecoverable fork environment: flag a failure exit code (same
         // protocol as a breaker trip). A partial roll is not a complete roll.
         process.exitCode = 1;
@@ -558,6 +513,67 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     } finally {
       this.restartInProgress = false;
     }
+  }
+
+  private async rollWorkers(
+    targeted: Worker[],
+    env: NodeJS.ProcessEnv | undefined,
+    staggerMs: number,
+  ): Promise<{ outcome: RollOutcome; restartedWorkerIds: number[] }> {
+    const restartedWorkerIds: number[] = [];
+
+    for (const oldWorker of targeted) {
+      if (this.shutdownCoordinator.isShutdownInProgress()) {
+        return { outcome: "aborted-by-shutdown", restartedWorkerIds };
+      }
+
+      // A worker that exited between the snapshot and its turn already had
+      // its replacement forked by the crash-restart path: marking a dead id
+      // would leak a stale recycling mark (the 'exit' cleanup already ran)
+      // and inflate the recycling count, and the bounded exit wait would
+      // stall for the full drain budget on an exit event that already fired.
+      if (oldWorker.isDead()) {
+        this.log?.warn("Hot restart skipped worker — already exited", { workerId: oldWorker.id });
+        continue;
+      }
+
+      let newWorker: Worker;
+      try {
+        newWorker = this.workerManager.forkWorker(env);
+      } catch (err) {
+        // A fork failure (EMFILE/ENOMEM...) leaves the old worker running
+        // (still serving) — better than an unhandled exception killing the
+        // primary. The worker is NOT marked for recycling.
+        const attempt = this.restartCoordinator.noteForkFailure();
+        this.log?.error("Hot restart fork failed — old worker left running", {
+          workerId: oldWorker.id,
+          attempt,
+          maxAttempts: MAX_CONSECUTIVE_FORK_FAILURES,
+          error: errorText(err),
+        });
+        if (this.restartCoordinator.isForkEnvUnrecoverable()) {
+          return { outcome: "fork-bailout", restartedWorkerIds };
+        }
+        continue;
+      }
+      this.restartCoordinator.noteForkSuccess();
+
+      // Mark only once the replacement exists, so a failed fork never leaks
+      // a recycling mark for a worker that is still alive and serving.
+      this.workerManager.markForRecycling(oldWorker.id);
+
+      this.handleWorkerRecycle(oldWorker, newWorker);
+
+      await this.drainCoordinator.awaitBoundedWorkerExit(oldWorker);
+
+      restartedWorkerIds.push(oldWorker.id);
+
+      if (staggerMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, staggerMs));
+      }
+    }
+
+    return { outcome: "complete", restartedWorkerIds };
   }
 
   /**
