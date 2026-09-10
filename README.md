@@ -122,7 +122,24 @@ Details: [plugin README](./packages/plugin-otlp-meter/README.md).
 
 **Container sizing.** On Kubernetes or Docker, `@goopil/clusterkit-sizing` reads cgroup v1/v2 limits and computes both
 the worker count and each worker's `--max-old-space-size`:
-[plugin README](./packages/plugin-container-sizing/README.md).
+
+```js
+import {createContainerSizingPlugin} from '@goopil/clusterkit-sizing';
+
+const sizing = createContainerSizingPlugin();
+orchestrator.use(sizing).run(async () => { /* your app */ });
+```
+
+After `run()`, inspect the decision — worker count, memory budget per worker, and the exact `NODE_OPTIONS` injected:
+
+```js
+console.log(sizing.sizing);
+// { workers: 4, memoryPerWorkerMb: 192, v8HeapMb: 144,
+//   nodeOptions: '--max-old-space-size=144',
+//   source: { cpuLimit: 4, memoryLimitBytes: 805306368, ... } }
+```
+
+Details: [plugin README](./packages/plugin-container-sizing/README.md).
 
 ## Level 3 — Automation
 
