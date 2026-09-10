@@ -34,7 +34,11 @@ COPY examples/inertia-ssr/package.json              examples/inertia-ssr/
 COPY examples/inertia-ssr-react/package.json        examples/inertia-ssr-react/
 COPY examples/hot-reload/package.json               examples/hot-reload/
 
-RUN pnpm install --frozen-lockfile
+# --ignore-scripts: dependabot lockfile rewrites can turn workspace `link:`
+# deps into `file:` deps, making pnpm run packages' prepublishOnly (tsdown)
+# before sources are COPYed ("No input files"). No dependency here needs
+# lifecycle scripts to run the test suite.
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # ---- source + turbo config ----------------------------------------------
 COPY packages/ packages/

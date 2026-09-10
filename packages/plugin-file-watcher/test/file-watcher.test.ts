@@ -310,16 +310,16 @@ describe("file-watcher plugin", () => {
 
     await plugin.install(orch, null, mockConfig(2));
     expect(plugin.isWatching).toBe(true);
-    expect(watchers.length).toBe(1);
+    expect(watchers).toHaveLength(1);
 
     await plugin.uninstall?.();
     expect(plugin.isWatching).toBe(false);
-    expect(watchers.length).toBe(1);
+    expect(watchers).toHaveLength(1);
 
     // Re-using the same plugin instance on a new orchestrator must start watchers again
     await plugin.install(mockOrchestrator(), null, mockConfig(2));
     expect(plugin.isWatching).toBe(true);
-    expect(watchers.length).toBe(2);
+    expect(watchers).toHaveLength(2);
 
     await plugin.uninstall?.();
   });
@@ -760,7 +760,7 @@ describe("file-watcher plugin", () => {
         // The delay timer fires after cleanup — must not create watchers
         await vi.advanceTimersByTimeAsync(1000);
         expect(plugin.isWatching).toBe(false);
-        expect(watchers.length).toBe(0);
+        expect(watchers).toHaveLength(0);
       } finally {
         vi.useRealTimers();
       }
@@ -786,7 +786,7 @@ describe("file-watcher plugin", () => {
 
         await vi.advanceTimersByTimeAsync(1000);
         expect(plugin.isWatching).toBe(false);
-        expect(watchers.length).toBe(0);
+        expect(watchers).toHaveLength(0);
       } finally {
         vi.useRealTimers();
       }

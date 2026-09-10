@@ -8,12 +8,35 @@ import {
   readCgroupLimits,
   withLoggerPrefix,
 } from "@goopil/clusterkit";
-import { calculateSizing, mergeNodeOptions, validateSizingOptions } from "./calculator.js";
+import { calculateSizing, mergeNodeOptions } from "./calculator.js";
 import type { ContainerSizingOptions, ContainerSizingPlugin } from "./types.js";
 
 export type { SizingOptions, SizingResult, SizingStrategy } from "./calculator.js";
+export { mergeNodeOptions, validateSizingOptions } from "./calculator.js";
 export type { CgroupLimits, ContainerSizingOptions, ContainerSizingPlugin } from "./types.js";
-export { mergeNodeOptions, validateSizingOptions };
+
+function buildWorkerEnv(
+  nodeOptions: string,
+  config: ResolvedConfig,
+  { injectNodeOptions, extraNodeOptions, compileCache }: ContainerSizingOptions,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+
+  if (injectNodeOptions) {
+    // Prefer workerEnv.NODE_OPTIONS (explicitly set by the user in config) over process.env,
+    // so we only replace --max-old-space-size and leave every other flag intact.
+    const baseNodeOptions = config.workers.env?.NODE_OPTIONS ?? process.env.NODE_OPTIONS ?? "";
+    env.NODE_OPTIONS = mergeNodeOptions(nodeOptions, baseNodeOptions, extraNodeOptions);
+  }
+
+  if (compileCache) {
+    // Env-only setting: NODE_COMPILE_CACHE is a plain env var, not a CLI flag.
+    env.NODE_COMPILE_CACHE =
+      typeof compileCache === "string" ? compileCache : join(tmpdir(), "clusterkit-compile-cache");
+  }
+
+  return env;
+}
 
 export function createContainerSizingPlugin(options: ContainerSizingOptions = {}): ContainerSizingPlugin {
   const {
@@ -83,20 +106,7 @@ export function createContainerSizingPlugin(options: ContainerSizingOptions = {}
         }
       }
 
-      const env: NodeJS.ProcessEnv = {};
-
-      if (injectNodeOptions) {
-        // Prefer workerEnv.NODE_OPTIONS (explicitly set by the user in config) over process.env,
-        // so we only replace --max-old-space-size and leave every other flag intact.
-        const baseNodeOptions = config.workers.env?.NODE_OPTIONS ?? process.env.NODE_OPTIONS ?? "";
-        env.NODE_OPTIONS = mergeNodeOptions(sizing.nodeOptions, baseNodeOptions, extraNodeOptions);
-      }
-
-      if (compileCache) {
-        // Env-only setting: NODE_COMPILE_CACHE is a plain env var, not a CLI flag.
-        env.NODE_COMPILE_CACHE =
-          typeof compileCache === "string" ? compileCache : join(tmpdir(), "clusterkit-compile-cache");
-      }
+      const env = buildWorkerEnv(sizing.nodeOptions, config, { injectNodeOptions, extraNodeOptions, compileCache });
 
       if (Object.keys(env).length > 0) {
         orchestrator.patchWorkerEnv(env);
