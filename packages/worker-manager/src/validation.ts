@@ -242,7 +242,7 @@ function validateCrossFieldConstraints(resolved: ResolvedConfig): void {
   if ((resolved.health.maxEventLoopLagMs ?? 0) > 0 && (resolved.health.heartbeatMs ?? 0) <= 0) {
     throw new WorkerManagerValidationError("health.maxEventLoopLagMs", "requires health.heartbeatMs > 0");
   }
-  if ((resolved.health.lagSpikeMs ?? 0) > 0 && (resolved.health.heartbeatMs ?? 0) <= 0) {
+  if (resolved.health.lagSpikeMs > 0 && resolved.health.heartbeatMs <= 0) {
     throw new WorkerManagerValidationError("health.lagSpikeMs", "requires health.heartbeatMs > 0");
   }
 }
@@ -313,17 +313,19 @@ const KNOWN_SECTION_KEYS: Record<string, Set<string>> = {
   ]),
 };
 
-const KEY_TO_SECTIONS: Map<string, string[]> = new Map();
+const KEY_TO_SECTION: Map<string, string> = new Map();
 for (const [section, keys] of Object.entries(KNOWN_SECTION_KEYS)) {
   for (const key of keys) {
-    KEY_TO_SECTIONS.set(key, [...(KEY_TO_SECTIONS.get(key) ?? []), section]);
+    KEY_TO_SECTION.set(key, section);
   }
 }
 
 function warnUnknownSectionKeys(section: string, value: Record<string, unknown>): void {
   for (const key of Object.keys(value)) {
     if (KNOWN_SECTION_KEYS[section].has(key)) continue;
-    const otherSection = KEY_TO_SECTIONS.get(key)?.find((s) => s !== section);
+    // Keys in KEY_TO_SECTION are known in exactly one section; a key that is
+    // unknown in `section` therefore always suggests a different section.
+    const otherSection = KEY_TO_SECTION.get(key);
     const hint = otherSection ? ` — did you mean '${otherSection}.${key}'?` : "";
     process.emitWarning(
       `Unknown option '${section}.${key}'${hint} The option will be ignored.`,
