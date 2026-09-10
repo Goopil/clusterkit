@@ -1,11 +1,8 @@
 // examples/test/smoke.test.ts
 // Boot-smoke: every example process starts and its app endpoint responds.
 //
-// Metrics endpoints are intentionally NOT asserted: in multi-worker mode the
-// .run() callback (which mounts the examples' metrics servers) executes in
-// worker processes, while prometheus.getMetrics() must be called on the
-// primary. How examples should expose metrics is an open decision tracked in
-// issue #95 (AUDIT-030) — boot behavior is decision-independent.
+// Metrics decision (#95): examples with a metrics port (express/fastify/hono/koa) expose it
+// through the plugin's primary-side serve() bind — asserted below with a clusterkit_ series.
 import { afterEach, describe, expect, it } from "vitest";
 import { fetchUrl, startExample, waitForPort } from "./smoke-harness.mjs";
 
@@ -16,6 +13,8 @@ type SmokeExample = {
   // (express/fastify/hono/koa) must never bind their documented default
   // (9090-9093), which may collide with other services on the host.
   metricsPort: number;
+  /** Examples that bind a metrics server through prometheus.serve(). */
+  assertsMetrics?: boolean;
   /** Env var the example reads its app port from (defaults to PORT). */
   portEnv?: string;
   /** Entry file relative to the repo root (defaults to the example's src/index.mjs). */
@@ -26,10 +25,10 @@ type SmokeExample = {
 };
 
 const examples: SmokeExample[] = [
-  { name: "express", port: 13000, metricsPort: 19090 },
-  { name: "fastify", port: 13001, metricsPort: 19091 },
-  { name: "hono", port: 13005, metricsPort: 19092 },
-  { name: "koa", port: 13006, metricsPort: 19093 },
+  { name: "express", port: 13000, metricsPort: 19090, assertsMetrics: true },
+  { name: "fastify", port: 13001, metricsPort: 19091, assertsMetrics: true },
+  { name: "hono", port: 13005, metricsPort: 19092, assertsMetrics: true },
+  { name: "koa", port: 13006, metricsPort: 19093, assertsMetrics: true },
   { name: "express-otlp", port: 13009, metricsPort: 19094 },
   { name: "hot-reload", port: 13010, metricsPort: 19095 },
   // Built TypeScript examples — need `pnpm build` (tsc) before booting
@@ -56,7 +55,7 @@ afterEach(async () => {
 
 describe.each(examples)(
   "example: $name",
-  ({ name, port, metricsPort, entry, portEnv = "PORT", path = "/", bodyContains = "hello" }) => {
+  ({ name, port, metricsPort, assertsMetrics, entry, portEnv = "PORT", path = "/", bodyContains = "hello" }) => {
     it(`boots and responds 200 on ${path}`, async () => {
       const proc = startExample(name, { [portEnv]: String(port), METRICS_PORT: String(metricsPort) }, entry);
       running.push(proc);
@@ -66,6 +65,12 @@ describe.each(examples)(
       const { status, body } = await fetchUrl(`http://127.0.0.1:${port}${path}`);
       expect(status).toBe(200);
       expect(body).toContain(bodyContains);
+
+      if (assertsMetrics) {
+        const metrics = await fetchUrl(`http://127.0.0.1:${metricsPort}/metrics`);
+        expect(metrics.status).toBe(200);
+        expect(metrics.body).toContain("clusterkit_active_workers");
+      }
     }, 30_000);
   },
 );

@@ -194,7 +194,7 @@ surface.
 
 Ten ready-to-run examples live in [`examples/`](./examples/).
 
-| Example                      | Port  | Metrics port (worker-side) | Description |
+| Example                      | Port  | Metrics port (primary) | Description |
 |------------------------------|-------|--------------|-------------|
 | `examples/express`           | 3000  | 9090         | Express HTTP server |
 | `examples/express-otlp`      | 3009  | —            | Express + OTLP metrics (push to collector) |
@@ -207,9 +207,8 @@ Ten ready-to-run examples live in [`examples/`](./examples/).
 | `examples/inertia-ssr-react` | 13715 | —            | Inertia + React 18 SSR renderer |
 | `examples/hot-reload`        | 3010  | —            | Signal-based + file watcher hot restart demo |
 
-> The metrics port is bound **inside each worker** (the metrics server is mounted in the `run()` callback, which runs
-> in every worker process) — how examples should expose metrics in multi-worker mode is an open decision tracked in
-> issue #95.
+> The metrics port is bound **in the primary process** by the Prometheus plugin's `serve()` helper (a no-op in
+> workers) — one aggregated `/metrics` endpoint for the whole fleet.
 
 **Run all examples at once (Docker):**
 

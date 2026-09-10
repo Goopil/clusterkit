@@ -226,8 +226,8 @@ Ten standalone apps in `examples/`, each integrating core + plugins:
 | inertia-ssr-react | 13715 | —            |
 | hot-reload        | 3010  | —            |
 
-Metrics ports are bound inside each worker's `run()` callback (per-worker bind) — how examples should expose metrics in
-multi-worker mode is an open decision tracked in issue #95.
+Metrics ports are bound in the primary process by the Prometheus plugin's `serve()` helper (no-op in workers) — one
+aggregated `/metrics` endpoint per example fleet (decision on issue #95).
 
 NestJS examples require `app.init()` (not `app.listen()`) to bind the raw server socket with `reusePort`. The Fastify
 adapter additionally needs `await fastifyInstance.ready()` between `app.init()` and

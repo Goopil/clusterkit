@@ -11,9 +11,15 @@ import fastify from "fastify";
   console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // App server  → :3001  (workers)
-  // Metrics endpoint is exposed by your host app using prometheus.getMetrics().
+  // Metrics server → :9091  (primary, bound by the plugin's serve())
   const sizing = createContainerSizingPlugin();
   const prometheus = createPrometheusPlugin({ metricsCacheTtlMs: 250 });
+
+  // Binds in the primary only (no-op in workers); closed on shutdown by the plugin.
+  await prometheus.serve({
+    port: +(process.env?.METRICS_PORT || 9091),
+    host: process.env.METRICS_HOST ?? "0.0.0.0",
+  });
 
   orchestrator
     .use(sizing)
@@ -32,19 +38,8 @@ import fastify from "fastify";
         reusePort: capabilities.reusePort,
       });
 
-      const metricsServer = fastify({ logger: false });
-      metricsServer.get("/metrics", async (_req, reply) => {
-        reply.type(prometheus.registry.contentType);
-        return reply.send(await prometheus.getMetrics());
-      });
-      await metricsServer.listen({
-        port: +(process.env?.METRICS_PORT || 9091),
-        host: process.env.METRICS_HOST ?? "0.0.0.0",
-      });
-
       orchestrator.registerOnShutdown(async () => {
         await server.close();
-        await metricsServer.close();
       });
     });
 })().catch((err) => {
