@@ -64,6 +64,10 @@ orchestrator.run(async () => {
 
 ## Configuration options
 
+Unknown keys inside a section (`workers`, `restart`, `shutdown`, `health`) are ignored but emit a
+`ClusterKitConfigWarning` — with a suggestion when the key exists in another section (e.g. `health.maxRssMb` →
+"did you mean 'workers.maxRssMb'?"). Unsupported top-level keys throw.
+
 ### Top-level (`OrchestratorConfig`)
 
 | Option | Type | Default | Description |
@@ -140,10 +144,11 @@ unless `crashThreshold` is reached inside `crashWindowMs`.
 | `degradedAfterMs` | `number` | `0` | Duration `active < target` must persist before `fleet:degraded` fires (`0` disables) |
 | `maxEventLoopLagMs` | `number` | `0` | Recycle a worker whose reported event-loop lag exceeded this value (ms) for `lagRecycleBeats` consecutive beats (`0` disables). Requires `heartbeatMs > 0` |
 | `lagRecycleBeats` | `number` | `3` | Consecutive heartbeats above `maxEventLoopLagMs` before the lag recycle fires (`1` = first beat above the threshold) |
+| `lagSpikeMs` | `number` | `0` | Recycle a worker on a single heartbeat whose event-loop lag exceeds this value (ms) — catches one-off long sync blocks the sustained-lag policy never sees (`0` disables). Requires `heartbeatMs > 0` |
 
-Workers report RSS, heap, and event-loop beat drift over IPC every `heartbeatMs`; the primary-side monitor feeds three
-opt-in policies: RSS recycling (`workers.maxRssMb`), wedged-worker detection (`health.wedgedTimeoutMs`), and sustained
-lag recycling (`health.maxEventLoopLagMs`). A wedged
+Workers report RSS, heap, and event-loop beat drift over IPC every `heartbeatMs`; the primary-side monitor feeds four
+opt-in policies: RSS recycling (`workers.maxRssMb`), wedged-worker detection (`health.wedgedTimeoutMs`), sustained
+lag recycling (`health.maxEventLoopLagMs`), and one-off lag spikes (`health.lagSpikeMs`). A wedged
 worker cannot ACK anything, so the drain escalates to SIGKILL. All policies run through the same bounded drain as
 age-based recycling and never count toward the crash circuit breaker.
 
@@ -288,7 +293,7 @@ Use these with your Kubernetes liveness / readiness probes.
 | `worker:crash` | A worker exits non-gracefully and is recorded in the crash window. |
 | `worker:restart` | A replacement worker is forked after restart backoff. |
 | `worker:draining` | A worker was marked for replacement, before the network drain starts — the moment new work should stop being routed to it: `{ workerId, pid, reason }`. |
-| `worker:recycle` | A worker is replaced through the bounded drain. `reason` is `"maxAge"` (default), `"rss"` (`workers.maxRssMb` exceeded), `"wedged"` (heartbeat silent for `health.wedgedTimeoutMs`), or `"lag"` (event-loop lag above `health.maxEventLoopLagMs` for `health.lagRecycleBeats` consecutive beats). |
+| `worker:recycle` | A worker is replaced through the bounded drain. `reason` is `"maxAge"` (default), `"rss"` (`workers.maxRssMb` exceeded), `"wedged"` (heartbeat silent for `health.wedgedTimeoutMs`), or `"lag"` (event-loop lag above `health.maxEventLoopLagMs` for `health.lagRecycleBeats` consecutive beats, or a single beat above `health.lagSpikeMs`). |
 | `worker:health` | A worker reported health (requires `health.heartbeatMs > 0`): `{ workerId, pid, rss, heapUsed, eventLoopLagMs }`. |
 | `worker:wedged` | A worker's heartbeat was silent for `health.wedgedTimeoutMs` — it is recycled through the bounded drain: `{ workerId, pid, silentMs }`. |
 | `worker:quarantined` | A slot was quarantined after `restart.bootFailQuarantine` consecutive boot failures while other workers serve: `{ consecutiveBootFailures }`. |

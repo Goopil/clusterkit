@@ -92,6 +92,10 @@ export interface HealthConfig {
   maxEventLoopLagMs?: number;
   /** Consecutive heartbeats above `maxEventLoopLagMs` before recycling. @default 3 */
   lagRecycleBeats?: number;
+  /** Recycle a worker on a single heartbeat whose event-loop lag exceeds this value (ms) —
+   * catches one-off long sync blocks the sustained-lag policy never sees. Requires heartbeatMs > 0.
+   * 0 = disabled. @default 0 */
+  lagSpikeMs?: number;
 }
 
 export interface OrchestratorConfig {
@@ -145,6 +149,7 @@ export type ResolvedConfig = {
     degradedAfterMs: number;
     maxEventLoopLagMs: number;
     lagRecycleBeats: number;
+    lagSpikeMs: number;
   };
   clusterModule: typeof cluster | undefined;
 };

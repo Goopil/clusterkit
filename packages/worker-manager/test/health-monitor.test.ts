@@ -15,7 +15,14 @@ const config: ResolvedConfig = {
     bootFailQuarantine: 0,
   },
   shutdown: { timeoutMs: 1_000, ackTimeoutMs: 500, messagePrefix: "__hm", sigtermDelayMs: 100, sigintDelayMs: 100 },
-  health: { heartbeatMs: 0, wedgedTimeoutMs: 0, degradedAfterMs: 10_000, maxEventLoopLagMs: 0, lagRecycleBeats: 3 },
+  health: {
+    heartbeatMs: 0,
+    wedgedTimeoutMs: 0,
+    degradedAfterMs: 10_000,
+    maxEventLoopLagMs: 0,
+    lagRecycleBeats: 3,
+    lagSpikeMs: 0,
+  },
   clusterModule: undefined,
 };
 
@@ -252,6 +259,29 @@ describe("HealthMonitor — lag policy", () => {
     for (let i = 0; i < 4; i++) shutting.monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 100 }));
     const off = makeMonitor();
     for (let i = 0; i < 4; i++) off.monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 100 }));
+    expect(events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
+    expect(shutting.events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
+    expect(off.events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
+  });
+
+  it("recycles immediately on a single beat above lagSpikeMs, without maxEventLoopLagMs", () => {
+    const { monitor, events } = makeMonitor({ health: { lagSpikeMs: 5_000 } }); // maxEventLoopLagMs stays 0
+    const lagRecycles = () => events.filter((e) => e.kind === "recycle:lag").length;
+
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 6_000 }));
+    expect(lagRecycles()).toBe(1);
+
+    monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 6_000 })); // one-shot per worker instance
+    expect(lagRecycles()).toBe(1);
+  });
+
+  it("does not spike-recycle below the spike threshold, while shutting down, or when disabled", () => {
+    const { monitor, events } = makeMonitor({ health: { lagSpikeMs: 5_000 } });
+    for (let i = 0; i < 4; i++) monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 4_000 }));
+    const shutting = makeMonitor({ health: { lagSpikeMs: 5_000 } }, { shuttingDown: true });
+    shutting.monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 6_000 }));
+    const off = makeMonitor();
+    off.monitor.onWorkerMessage(1, 1000, HB({ eventLoopLagMs: 6_000 }));
     expect(events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
     expect(shutting.events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);
     expect(off.events.filter((e) => e.kind === "recycle:lag")).toHaveLength(0);

@@ -203,6 +203,9 @@ function validateHealthOptions(health: HealthConfig): void {
       throw new WorkerManagerValidationError("health.lagRecycleBeats", "must be an integer >= 1");
     }
   }
+  if (health.lagSpikeMs !== undefined) {
+    assertNonNegativeInteger(health.lagSpikeMs, "health.lagSpikeMs");
+  }
 }
 
 function validateCrossFieldConstraints(resolved: ResolvedConfig): void {
@@ -238,6 +241,9 @@ function validateCrossFieldConstraints(resolved: ResolvedConfig): void {
   }
   if ((resolved.health.maxEventLoopLagMs ?? 0) > 0 && (resolved.health.heartbeatMs ?? 0) <= 0) {
     throw new WorkerManagerValidationError("health.maxEventLoopLagMs", "requires health.heartbeatMs > 0");
+  }
+  if ((resolved.health.lagSpikeMs ?? 0) > 0 && (resolved.health.heartbeatMs ?? 0) <= 0) {
+    throw new WorkerManagerValidationError("health.lagSpikeMs", "requires health.heartbeatMs > 0");
   }
 }
 
@@ -276,11 +282,55 @@ const DEFAULTS = {
     degradedAfterMs: 0,
     maxEventLoopLagMs: 0,
     lagRecycleBeats: 3,
+    lagSpikeMs: 0,
   },
   clusterModule: undefined,
 } satisfies ResolvedConfig;
 
 const ALLOWED_ROOT_KEYS = new Set(["logger", "workers", "restart", "shutdown", "health", "clusterModule"]);
+
+// Known keys per config section, used to warn about misplaced or unknown
+// section keys (e.g. `health.maxRssMb` — the option lives in `workers`).
+const KNOWN_SECTION_KEYS: Record<string, Set<string>> = {
+  workers: new Set(["count", "env", "execArgv", "maxAgeMs", "maxRssMb"]),
+  restart: new Set([
+    "crashThreshold",
+    "crashWindowMs",
+    "backoffMs",
+    "maxBackoffMs",
+    "backoffMultiplier",
+    "stabilityWindowMs",
+    "bootFailQuarantine",
+  ]),
+  shutdown: new Set(["timeoutMs", "ackTimeoutMs", "messagePrefix", "sigtermDelayMs", "sigintDelayMs"]),
+  health: new Set([
+    "heartbeatMs",
+    "wedgedTimeoutMs",
+    "degradedAfterMs",
+    "maxEventLoopLagMs",
+    "lagRecycleBeats",
+    "lagSpikeMs",
+  ]),
+};
+
+const KEY_TO_SECTIONS: Map<string, string[]> = new Map();
+for (const [section, keys] of Object.entries(KNOWN_SECTION_KEYS)) {
+  for (const key of keys) {
+    KEY_TO_SECTIONS.set(key, [...(KEY_TO_SECTIONS.get(key) ?? []), section]);
+  }
+}
+
+function warnUnknownSectionKeys(section: string, value: Record<string, unknown>): void {
+  for (const key of Object.keys(value)) {
+    if (KNOWN_SECTION_KEYS[section].has(key)) continue;
+    const otherSection = KEY_TO_SECTIONS.get(key)?.find((s) => s !== section);
+    const hint = otherSection ? ` — did you mean '${otherSection}.${key}'?` : "";
+    process.emitWarning(
+      `Unknown option '${section}.${key}'${hint} The option will be ignored.`,
+      "ClusterKitConfigWarning",
+    );
+  }
+}
 
 export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig {
   const configRecord = config as Record<string, unknown>;
@@ -298,6 +348,11 @@ export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig 
   const restart = config.restart ?? {};
   const shutdown = config.shutdown ?? {};
   const health = config.health ?? {};
+
+  warnUnknownSectionKeys("workers", workers);
+  warnUnknownSectionKeys("restart", restart);
+  warnUnknownSectionKeys("shutdown", shutdown);
+  warnUnknownSectionKeys("health", health);
 
   validateWorkersOptions(workers);
   validateRestartOptions(restart);
@@ -336,6 +391,7 @@ export function validateConfig(config: OrchestratorConfig = {}): ResolvedConfig 
       degradedAfterMs: health.degradedAfterMs ?? DEFAULTS.health.degradedAfterMs,
       maxEventLoopLagMs: health.maxEventLoopLagMs ?? DEFAULTS.health.maxEventLoopLagMs,
       lagRecycleBeats: health.lagRecycleBeats ?? DEFAULTS.health.lagRecycleBeats,
+      lagSpikeMs: health.lagSpikeMs ?? DEFAULTS.health.lagSpikeMs,
     },
   };
 
