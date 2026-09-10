@@ -17,7 +17,7 @@
     "@goopil/clusterkit-otlp-meter": "workspace:*",
     "@goopil/clusterkit-sizing": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.222.0",
     "@opentelemetry/host-metrics": "^0.39.0",
     "express": "^5.2.1"
   }
