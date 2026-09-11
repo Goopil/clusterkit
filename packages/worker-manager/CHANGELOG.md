@@ -1,5 +1,17 @@
 # @goopil/clusterkit
 
+## 2.1.2
+
+### Patch Changes
+
+- [#190](https://github.com/Goopil/clusterkit/pull/190) [`7547eaa`](https://github.com/Goopil/clusterkit/commit/7547eaadff8ada5a165e0c5ce975f842c994179a) Thanks [@Goopil](https://github.com/Goopil)! - Add `health.lagSpikeMs`: recycle a worker on a single heartbeat whose event-loop lag exceeds the
+  threshold — catches one-off long sync blocks that the sustained-lag policy (`maxEventLoopLagMs`
+  + `lagRecycleBeats`) never sees. Opt-in, default `0` (disabled), requires `health.heartbeatMs > 0`.
+  
+  Unknown keys inside a config section (`workers`, `restart`, `shutdown`, `health`) now emit a
+  `ClusterKitConfigWarning` instead of being silently ignored, with a "did you mean" suggestion when
+  the key exists in another section (e.g. `health.maxRssMb` → `workers.maxRssMb`).
+
 ## 2.1.1
 
 ### Patch Changes
