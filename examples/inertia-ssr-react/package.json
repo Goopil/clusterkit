@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
-    "@inertiajs/react": "^3.6.1",
+    "@inertiajs/react": "^3.7.0",
     "express": "^5.2.1",
     "react": "^19",
     "react-dom": "^19"
