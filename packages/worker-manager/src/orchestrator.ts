@@ -21,6 +21,7 @@ import {
   type WorkerMetrics,
 } from "./types";
 import { assertSafeEnvObject, validateConfig } from "./validation";
+import { createWorkerStartContext, type WorkerStartContext } from "./worker-context";
 import { WorkerManager } from "./worker-manager";
 
 /** Upper bound applied to WEB_CONCURRENCY to guard against fork bombs from inherited env vars. */
@@ -204,9 +205,10 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   /**
    * Start the orchestrator.
    * In primary: forks workers.
-   * In worker: starts the application.
+   * In worker: starts the application with a start context (`listen` /
+   * `shutdown` helpers) — see {@link WorkerStartContext}.
    */
-  async run(start?: () => Promise<void> | void): Promise<void> {
+  async run(start?: (ctx: WorkerStartContext) => Promise<void> | void): Promise<void> {
     if (this.clusterRef.isPrimary) {
       await this.runPrimary();
       return;
@@ -283,7 +285,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     await this.startPrimary(this.resolveWorkerCount());
   }
 
-  private async runWorker(start?: () => Promise<void> | void): Promise<void> {
+  private async runWorker(start?: (ctx: WorkerStartContext) => Promise<void> | void): Promise<void> {
     this.assertWorkerCanRun();
     this.isWorkerStarted = true;
     // Plugins also install in worker processes (e.g. per-worker metric registries).
@@ -875,7 +877,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
   // Worker (child process)
   // ============================================================================
 
-  private async startWorker(start?: () => Promise<void> | void): Promise<void> {
+  private async startWorker(start?: (ctx: WorkerStartContext) => Promise<void> | void): Promise<void> {
     const handleShutdown = async (signal: string): Promise<void> => {
       this.healthMonitor.stopWorkerReporting();
       // A POSIX signal (e.g. Ctrl+C delivered to the process group) and the
@@ -926,7 +928,15 @@ export class Orchestrator extends EventEmitter<OrchestratorEvents> {
     });
 
     this.healthMonitor.startWorkerReporting();
-    await start?.();
+    // Resolve SO_REUSEPORT support once so ctx.listen() can stay synchronous.
+    // An inconclusive probe resolves false → cluster IPC sharing (safe fallback).
+    const reusePort = await detectReusePortSupport();
+    await start?.(
+      createWorkerStartContext({
+        reusePort,
+        registerShutdown: (cb) => this.registerOnShutdown(cb),
+      }),
+    );
   }
 
   private async runShutdownCallbacks(signal: string): Promise<void> {

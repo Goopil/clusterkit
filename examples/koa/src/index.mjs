@@ -5,10 +5,6 @@ import Koa from "koa";
 
 (async () => {
   const orchestrator = new Orchestrator({ logger: console });
-  const capabilities = await Orchestrator.getCapabilities();
-
-  console.log("Platform:", capabilities.platform);
-  console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // App server  → :3006  (workers)
   // Metrics server → :9093  (primary, bound by the plugin's serve())
@@ -24,7 +20,7 @@ import Koa from "koa";
   orchestrator
     .use(sizing)
     .use(prometheus)
-    .run(async () => {
+    .run(async ({ listen, shutdown }) => {
       const app = new Koa();
 
       app.use(async (ctx) => {
@@ -33,16 +29,11 @@ import Koa from "koa";
         }
       });
 
-      // app.listen() forwards its arguments directly to the underlying
-      // net.Server.listen(), so exclusive / reusePort work as expected.
-      const server = app.listen({
-        port: +(process.env?.PORT || 3006),
-        host: "0.0.0.0",
-        exclusive: capabilities.reusePort,
-        reusePort: capabilities.reusePort,
-      });
+      // app.listen() forwards to the underlying net.Server; ctx.listen adds the
+      // platform flags (SO_REUSEPORT / cluster IPC).
+      const server = listen(app, { port: +(process.env?.PORT || 3006), host: "0.0.0.0" });
 
-      orchestrator.registerOnShutdown(() => {
+      shutdown(() => {
         server.close();
       });
     });

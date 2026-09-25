@@ -6,10 +6,6 @@ import express from "express";
 
 (async () => {
   const orchestrator = new Orchestrator({ logger: console });
-  const capabilities = await Orchestrator.getCapabilities();
-
-  console.log("Platform:", capabilities.platform);
-  console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   const sizing = createContainerSizingPlugin();
   const otlp = createOtlpMeterPlugin({
@@ -24,7 +20,7 @@ import express from "express";
   orchestrator
     .use(sizing)
     .use(otlp)
-    .run(async () => {
+    .run(async ({ listen, shutdown }) => {
       const app = express();
 
       const meter = metrics.getMeter("express-otlp-example");
@@ -57,14 +53,10 @@ import express from "express";
         setTimeout(() => res.json({ ok: true }), 200);
       });
 
-      const server = app.listen({
-        port: +(process.env?.PORT || 3009),
-        host: "0.0.0.0",
-        exclusive: capabilities.reusePort,
-        reusePort: capabilities.reusePort,
-      });
+      // Platform flags (SO_REUSEPORT / cluster IPC) handled for you.
+      const server = listen(app, { port: +(process.env?.PORT || 3009), host: "0.0.0.0" });
 
-      orchestrator.registerOnShutdown(() => {
+      shutdown(() => {
         server.close();
       });
     });

@@ -16,12 +16,8 @@ const SSR_PORT = +(process.env.SSR_PORT || 13715);
 const SSR_HOST = process.env.SSR_HOST || "127.0.0.1";
 
 const orchestrator = new Orchestrator({ logger: console });
-const capabilities = await Orchestrator.getCapabilities();
 
-console.log("Platform:", capabilities.platform);
-console.log("SO_REUSEPORT:", capabilities.reusePort);
-
-orchestrator.run(async () => {
+orchestrator.run(async ({ listen, shutdown }) => {
   const { render } = await import("../dist/server/entry-server.mjs");
 
   const app = express();
@@ -42,14 +38,10 @@ orchestrator.run(async () => {
     }
   });
 
-  const server = app.listen({
-    port: SSR_PORT,
-    host: SSR_HOST,
-    reusePort: capabilities.reusePort,
-    exclusive: capabilities.reusePort,
-  });
+  // Platform flags (SO_REUSEPORT / cluster IPC) handled for you.
+  const server = listen(app, { port: SSR_PORT, host: SSR_HOST });
 
   console.log(`[worker ${process.pid}] SSR server listening on ${SSR_HOST}:${SSR_PORT}`);
 
-  orchestrator.registerOnShutdown(() => server.close());
+  shutdown(() => server.close());
 });

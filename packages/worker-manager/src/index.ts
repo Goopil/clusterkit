@@ -29,3 +29,5 @@ export type {
 export { isTypedMessage } from "./types";
 // Validation error
 export { WorkerManagerValidationError } from "./validation";
+// Worker start context (run() callback helpers)
+export type { Listenable, ListenParams, WorkerStartContext } from "./worker-context";
