@@ -5,10 +5,6 @@ import express from "express";
 
 (async () => {
   const orchestrator = new Orchestrator({ logger: console });
-  const capabilities = await Orchestrator.getCapabilities();
-
-  console.log("Platform:", capabilities.platform);
-  console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // App server  → :3000  (workers)
   // Metrics server → :9090  (primary, bound by the plugin's serve())
@@ -24,21 +20,18 @@ import express from "express";
   orchestrator
     .use(sizing)
     .use(prometheus)
-    .run(async () => {
+    .run(async ({ listen, shutdown }) => {
       const app = express();
 
       app.get("/", (_req, res) => {
         res.json({ hello: "world", pid: process.pid });
       });
 
-      const server = app.listen({
-        port: +(process.env?.PORT || 3000),
-        host: "0.0.0.0",
-        exclusive: capabilities.reusePort,
-        reusePort: capabilities.reusePort,
-      });
+      // Platform flags (SO_REUSEPORT / cluster IPC) handled for you.
+      // Defaults: PORT env (fallback 3000) on 0.0.0.0.
+      const server = listen(app);
 
-      orchestrator.registerOnShutdown(() => {
+      shutdown(() => {
         server.close();
       });
     });
