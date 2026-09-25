@@ -5,10 +5,6 @@ import fastify from "fastify";
 
 (async () => {
   const orchestrator = new Orchestrator({ logger: console });
-  const capabilities = await Orchestrator.getCapabilities();
-
-  console.log("Platform:", capabilities.platform);
-  console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // App server  → :3001  (workers)
   // Metrics server → :9091  (primary, bound by the plugin's serve())
@@ -24,21 +20,17 @@ import fastify from "fastify";
   orchestrator
     .use(sizing)
     .use(prometheus)
-    .run(async () => {
+    .run(async ({ listen, shutdown }) => {
       const server = fastify({ logger: true });
 
       server.get("/", async () => {
         return { hello: "world", pid: process.pid };
       });
 
-      await server.listen({
-        port: +(process.env?.PORT || 3001),
-        host: "0.0.0.0",
-        exclusive: capabilities.reusePort,
-        reusePort: capabilities.reusePort,
-      });
+      // ctx.listen injects the platform flags (SO_REUSEPORT / cluster IPC).
+      await listen(server, { port: +(process.env?.PORT || 3001), host: "0.0.0.0" });
 
-      orchestrator.registerOnShutdown(async () => {
+      shutdown(async () => {
         await server.close();
       });
     });

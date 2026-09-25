@@ -7,10 +7,6 @@ import express from "express";
 
 (async () => {
   const orchestrator = new Orchestrator({ logger: console });
-  const capabilities = await Orchestrator.getCapabilities();
-
-  console.log("Platform:", capabilities.platform);
-  console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // Anchor watch paths to this file's location instead of the current working
   // directory, so watching also works in the Docker harness (cwd = /app).
@@ -27,7 +23,7 @@ import express from "express";
         debounceMs: 300,
       }),
     )
-    .run(async () => {
+    .run(async ({ listen, shutdown }) => {
       const app = express();
       app.get("/", (_req, res) => {
         res.json({
@@ -37,14 +33,10 @@ import express from "express";
         });
       });
 
-      const server = app.listen({
-        port: +(process.env?.PORT || 3010),
-        host: "0.0.0.0",
-        exclusive: capabilities.reusePort,
-        reusePort: capabilities.reusePort,
-      });
+      // Platform flags (SO_REUSEPORT / cluster IPC) handled for you.
+      const server = listen(app, { port: +(process.env?.PORT || 3010), host: "0.0.0.0" });
 
-      orchestrator.registerOnShutdown(() => {
+      shutdown(() => {
         server.close();
       });
 

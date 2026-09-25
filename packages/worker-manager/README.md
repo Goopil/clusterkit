@@ -14,6 +14,7 @@ For monorepo context and examples catalog, see the [root README](../../README.md
 | Crash protection | Exponential restart backoff + circuit breaker (`restart.*`) |
 | Health & recovery | Worker heartbeats, RSS recycling, wedged-worker detection, sustained-lag recycling, fleet health, boot-loop quarantine (`health.*`, `workers.maxRssMb`) |
 | Graceful shutdown | ACK-based worker shutdown, configurable timeouts/signals (`shutdown.*`) |
+| Worker start context | `run(({listen, shutdown}))` — platform-aware server listen + shutdown registration |
 | Lifecycle controls | Worker recycling (`workers.maxAgeMs`), env patching and worker-count override APIs |
 | Observability | Typed events, `getMetrics()`, `getHealth()`, `getFleetHealth()` |
 | Plugin system | `use(plugin)` with install/uninstall lifecycle |
@@ -32,21 +33,17 @@ import { Orchestrator } from "@goopil/clusterkit";
 
 const orchestrator = new Orchestrator({ logger: console });
 
-orchestrator.run(async () => {
-  const capabilities = await Orchestrator.getCapabilities();
-
+// This callback runs in every worker process
+orchestrator.run(async ({ listen, shutdown }) => {
   const server = createServer((_req, res) => {
     res.end("ok");
   });
 
-  server.listen({
-    port: 3000,
-    host: "0.0.0.0",
-    reusePort: capabilities.reusePort,
-    exclusive: capabilities.reusePort,
-  });
+  // Platform flags (SO_REUSEPORT + exclusive on Linux, cluster IPC elsewhere)
+  // are injected. Defaults: PORT env (fallback 3000) on 0.0.0.0.
+  const bound = listen(server);
 
-  orchestrator.registerOnShutdown(() => server.close());
+  shutdown(() => bound.close());
 });
 ```
 
@@ -174,7 +171,7 @@ runs in a worker process.
 ```ts
 const orchestrator = new Orchestrator(config);
 
-await orchestrator.run(start);
+await orchestrator.run(start); // start(ctx) runs in every worker — see below
 orchestrator.use(plugin); // must be called before run() — throws afterwards
 orchestrator.registerOnShutdown(cb);
 
@@ -200,6 +197,29 @@ const supportsReusePort = await Orchestrator.supportsReusePort();
 const capabilities = await Orchestrator.getCapabilities();
 ```
 
+### Worker start context (`run(start)`)
+
+The `start` callback receives a context that abstracts the per-worker listen/shutdown plumbing:
+
+```ts
+interface WorkerStartContext {
+  // Binds target.listen() with the right platform flags — SO_REUSEPORT +
+  // exclusive when the kernel balances connections across workers, cluster
+  // IPC round-robin otherwise. Defaults: PORT env (fallback 3000) on 0.0.0.0.
+  // Returns whatever target.listen() returns (the bound server).
+  listen<T extends Listenable>(target: T, opts?: { port?: number | string; host?: string }): ReturnType<T["listen"]>;
+  // Same as orchestrator.registerOnShutdown(cb).
+  shutdown(cb: (signal: string) => void | Promise<void>): void;
+}
+```
+
+- `listen()` is synchronous (SO_REUSEPORT support is resolved once before the callback runs) and works with any
+  Node-style listen target: an express app, a raw `http.Server`, a Koa app, `fastifyInstance.server`, NestJS
+  `getHttpServer()`.
+- Close stays explicit — register it with `shutdown(() => server.close())` (or a framework-specific close such as
+  NestJS `app.close()`).
+- `registerOnShutdown()` and `Orchestrator.getCapabilities()` remain available unchanged.
+
 ## Lifecycle and shutdown semantics
 
 The primary process owns worker supervision, restart policy, plugin installation, and coordinated shutdown. Worker
@@ -220,7 +240,8 @@ In each worker, the shutdown sequence is:
 
 1. Receives IPC message (or `SIGTERM`/`SIGINT`)
 2. Sends ACK to primary
-3. Calls your `registerOnShutdown()` callback (e.g. `server.close()`)
+3. Calls your shutdown callbacks (registered via `ctx.shutdown()` in the `run()` callback, or
+   `registerOnShutdown()`)
 4. Exits with code `0`
 
 `SIGHUP` is a silent no-op on the primary (the handler is registered so Node's default behavior — terminating the
@@ -234,11 +255,11 @@ its own cleanup path.
 Register server cleanup in workers, not the primary:
 
 ```ts
-orchestrator.run(async () => {
+orchestrator.run(async ({ listen, shutdown }) => {
   const server = createServer(handler);
-  server.listen(3000);
+  listen(server, { port: 3000 });
 
-  orchestrator.registerOnShutdown(() => server.close());
+  shutdown(() => server.close());
 });
 ```
 
@@ -315,7 +336,8 @@ Use these with your Kubernetes liveness / readiness probes.
 
 Use `Orchestrator.getCapabilities()` when startup needs the full platform summary, and
 `Orchestrator.supportsReusePort()` when only `SO_REUSEPORT` support matters. Both helpers are asynchronous because
-capability detection can probe the runtime platform.
+capability detection can probe the runtime platform. Most apps do not need them: the `listen()` helper from the
+[worker start context](#worker-start-context-runstart) applies the right socket flags automatically.
 
 ## Fleet health, quarantine and recovery
 

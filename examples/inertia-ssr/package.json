@@ -13,14 +13,14 @@
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
     "@inertiajs/vue3": "^3.6.1",
-    "@vue/server-renderer": "^3.5.42",
+    "@vue/server-renderer": "^3.5.43",
     "express": "^5.2.1",
-    "vue": "^3.5.42"
+    "vue": "^3.5.43"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
-    "@vitejs/plugin-vue": "^6.0.8",
+    "@vitejs/plugin-vue": "^6.0.9",
     "typescript": "catalog:",
     "vite": "catalog:"
   }
