@@ -8,10 +8,6 @@ import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const orchestrator = new Orchestrator({ logger: console });
-  const capabilities = await Orchestrator.getCapabilities();
-
-  console.log("Platform:", capabilities.platform);
-  console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // App server  → :3008  (workers)
   // Metrics can be exposed by the host app on the primary via prometheus.serve() — see the plugin README.
@@ -21,7 +17,7 @@ async function bootstrap() {
   orchestrator
     .use(sizing)
     .use(prometheus)
-    .run(async () => {
+    .run(async ({ listen, shutdown }) => {
       const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter({ logger: false }));
 
       // init() registers NestJS routes with Fastify but does not call
@@ -33,14 +29,10 @@ async function bootstrap() {
       const fastifyInstance = app.getHttpAdapter().getInstance();
       await fastifyInstance.ready();
 
-      fastifyInstance.server.listen({
-        port: +(process.env?.PORT || 3008),
-        host: "0.0.0.0",
-        exclusive: capabilities.reusePort,
-        reusePort: capabilities.reusePort,
-      });
+      // ctx.listen injects the platform flags (SO_REUSEPORT / cluster IPC).
+      listen(fastifyInstance.server, { port: +(process.env?.PORT || 3008), host: "0.0.0.0" });
 
-      orchestrator.registerOnShutdown(() => app.close());
+      shutdown(() => app.close());
     });
 }
 

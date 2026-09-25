@@ -6,10 +6,6 @@ import { Hono } from "hono";
 
 (async () => {
   const orchestrator = new Orchestrator({ logger: console });
-  const capabilities = await Orchestrator.getCapabilities();
-
-  console.log("Platform:", capabilities.platform);
-  console.log("SO_REUSEPORT:", capabilities.reusePort);
 
   // App server  → :3005  (workers)
   // Metrics server → :9092  (primary, bound by the plugin's serve())
@@ -25,31 +21,17 @@ import { Hono } from "hono";
   orchestrator
     .use(sizing)
     .use(prometheus)
-    .run(async () => {
+    .run(async ({ listen, shutdown }) => {
       const app = new Hono();
 
       app.get("/", (c) => c.json({ hello: "world", pid: process.pid }));
 
-      // createAdaptorServer returns a raw http.Server so we can pass
-      // exclusive / reusePort options directly to listen().
+      // createAdaptorServer returns a raw http.Server; ctx.listen injects the
+      // platform flags (SO_REUSEPORT / cluster IPC).
       const server = createAdaptorServer({ fetch: app.fetch });
-      await new Promise((resolve, reject) => {
-        server.once("error", reject);
-        server.listen(
-          {
-            port: +(process.env?.PORT || 3005),
-            host: "0.0.0.0",
-            exclusive: capabilities.reusePort,
-            reusePort: capabilities.reusePort,
-          },
-          () => {
-            server.off("error", reject);
-            resolve();
-          },
-        );
-      });
+      listen(server, { port: +(process.env?.PORT || 3005), host: "0.0.0.0" });
 
-      orchestrator.registerOnShutdown(() => {
+      shutdown(() => {
         server.close();
       });
     });

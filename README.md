@@ -27,24 +27,17 @@ import {Orchestrator} from '@goopil/clusterkit';
 
 const orchestrator = new Orchestrator({logger: console});
 
-orchestrator.run(async () => {
-  const capabilities = await Orchestrator.getCapabilities();
-
-  // This callback runs in every worker process
+// This callback runs in every worker process
+orchestrator.run(async ({listen, shutdown}) => {
   const server = createServer((_req, res) => {
     res.end(`hello from pid ${process.pid}`);
   });
 
-  server.listen({
-    port: 3000,
-    host: '0.0.0.0',
-    // On Linux with SO_REUSEPORT: each worker binds directly, the kernel balances.
-    // On macOS / without SO_REUSEPORT: cluster IPC handles distribution.
-    reusePort: capabilities.reusePort,
-    exclusive: capabilities.reusePort,
-  });
+  // Platform flags (SO_REUSEPORT on Linux, cluster IPC elsewhere) are set for
+  // you. Defaults: PORT env (fallback 3000) on 0.0.0.0.
+  const bound = listen(server);
 
-  orchestrator.registerOnShutdown(() => server.close());
+  shutdown(() => bound.close());
 });
 ```
 
@@ -229,25 +222,31 @@ pnpm start
 
 ### NestJS + SO_REUSEPORT
 
-NestJS requires a specific lifecycle to bind the raw server socket with `reusePort`:
+NestJS requires a specific lifecycle — `ctx.listen` handles the socket flags, but the framework boot order stays yours:
 
 **Express adapter:**
 
 ```ts
-// app.init() registers NestJS routes on the Express app without calling listen()
-await app.init();
-// Then bind the raw http.Server directly so we can pass reusePort
-app.getHttpServer().listen({port: 3007, host: '0.0.0.0', reusePort: true, exclusive: true});
+orchestrator.run(async ({listen, shutdown}) => {
+  // app.init() registers NestJS routes on the Express app without calling listen()
+  await app.init();
+  // Then bind the raw http.Server (platform flags injected)
+  listen(app.getHttpServer(), {port: 3007, host: '0.0.0.0'});
+  shutdown(() => app.close());
+});
 ```
 
 **Fastify adapter:**
 
 ```ts
-await app.init();
-// app.init() does NOT call fastify.ready() — hook graph must be compiled explicitly
-const fastify = app.getHttpAdapter().getInstance();
-await fastify.ready();
-fastify.server.listen({port: 3008, host: '0.0.0.0', reusePort: true, exclusive: true});
+orchestrator.run(async ({listen, shutdown}) => {
+  await app.init();
+  // app.init() does NOT call fastify.ready() — hook graph must be compiled explicitly
+  const fastify = app.getHttpAdapter().getInstance();
+  await fastify.ready();
+  listen(fastify.server, {port: 3008, host: '0.0.0.0'});
+  shutdown(() => app.close());
+});
 ```
 
 ### Inertia SSR server

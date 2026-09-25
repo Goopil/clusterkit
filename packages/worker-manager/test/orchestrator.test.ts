@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Orchestrator } from "../src/orchestrator";
 import { getCPUCount } from "../src/sizing";
 import { WorkerManagerValidationError } from "../src/validation";
+import type { WorkerStartContext } from "../src/worker-context";
 
 // ============================================================================
 // Mock cluster helpers
@@ -589,6 +590,31 @@ describe("Orchestrator", () => {
       const start = vi.fn().mockResolvedValue(undefined);
       await orch.run(start);
       expect(start).toHaveBeenCalledOnce();
+    });
+
+    it("should pass a start context (listen, shutdown) to the start function", async () => {
+      mockCluster.isPrimary = false;
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      let ctx: WorkerStartContext | undefined;
+      await orch.run((startCtx) => {
+        ctx = startCtx;
+      });
+      expect(typeof ctx?.listen).toBe("function");
+      expect(typeof ctx?.shutdown).toBe("function");
+    });
+
+    it("should run callbacks registered via ctx.shutdown on worker shutdown", async () => {
+      mockCluster.isPrimary = false;
+      const orch = new Orchestrator(cfg({ workers: 2 }));
+      const onShutdown = vi.fn();
+      await orch.run((ctx) => {
+        ctx.shutdown(onShutdown);
+      });
+
+      process.emit("SIGTERM", "SIGTERM");
+
+      await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
+      expect(onShutdown).toHaveBeenCalledOnce();
     });
 
     it("should not fork any workers", async () => {
