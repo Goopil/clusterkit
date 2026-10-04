@@ -571,7 +571,7 @@ describe("plugin lifecycle", () => {
     const orch = mockOrchestrator();
     await plugin.install(orch, logger, singleWorkerConfig());
 
-    expect(logger.debug).toHaveBeenCalledWith("[clusterkit:otlp-meter] Plugin installed on primary process", undefined);
+    expect(logger.debug).toHaveBeenCalledWith("[clusterkit:otlp-meter] Plugin installed on primary process");
     await plugin.uninstall?.(orch);
   });
 
@@ -717,7 +717,6 @@ describe("exporter headers option", () => {
 
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining("headers are not supported by the gRPC exporter"),
-      undefined,
     );
     // The gRPC exporter config has no `headers` support: constructed without them.
     expect(exporterCtorArgs.grpc).toEqual([{ url: "localhost:4317" }]);
