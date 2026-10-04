@@ -20,7 +20,7 @@
     "url": "git+https://github.com/Goopil/clusterkit.git",
     "directory": "packages/plugin-otlp-meter"
   },
-  "license": "LGPL-3.0-or-later",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

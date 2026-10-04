@@ -378,7 +378,7 @@ describe("plugin lifecycle", () => {
     const orch = mockOrchestrator();
     await plugin.install(orch, logger);
 
-    expect(logger.debug).toHaveBeenCalledWith("[clusterkit:prometheus] Plugin installed on primary process", undefined);
+    expect(logger.debug).toHaveBeenCalledWith("[clusterkit:prometheus] Plugin installed on primary process");
   });
 
   it("clears listeners and cache on uninstall", async () => {
@@ -390,7 +390,7 @@ describe("plugin lifecycle", () => {
     await plugin.getMetrics();
     await plugin.uninstall?.(orch);
 
-    expect(logger.debug).toHaveBeenCalledWith("[clusterkit:prometheus] Plugin installed on primary process", undefined);
+    expect(logger.debug).toHaveBeenCalledWith("[clusterkit:prometheus] Plugin installed on primary process");
     plugin = undefined; // already cleaned up
   });
 

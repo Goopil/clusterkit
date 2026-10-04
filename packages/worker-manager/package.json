@@ -9,10 +9,17 @@
     "docker",
     "kubernetes",
     "cgroup",
+    "so-reuseport",
     "so_reuseport",
     "graceful-shutdown",
     "circuit-breaker",
-    "process-manager"
+    "process-manager",
+    "multi-core",
+    "load-balancing",
+    "zero-downtime",
+    "pm2-alternative",
+    "web-concurrency",
+    "http-server"
   ],
   "homepage": "https://github.com/Goopil/clusterkit#readme",
   "bugs": {
@@ -23,7 +30,7 @@
     "url": "git+https://github.com/Goopil/clusterkit.git",
     "directory": "packages/worker-manager"
   },
-  "license": "LGPL-3.0-or-later",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

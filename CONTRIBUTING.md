@@ -103,4 +103,4 @@ Please include:
 
 ## License
 
-By contributing you agree that your contributions will be licensed under the [LGPL-3.0](./LICENSE).
+By contributing you agree that your contributions will be licensed under the [MIT License](./LICENSE).
