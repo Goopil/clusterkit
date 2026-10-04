@@ -715,9 +715,7 @@ describe("exporter headers option", () => {
     const orch = mockOrchestrator();
     await plugin.install(orch, logger, singleWorkerConfig());
 
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("headers are not supported by the gRPC exporter"),
-    );
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("headers are not supported by the gRPC exporter"));
     // The gRPC exporter config has no `headers` support: constructed without them.
     expect(exporterCtorArgs.grpc).toEqual([{ url: "localhost:4317" }]);
     await plugin.uninstall?.(orch);
