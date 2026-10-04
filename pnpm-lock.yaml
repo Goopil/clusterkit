@@ -8,8 +8,8 @@ settings:
 catalogs:
   default:
     '@types/node':
-      specifier: ^26.6.2
-      version: 26.6.2
+      specifier: ^26.6.3
+      version: 26.6.3
     '@vitest/coverage-v8':
       specifier: ^4.1.11
       version: 4.1.11
@@ -20,8 +20,8 @@ catalogs:
       specifier: ^7.0.2
       version: 7.0.2
     vite:
-      specifier: ^8.3.0
-      version: 8.3.0
+      specifier: ^8.3.1
+      version: 8.3.1
     vitest:
       specifier: ^4.1.11
       version: 4.1.11
@@ -57,7 +57,7 @@ importers:
         version: 2.11.5
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
 
   benchmarks:
     dependencies:
@@ -150,10 +150,10 @@ importers:
         version: link:../../packages/plugin-container-sizing
       '@hono/node-server':
         specifier: ^2
-        version: 2.1.1(hono@4.13.9)
+        version: 2.1.2(hono@4.13.10)
       hono:
-        specifier: ^4.13.9
-        version: 4.13.9
+        specifier: ^4.13.10
+        version: 4.13.10
       prom-client:
         specifier: ^15
         version: 15.1.3
@@ -199,16 +199,16 @@ importers:
         version: 5.0.6
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       '@vitejs/plugin-vue':
         specifier: ^6.0.9
-        version: 6.0.9(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))(vue@3.5.43(typescript@7.0.2))
+        version: 6.0.9(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))(vue@3.5.43(typescript@7.0.2))
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
       vite:
         specifier: 'catalog:'
-        version: 8.3.0(@types/node@26.6.2)(yaml@2.9.1)
+        version: 8.3.1(@types/node@26.6.3)(yaml@2.9.1)
 
   examples/inertia-ssr-react:
     dependencies:
@@ -233,7 +233,7 @@ importers:
         version: 5.0.6
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       '@types/react':
         specifier: ^19
         version: 19.3.0
@@ -242,13 +242,13 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react':
         specifier: ^6.1.1
-        version: 6.1.1(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+        version: 6.1.1(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
       vite:
         specifier: 'catalog:'
-        version: 8.3.0(@types/node@26.6.2)(yaml@2.9.1)
+        version: 8.3.1(@types/node@26.6.3)(yaml@2.9.1)
 
   examples/koa:
     dependencies:
@@ -280,14 +280,14 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-container-sizing
       '@nestjs/common':
-        specifier: ^12.0.1
-        version: 12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        specifier: ^12.1.1
+        version: 12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core':
-        specifier: ^12.0.1
-        version: 12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        specifier: ^12.1.1
+        version: 12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-express':
-        specifier: ^12.0.1
-        version: 12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.0)
+        specifier: ^12.1.1
+        version: 12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.1)
       prom-client:
         specifier: ^15
         version: 15.1.3
@@ -303,10 +303,10 @@ importers:
         version: 5.0.6
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       ts-node:
         specifier: ^10
-        version: 10.9.2(@types/node@26.6.2)(typescript@7.0.2)
+        version: 10.9.2(@types/node@26.6.3)(typescript@7.0.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -323,14 +323,14 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-container-sizing
       '@nestjs/common':
-        specifier: ^12.0.1
-        version: 12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        specifier: ^12.1.1
+        version: 12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core':
-        specifier: ^12.0.1
-        version: 12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+        specifier: ^12.1.1
+        version: 12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-fastify':
-        specifier: ^12.0.1
-        version: 12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.0)
+        specifier: ^12.1.1
+        version: 12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.1)
       prom-client:
         specifier: ^15
         version: 15.1.3
@@ -343,10 +343,10 @@ importers:
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       ts-node:
         specifier: ^10
-        version: 10.9.2(@types/node@26.6.2)(typescript@7.0.2)
+        version: 10.9.2(@types/node@26.6.3)(typescript@7.0.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -358,7 +358,7 @@ importers:
         version: link:../worker-manager
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
@@ -370,7 +370,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
 
   packages/plugin-file-watcher:
     devDependencies:
@@ -379,7 +379,7 @@ importers:
         version: link:../worker-manager
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
@@ -394,7 +394,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
 
   packages/plugin-otlp-meter:
     devDependencies:
@@ -427,7 +427,7 @@ importers:
         version: 1.43.0
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
@@ -439,7 +439,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
 
   packages/plugin-prometheus:
     devDependencies:
@@ -448,7 +448,7 @@ importers:
         version: link:../worker-manager
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
@@ -463,7 +463,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
 
   packages/plugin-signal-restart:
     devDependencies:
@@ -472,7 +472,7 @@ importers:
         version: link:../worker-manager
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
@@ -484,13 +484,13 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
 
   packages/worker-manager:
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
-        version: 26.6.2
+        version: 26.6.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
@@ -502,7 +502,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 'catalog:'
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
 
 packages:
 
@@ -711,8 +711,8 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  '@hono/node-server@2.1.1':
-    resolution: {integrity: sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg==}
+  '@hono/node-server@2.1.2':
+    resolution: {integrity: sha512-w0tqJ/ilmggKokOSvbp9y+F91Y4ROTyCTL/8EKj9B4qOhOZzNm/tyKElzxrz+9+4fJKQrBSaahIuCGRye5RJYg==}
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
@@ -774,8 +774,8 @@ packages:
   '@minimistjs/subarg@1.0.0':
     resolution: {integrity: sha512-Q/ONBiM2zNeYUy0mVSO44mWWKYM3UHuEK43PKIOzJCbvUnPoMH1K+gk3cf1kgnCVJFlWmddahQQCmrmBGlk9jQ==}
 
-  '@nestjs/common@12.1.0':
-    resolution: {integrity: sha512-YGNboXyCmLWwIyrrVLst2dsH+DjsIje4S3P2i06HRwV0Sdcp+qZ7UV3PvIvCD4mI/VGH/f4p0Oq2sMVkVB0GOA==}
+  '@nestjs/common@12.1.1':
+    resolution: {integrity: sha512-foR+9SDz53vd4WXvN5UEXbcU0i/i9mf/zXqbAWlEDQlxAooS4kZoY5X/Zr2DsUJZaLPOk3kFQdu6EhbWrhAoDQ==}
     peerDependencies:
       class-transformer: '>=0.4.1'
       class-validator: '>=0.13.2'
@@ -787,8 +787,8 @@ packages:
       class-validator:
         optional: true
 
-  '@nestjs/core@12.1.0':
-    resolution: {integrity: sha512-lI/JwCwuDgvJPHZMqQdP7vDwQFPzWQ0Sgsqe6SeCdN3FWu2t+9kkW7kLxrPcRnTdyB9XnuCanh9J9oMc/pQgUg==}
+  '@nestjs/core@12.1.1':
+    resolution: {integrity: sha512-wI6zlO7sfoL4532/XXVkdPSiiXPAUsFdUkK42bTxVKoaEj60x8y8k95HtxOy5q/tUcXcB2Q4HIFKwVjgMamHeg==}
     engines: {node: '>= 20'}
     peerDependencies:
       '@nestjs/common': ^12.0.0
@@ -805,14 +805,14 @@ packages:
       '@nestjs/websockets':
         optional: true
 
-  '@nestjs/platform-express@12.1.0':
-    resolution: {integrity: sha512-LOyutflFXjV+ahGKpcje9x1BFSVj9GjOE7kU1kGpI3P+NBzEf3dnsES/fmGuW8R7gV11VJlRz7u+3wYbda5/xg==}
+  '@nestjs/platform-express@12.1.1':
+    resolution: {integrity: sha512-8AhH8CyGK2OF8liNkUkX/l/zEX83vXnhYxrZduMDeZ2VOTEdz0DDzslQK06k1qJEIPzyBbpafYxEFOiBVYZrdg==}
     peerDependencies:
       '@nestjs/common': ^12.0.0
       '@nestjs/core': ^12.0.0
 
-  '@nestjs/platform-fastify@12.1.0':
-    resolution: {integrity: sha512-4TRUmO11FJE2lXVJFpav2y5Z2f38d2ZSJab9KQv3Fg/xySoLYcWJ4fZJ8jxfcFhWzEl6A58GxKHVBGuQTW5kcQ==}
+  '@nestjs/platform-fastify@12.1.1':
+    resolution: {integrity: sha512-7w5Cm/bI2f4fly5VmOhtKv25bwM8LoLpWGCB0fzPCTDRnEosIbLO3mWhBRHGAdPWE/N52LS14L0w+1/ZzsdFqw==}
     peerDependencies:
       '@fastify/multipart': ^10.1.0
       '@fastify/static': ^10.1.2
@@ -1139,8 +1139,8 @@ packages:
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
 
-  '@types/node@26.6.2':
-    resolution: {integrity: sha512-X1P21scMv4zGKLYqjdGjaKa7COa0RKVYYZZN/NfvLQ1JegxFhdhpZG/Lyn8AXx6CDUavKAd11v6BvfpkDByK8g==}
+  '@types/node@26.6.3':
+    resolution: {integrity: sha512-dsqMQQoeTLqu9wynDD00q573mNzso3IdQOAfHRJqLCcmCFPoGo9A1bDpUcv/9tnKpErQWv9uKeGfl37EIS02Yg==}
 
   '@types/qs@6.15.1':
     resolution: {integrity: sha512-GZHUBZR9hckSUhrxmp1nG6NwdpM9fCunJwyThLW1X3AyHgd9IlHb6VANpQQqDr2o/qQp6McZ3y/IA2rVzKzSbw==}
@@ -2080,8 +2080,8 @@ packages:
   hdr-histogram-percentiles-obj@3.0.0:
     resolution: {integrity: sha512-7kIufnBqdsBGcSZLPJwqHT3yhk1QTsSlFsVD3kx5ixH/AlgBs9yM1q6DPhXZ8f8gtdqgh7N7/5btRLpQsS2gHw==}
 
-  hono@4.13.9:
-    resolution: {integrity: sha512-7dMkQmZoC4E6F7AtaQSPhlWAdnBti+j7rreMZl8QB4jFiEhP9TWbGWUMi8WYzBCgmgulxuvLQupKqo+Co6Omyg==}
+  hono@4.13.10:
+    resolution: {integrity: sha512-dQuLsa5oO+47QVMVMaaD9cIv8ctmVtK1iRvwWngkfloFJMeFeuoUFDswIqZGxmGX3hrRzREgEArjkK9OgsQEhA==}
     engines: {node: '>=16.9.0'}
 
   hookable@6.1.1:
@@ -2938,8 +2938,8 @@ packages:
     resolution: {integrity: sha512-u3xV3X7uzvi5b1MncmZo3i2Aw222Zk1keqLA1YkHldREkAhAqi65wuPfe7lHx8H/Wzy+8CE7S7uS3jekIM5s8g==}
     engines: {node: '>=8'}
 
-  uint8array-extras@1.5.0:
-    resolution: {integrity: sha512-rvKSBiC5zqCCiDZ9kAOszZcDvdAHwwIKJG33Ykj43OKcWsnmcBRL09YTU4nOeHZ8Y2a7l1MgTd08SBe9A8Qj6A==}
+  uint8array-extras@1.6.0:
+    resolution: {integrity: sha512-8iAasVS4wUx0gPLjH8Xtz2PeDzTSiy8QiLGu2DT3X5GU+egFEQhpnbtkehbAwjvDcxIERmCYcysiODFmE3Ud0Q==}
     engines: {node: '>=18'}
 
   unconfig-core@7.5.0:
@@ -2970,8 +2970,8 @@ packages:
     resolution: {integrity: sha512-mMVzj0TXExtVdlDEq+Mzp0eyOuyznNpFobNM3uAqe3HVm/Ps2c+u17BligMkZjZCA6EiXpoon8iRTer3iu40SQ==}
     engines: {node: '>=18.12.0'}
 
-  vite@8.3.0:
-    resolution: {integrity: sha512-lhZBVvEHefgE+HQZC9O7EBJgCU/nVzFNl7vkS4RE0APtWLP02/8QVIkQtzBxPquh7lq5/78NHipTj7ODQ6XuyQ==}
+  vite@8.3.1:
+    resolution: {integrity: sha512-/bvH9E9tmCXRGp2uXY3WbOldqpTwFkbha/8ANaEQ6VkxhH60KyqLwgZq6lG2y+4uT55x9+9eUHMpQ7uGnOCKjA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -3357,9 +3357,9 @@ snapshots:
       protobufjs: 7.6.6
       yargs: 17.7.3
 
-  '@hono/node-server@2.1.1(hono@4.13.9)':
+  '@hono/node-server@2.1.2(hono@4.13.10)':
     dependencies:
-      hono: 4.13.9
+      hono: 4.13.10
 
   '@inertiajs/core@3.7.1':
     dependencies:
@@ -3425,7 +3425,7 @@ snapshots:
     dependencies:
       minimist: 1.2.8
 
-  '@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)':
+  '@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2)':
     dependencies:
       '@standard-schema/spec': 1.1.0
       file-type: 22.1.1
@@ -3438,9 +3438,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@nestjs/core@12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)':
+  '@nestjs/core@12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)':
     dependencies:
-      '@nestjs/common': 12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/common': 12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
       fast-safe-stringify: 2.1.1
       iterare: 1.2.1
       path-to-regexp: 8.4.2
@@ -3449,12 +3449,12 @@ snapshots:
       tslib: 2.8.1
       uid: 2.0.2
     optionalDependencies:
-      '@nestjs/platform-express': 12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.0)
+      '@nestjs/platform-express': 12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.1)
 
-  '@nestjs/platform-express@12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.0)':
+  '@nestjs/platform-express@12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.1)':
     dependencies:
-      '@nestjs/common': 12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/core': 12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/common': 12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core': 12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       cors: 2.8.6
       express: 5.2.1
       multer: 2.4.0
@@ -3463,13 +3463,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@nestjs/platform-fastify@12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.0)':
+  '@nestjs/platform-fastify@12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.1)':
     dependencies:
       '@fastify/cors': 11.3.0
       '@fastify/formbody': 9.0.0
       '@fastify/middie': 9.3.4
-      '@nestjs/common': 12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/core': 12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/common': 12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core': 12.1.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.1.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       fast-querystring: 1.1.2
       fastify: 5.12.5
       find-my-way: 9.9.0
@@ -3705,7 +3705,7 @@ snapshots:
   '@types/body-parser@1.19.6':
     dependencies:
       '@types/connect': 3.4.38
-      '@types/node': 26.6.2
+      '@types/node': 26.6.3
 
   '@types/chai@5.2.3':
     dependencies:
@@ -3714,7 +3714,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 26.6.2
+      '@types/node': 26.6.3
 
   '@types/deep-eql@4.0.2': {}
 
@@ -3722,7 +3722,7 @@ snapshots:
 
   '@types/express-serve-static-core@5.1.2':
     dependencies:
-      '@types/node': 26.6.2
+      '@types/node': 26.6.3
       '@types/qs': 6.15.1
       '@types/range-parser': 1.2.7
       '@types/send': 1.2.1
@@ -3735,7 +3735,7 @@ snapshots:
 
   '@types/http-errors@2.0.5': {}
 
-  '@types/node@26.6.2':
+  '@types/node@26.6.3':
     dependencies:
       undici-types: 8.9.0
 
@@ -3753,12 +3753,12 @@ snapshots:
 
   '@types/send@1.2.1':
     dependencies:
-      '@types/node': 26.6.2
+      '@types/node': 26.6.3
 
   '@types/serve-static@2.2.0':
     dependencies:
       '@types/http-errors': 2.0.5
-      '@types/node': 26.6.2
+      '@types/node': 26.6.3
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true
@@ -3820,15 +3820,15 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@vitejs/plugin-react@6.1.1(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))':
+  '@vitejs/plugin-react@6.1.1(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.3.0(@types/node@26.6.2)(yaml@2.9.1)
+      vite: 8.3.1(@types/node@26.6.3)(yaml@2.9.1)
 
-  '@vitejs/plugin-vue@6.0.9(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))(vue@3.5.43(typescript@7.0.2))':
+  '@vitejs/plugin-vue@6.0.9(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))(vue@3.5.43(typescript@7.0.2))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.3.0(@types/node@26.6.2)(yaml@2.9.1)
+      vite: 8.3.1(@types/node@26.6.3)(yaml@2.9.1)
       vue: 3.5.43(typescript@7.0.2)
 
   '@vitest/coverage-v8@4.1.11(vitest@4.1.11)':
@@ -3843,7 +3843,7 @@ snapshots:
       obug: 2.1.4
       std-env: 4.2.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
 
   '@vitest/expect@4.1.11':
     dependencies:
@@ -3854,13 +3854,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.11(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))':
+  '@vitest/mocker@4.1.11(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))':
     dependencies:
       '@vitest/spy': 4.1.11
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.3.0(@types/node@26.6.2)(yaml@2.9.1)
+      vite: 8.3.1(@types/node@26.6.3)(yaml@2.9.1)
 
   '@vitest/pretty-format@4.1.11':
     dependencies:
@@ -4480,7 +4480,7 @@ snapshots:
       '@tokenizer/inflate': 0.4.1
       strtok3: 10.3.5
       token-types: 6.1.2
-      uint8array-extras: 1.5.0
+      uint8array-extras: 1.6.0
     transitivePeerDependencies:
       - supports-color
 
@@ -4592,7 +4592,7 @@ snapshots:
 
   hdr-histogram-percentiles-obj@3.0.0: {}
 
-  hono@4.13.9: {}
+  hono@4.13.10: {}
 
   hookable@6.1.1: {}
 
@@ -5019,7 +5019,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.2
-      '@types/node': 26.6.2
+      '@types/node': 26.6.3
       long: 5.3.2
 
   proxy-addr@2.0.7:
@@ -5337,14 +5337,14 @@ snapshots:
 
   tree-kill@1.2.2: {}
 
-  ts-node@10.9.2(@types/node@26.6.2)(typescript@7.0.2):
+  ts-node@10.9.2(@types/node@26.6.3)(typescript@7.0.2):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.12
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 26.6.2
+      '@types/node': 26.6.3
       acorn: 8.16.0
       acorn-walk: 8.3.5
       arg: 4.1.3
@@ -5438,7 +5438,7 @@ snapshots:
     dependencies:
       '@lukeed/csprng': 1.1.0
 
-  uint8array-extras@1.5.0: {}
+  uint8array-extras@1.6.0: {}
 
   unconfig-core@7.5.0:
     dependencies:
@@ -5459,7 +5459,7 @@ snapshots:
 
   verkit@0.4.1: {}
 
-  vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1):
+  vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
@@ -5467,14 +5467,14 @@ snapshots:
       rolldown: 1.2.10
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 26.6.2
+      '@types/node': 26.6.3
       fsevents: 2.3.3
       yaml: 2.9.1
 
-  vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1)):
+  vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1)):
     dependencies:
       '@vitest/expect': 4.1.11
-      '@vitest/mocker': 4.1.11(vite@8.3.0(@types/node@26.6.2)(yaml@2.9.1))
+      '@vitest/mocker': 4.1.11(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
       '@vitest/pretty-format': 4.1.11
       '@vitest/runner': 4.1.11
       '@vitest/snapshot': 4.1.11
@@ -5491,11 +5491,11 @@ snapshots:
       tinyexec: 1.3.0
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 8.3.0(@types/node@26.6.2)(yaml@2.9.1)
+      vite: 8.3.1(@types/node@26.6.3)(yaml@2.9.1)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
-      '@types/node': 26.6.2
+      '@types/node': 26.6.3
       '@vitest/coverage-v8': 4.1.11(vitest@4.1.11)
     transitivePeerDependencies:
       - msw
