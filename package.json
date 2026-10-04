@@ -44,7 +44,7 @@
     "version-packages": "changeset version && pnpm install --lockfile-only",
     "ci:publish": "pnpm build && node scripts/publish-with-oidc.mjs && changeset tag"
   },
-  "license": "LGPL-3.0-or-later",
+  "license": "MIT",
   "packageManager": "pnpm@10.30.1",
   "type": "module",
   "devDependencies": {

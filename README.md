@@ -1,17 +1,38 @@
 # clusterkit
 
-[![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22.12-brightgreen)](https://nodejs.org)
 [![CI](https://github.com/Goopil/clusterkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Goopil/clusterkit/actions/workflows/ci.yml)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=Goopil_clusterkit&metric=alert_status)](https://sonarcloud.io/dashboard?id=Goopil_clusterkit)
 [![Coverage](https://codecov.io/gh/Goopil/clusterkit/graph/badge.svg)](https://codecov.io/gh/Goopil/clusterkit)
 [![npm version](https://img.shields.io/npm/v/@goopil/clusterkit.svg?label=%40goopil%2Fclusterkit)](https://www.npmjs.com/package/@goopil/clusterkit)
-[![npm downloads](https://img.shields.io/npm/dm/@goopil/clusterkit.svg)](https://www.npmjs.com/package/@goopil/clusterkit)
+[![GitHub stars](https://img.shields.io/github/stars/Goopil/clusterkit?style=social)](https://github.com/Goopil/clusterkit/stargazers)
 
 Multi-worker Node.js, made boring.
 
 ClusterKit forks your app one worker per core, balances connections at the kernel level, restarts crashed workers with
 backoff, and drains them cleanly on shutdown. Bring your web framework — the supervision is handled.
+
+![ClusterKit: two workers boot, one is killed and recovers with backoff, then kill -HUP rolls the whole fleet with zero dropped connections](./docs/demo-clusterkit.gif)
+
+## Why ClusterKit?
+
+Native `cluster` hands you fork-and-pray primitives. Process managers like pm2 bolt multi-process on from the outside
+with a daemon and a CLI. ClusterKit is an **embedded library**: your app stays a plain Node program, and the
+orchestration — bind, balance, supervise, drain — is zero-dependency code you call from `main()`.
+
+|                                | native `cluster`      | pm2 / throng          | ClusterKit                        |
+| ------------------------------ | --------------------- | --------------------- | --------------------------------- |
+| Model                          | manual fork + IPC     | external CLI / daemon | library in your process           |
+| Load balancing                 | accept-on-connection  | proxy or shared port  | kernel-level (`SO_REUSEPORT`)     |
+| Crash policy                   | DIY                   | fixed retry           | exponential backoff + circuit breaker |
+| Graceful shutdown              | DIY                   | basic                 | per-worker ACK, SIGTERM→SIGINT→SIGKILL |
+| Zero-downtime restarts         | DIY                   | `pm2 reload`          | built-in rolling restart, or `kill -HUP` |
+| Container-aware sizing         | no                    | no                    | cgroup v1/v2 plugin (CPU + heap)  |
+| Metrics                        | DIY                   | pm2.io (SaaS)         | Prometheus + OTLP plugins, self-hosted |
+| TypeScript                     | types only            | partial               | written in TypeScript             |
+
+Head-to-head numbers against native cluster, throng and pm2: [BENCHMARKS.md](./BENCHMARKS.md).
 
 ## Getting started in 5 minutes
 
@@ -326,6 +347,18 @@ pnpm examples:start
 for apps; 9090–9093 for metrics). The two inertia SSR examples (ports 13714–13715) are not part of the Docker setup —
 run them standalone from their `examples/` directory.
 
+## Coming from pm2 or throng?
+
+| pm2 / throng                     | ClusterKit                                                        |
+| -------------------------------- | ----------------------------------------------------------------- |
+| `pm2 start app.js -i max`        | `new Orchestrator().run(workerFn)` — worker count from `workers: 'auto'` |
+| `pm2 reload all`                 | `orchestrator.restartWorkers()`, or `kill -HUP` with the signal-restart plugin |
+| SIGINT / stop hooks              | `shutdown(callback)` — ACK protocol, SIGTERM → SIGINT → SIGKILL escalation |
+| `ecosystem.config.js`            | the `Orchestrator` config object — typed and validated at startup |
+| `pm2 logs`                       | any logger via `logger:` (console, pino, winston…)                |
+| `pm2 monit` / pm2.io             | `@goopil/clusterkit-prometheus` + the bundled Grafana dashboard   |
+| `WEB_CONCURRENCY` (Heroku-style) | honored by `workers: 'auto'`                                      |
+
 ## Benchmarks
 
 The `benchmarks/` package compares clusterkit against other Node.js process orchestrators (native cluster, throng, pm2)
@@ -366,9 +399,11 @@ pnpm --filter @goopil/clusterkit-sizing test
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+## Support
+
+If ClusterKit saved you a deploy, a pager alert, or a tuning session — give the repo a ⭐. It is the main discovery
+signal for an independently developed library.
+
 ## License
 
-Licensed under the [GNU Lesser General Public License v3.0](./LICENSE).
-
-You may use this library in proprietary applications without requiring your application to be open source. Modifications
-to the library itself must be shared under the same LGPL terms.
+Licensed under the [MIT License](./LICENSE). Use it in proprietary applications freely; attribution not required.
