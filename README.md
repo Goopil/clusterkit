@@ -13,7 +13,7 @@ Multi-worker Node.js, made boring.
 ClusterKit forks your app one worker per core, balances connections at the kernel level, restarts crashed workers with
 backoff, and drains them cleanly on shutdown. Bring your web framework — the supervision is handled.
 
-![ClusterKit: two workers boot, one is killed and recovers with backoff, then kill -HUP rolls the whole fleet with zero dropped connections](./docs/demo-clusterkit.gif)
+![ClusterKit: two workers boot, one is killed and recovers with backoff, then kill -HUP rolls the whole fleet with zero dropped connections](./docs/demo/demo-clusterkit.gif)
 
 ## Why ClusterKit?
 
