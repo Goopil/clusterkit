@@ -2,6 +2,8 @@
 
 Core orchestrator for multi-worker Node.js servers.
 
+![ClusterKit: two workers boot, one is killed and recovers with backoff, then kill -HUP rolls the whole fleet with zero dropped connections](https://raw.githubusercontent.com/Goopil/clusterkit/main/docs/demo/demo-clusterkit.gif)
+
 This README focuses on the package-level contract (capabilities, options, API).
 For monorepo context and examples catalog, see the [root README](../../README.md).
 
