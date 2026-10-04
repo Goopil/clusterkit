@@ -1,5 +1,11 @@
 # @goopil/clusterkit-sizing
 
+## 1.2.2
+
+### Patch Changes
+
+- [#220](https://github.com/Goopil/clusterkit/pull/220) [`bedc9a8`](https://github.com/Goopil/clusterkit/commit/bedc9a885a1a24efc3f723c979ef70b98934ce2c) Thanks [@Goopil](https://github.com/Goopil)! - Relicense from LGPL-3.0-or-later to MIT. No code change — use it freely in any project, proprietary included.
+
 ## 1.2.1
 
 ### Patch Changes
