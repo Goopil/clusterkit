@@ -90,7 +90,7 @@ describe("logger", () => {
       expect(info).toHaveBeenCalledWith("[clusterkit:test] hello", { scope: "x" });
     });
 
-    it("should pass through undefined data when none is provided", () => {
+    it("should omit the data argument when none is provided", () => {
       const info = vi.fn();
       const logger = {
         debug: vi.fn(),
@@ -102,7 +102,9 @@ describe("logger", () => {
       const prefixed = withLoggerPrefix(logger, "clusterkit:test");
       prefixed?.info("hello");
 
-      expect(info).toHaveBeenCalledWith("[clusterkit:test] hello", undefined);
+      // Raw console methods render an explicit `undefined` second argument as
+      // a stray "undefined" — the data argument must not be passed at all.
+      expect(info).toHaveBeenCalledWith("[clusterkit:test] hello");
     });
 
     it("should return null when logger is null", () => {
