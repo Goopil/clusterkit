@@ -18,9 +18,9 @@
     "@goopil/clusterkit": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
     "@goopil/clusterkit-sizing": "workspace:*",
-    "@nestjs/common": "^12.1.1",
-    "@nestjs/core": "^12.1.1",
-    "@nestjs/platform-fastify": "^12.1.1",
+    "@nestjs/common": "^12.1.2",
+    "@nestjs/core": "^12.1.2",
+    "@nestjs/platform-fastify": "^12.1.2",
     "prom-client": "^15",
     "reflect-metadata": "^0.2",
     "rxjs": "^7"
