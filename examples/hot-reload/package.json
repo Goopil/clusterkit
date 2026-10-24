@@ -17,6 +17,6 @@
     "@goopil/clusterkit-sizing": "workspace:*",
     "@goopil/clusterkit-signal-restart": "workspace:*",
     "@goopil/clusterkit-file-watcher": "workspace:*",
-    "express": "^5.2.1"
+    "express": "^5.3.0"
   }
 }

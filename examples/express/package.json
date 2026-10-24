@@ -16,7 +16,7 @@
     "@goopil/clusterkit": "workspace:*",
     "@goopil/clusterkit-prometheus": "workspace:*",
     "@goopil/clusterkit-sizing": "workspace:*",
-    "express": "^5.2.1",
+    "express": "^5.3.0",
     "prom-client": "^15"
   }
 }
