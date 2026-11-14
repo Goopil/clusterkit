@@ -81,7 +81,7 @@
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.222.0",
     "@opentelemetry/host-metrics": "^0.40.0",
     "@opentelemetry/otlp-transformer": "^0.222.0",
-    "@opentelemetry/resources": "^2.11.0",
+    "@opentelemetry/resources": "^2.12.1",
     "@opentelemetry/sdk-metrics": "^3.0.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "@types/node": "catalog:",
