@@ -1,5 +1,11 @@
 # @goopil/clusterkit-file-watcher
 
+## 1.3.0
+
+### Minor Changes
+
+- [#262](https://github.com/Goopil/clusterkit/pull/262) [`6816df9`](https://github.com/Goopil/clusterkit/commit/6816df9abcec66543278dccbe95c380c1b71ac7c) Thanks [@Goopil](https://github.com/Goopil)! - Support chokidar 6: widen the peer range to `^4.0.0 || ^5.0.0 || ^6.0.0` and develop against chokidar 6.
+
 ## 1.2.1
 
 ### Patch Changes
