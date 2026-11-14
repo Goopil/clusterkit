@@ -17,11 +17,13 @@ import { createFileWatcherPlugin } from "@goopil/clusterkit-file-watcher";
 const orchestrator = new Orchestrator({ logger: console });
 
 orchestrator
-  .use(createFileWatcherPlugin({
-    watch: ["./src"],       // watch source files
-    envFile: "./.env",      // watch .env file
-    debounceMs: 300,        // coalesce rapid changes
-  }))
+  .use(
+    createFileWatcherPlugin({
+      watch: ["./src"], // watch source files
+      envFile: "./.env", // watch .env file
+      debounceMs: 300, // coalesce rapid changes
+    }),
+  )
   .run(async () => {
     // Your server here
   });
@@ -42,7 +44,7 @@ The plugin works with **chokidar v4 and v5 (`^4.0.0 || ^5.0.0`), which removed g
 ```js
 createFileWatcherPlugin({
   watch: ["./src", "./config/app.toml"], // literal paths only
-})
+});
 ```
 
 chokidar v4 is hybrid CJS/ESM; v5 is ESM-only, reachable from CommonJS via `require(esm)` on Node ≥ 20.19 (this package already requires Node ≥ 22.12).
@@ -60,7 +62,7 @@ The plugin injects a default ignore for `node_modules` directories (`/(^|\/)node
 createFileWatcherPlugin({
   watch: ["./src"],
   watchOptions: { ignored: [/\.tmp$/] }, // replaces the default entirely
-})
+});
 ```
 
 ## Reinstalling the plugin
@@ -79,7 +81,7 @@ createFileWatcherPlugin({
   watchOptions: {
     ignored: [/(^|\/)node_modules(\/|$)/, /\/logs\//, /\/uploads\//, /\.tmp$/],
   },
-})
+});
 ```
 
 ## Single worker (count 1)
@@ -88,22 +90,22 @@ The watcher is effective at every worker count (>= 1); changes trigger an in-pro
 
 ## Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `watch` | `string \| string[]` | `[]` | Literal paths (files or directories) to watch. No globs since chokidar v4. |
-| `watchOptions` | `object` | `{}` | Options passed through to the watcher. An explicit `ignored` here replaces the default `node_modules` ignore entirely. |
-| `ignore` | `string \| string[]` | `[]` | Extra patterns passed to chokidar's `ignored` (merged after the default `node_modules` ignore). String entries are matched as literal paths by chokidar v4/v5 — use `watchOptions.ignored` with a `RegExp`/function for pattern matching. |
-| `envFile` | `string \| string[]` | `[]` | Path(s) to `.env` files to parse on change. |
-| `envParser` | `(content: string) => Record<string, string>` | `parseEnvFile` | Custom `.env` parser. |
-| `pollEnv` | `boolean` | `false` | Enable `process.env` polling. |
-| `pollEnvIntervalMs` | `number` | `5000` | Interval for `process.env` polling. |
-| `debounceMs` | `number` | `300` | Debounce time for coalescing rapid changes. |
-| `debounceMaxWaitMs` | `number` | `0` (off) | Max time since the first unflushed change before the restart fires anyway, even if changes keep arriving. |
-| `minRestartIntervalMs` | `number` | `0` (off) | Minimum delay between actual restarts; triggers firing within the window after the last restart are skipped. |
-| `staggerMs` | `number` | `1000` | Delay between draining worker N and starting worker N+1. |
-| `reason` | `string` | `"file-change"` or `"env-change"` | Reason string for restart events. |
-| `startDelayMs` | `number` | `0` | Delay before starting watchers. |
-| `dryRun` | `boolean` | `false` | Log what would restart without actually restarting. |
+| Option                 | Type                                          | Default                           | Description                                                                                                                                                                                                                               |
+| ---------------------- | --------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `watch`                | `string \| string[]`                          | `[]`                              | Literal paths (files or directories) to watch. No globs since chokidar v4.                                                                                                                                                                |
+| `watchOptions`         | `object`                                      | `{}`                              | Options passed through to the watcher. An explicit `ignored` here replaces the default `node_modules` ignore entirely.                                                                                                                    |
+| `ignore`               | `string \| string[]`                          | `[]`                              | Extra patterns passed to chokidar's `ignored` (merged after the default `node_modules` ignore). String entries are matched as literal paths by chokidar v4/v5 — use `watchOptions.ignored` with a `RegExp`/function for pattern matching. |
+| `envFile`              | `string \| string[]`                          | `[]`                              | Path(s) to `.env` files to parse on change.                                                                                                                                                                                               |
+| `envParser`            | `(content: string) => Record<string, string>` | `parseEnvFile`                    | Custom `.env` parser.                                                                                                                                                                                                                     |
+| `pollEnv`              | `boolean`                                     | `false`                           | Enable `process.env` polling.                                                                                                                                                                                                             |
+| `pollEnvIntervalMs`    | `number`                                      | `5000`                            | Interval for `process.env` polling.                                                                                                                                                                                                       |
+| `debounceMs`           | `number`                                      | `300`                             | Debounce time for coalescing rapid changes.                                                                                                                                                                                               |
+| `debounceMaxWaitMs`    | `number`                                      | `0` (off)                         | Max time since the first unflushed change before the restart fires anyway, even if changes keep arriving.                                                                                                                                 |
+| `minRestartIntervalMs` | `number`                                      | `0` (off)                         | Minimum delay between actual restarts; triggers firing within the window after the last restart are skipped.                                                                                                                              |
+| `staggerMs`            | `number`                                      | `1000`                            | Delay between draining worker N and starting worker N+1.                                                                                                                                                                                  |
+| `reason`               | `string`                                      | `"file-change"` or `"env-change"` | Reason string for restart events.                                                                                                                                                                                                         |
+| `startDelayMs`         | `number`                                      | `0`                               | Delay before starting watchers.                                                                                                                                                                                                           |
+| `dryRun`               | `boolean`                                     | `false`                           | Log what would restart without actually restarting.                                                                                                                                                                                       |
 
 ## Restart storm hardening
 
@@ -118,7 +120,7 @@ createFileWatcherPlugin({
   watch: ["./src"],
   debounceMs: 300,
   debounceMaxWaitMs: 2_000, // restart at most 2s after the first unflushed change
-})
+});
 ```
 
 ### `minRestartIntervalMs` — throttle back-to-back restarts
@@ -129,7 +131,7 @@ Caps the restart rate: a debounced trigger that would fire within this window af
 createFileWatcherPlugin({
   watch: ["./src"],
   minRestartIntervalMs: 5_000, // at most one restart per 5s
-})
+});
 ```
 
 ## API
@@ -145,9 +147,9 @@ Inline comments (` # ...`) are stripped from unquoted values only — comments i
 
 ### `FileWatcherPlugin`
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `name` | `string` | `"file-watcher"` |
+| Property     | Type      | Description                            |
+| ------------ | --------- | -------------------------------------- |
+| `name`       | `string`  | `"file-watcher"`                       |
 | `isWatching` | `boolean` | Whether watchers are currently active. |
 
 ## Events

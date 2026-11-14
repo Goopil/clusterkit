@@ -26,41 +26,41 @@ corepack pnpm --filter benchmarks exec node runner.mjs --list
 
 ## CLI flags
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--quick` | 3s warmup, 10s measure, 1 run per scenario | `false` (reference mode) |
-| `--target <id>` | Run only one target (e.g. `clusterkit-3`) | all targets |
-| `--workload <id>` | Run only one workload (e.g. `hello`) | all workloads |
-| `--port <n>` | HTTP port for target servers | `3100` |
-| `--list` | List available targets and workloads | — |
-| `--smoke` | Smoke test: verify targets boot, no perf | `false` |
-| `--conns-per-worker <n>` | Autocannon connections per worker | `50` |
-| `--scenario <id>` | Run a special scenario instead of the perf workloads (`recovery` is the only one today) | — (perf workloads) |
-| `--health on\|off` | Recovery-scenario A/B seam: boot `clusterkit-3` with the opt-in health features | `off` |
+| Flag                     | Description                                                                             | Default                  |
+| ------------------------ | --------------------------------------------------------------------------------------- | ------------------------ |
+| `--quick`                | 3s warmup, 10s measure, 1 run per scenario                                              | `false` (reference mode) |
+| `--target <id>`          | Run only one target (e.g. `clusterkit-3`)                                               | all targets              |
+| `--workload <id>`        | Run only one workload (e.g. `hello`)                                                    | all workloads            |
+| `--port <n>`             | HTTP port for target servers                                                            | `3100`                   |
+| `--list`                 | List available targets and workloads                                                    | —                        |
+| `--smoke`                | Smoke test: verify targets boot, no perf                                                | `false`                  |
+| `--conns-per-worker <n>` | Autocannon connections per worker                                                       | `50`                     |
+| `--scenario <id>`        | Run a special scenario instead of the perf workloads (`recovery` is the only one today) | — (perf workloads)       |
+| `--health on\|off`       | Recovery-scenario A/B seam: boot `clusterkit-3` with the opt-in health features         | `off`                    |
 
 ## Targets
 
-| ID | Description | Workers | SO_REUSEPORT |
-|---|---|---|---|
-| `single` | clusterkit with 1 worker (primary + forked worker) | 1 | N/A |
-| `clusterkit-3` | clusterkit with 3 workers | 3 | Yes (Linux) |
-| `native-cluster-3` | `cluster.fork` x3, Node.js round-robin | 3 | No |
-| `throng-3` | throng(3) wrapper on cluster | 3 | No |
-| `pm2-3` | pm2 cluster mode, 3 instances | 3 | No |
-| `pm2-reload-3` | pm2 cluster + zero-downtime reload | 3 | No |
+| ID                 | Description                                        | Workers | SO_REUSEPORT |
+| ------------------ | -------------------------------------------------- | ------- | ------------ |
+| `single`           | clusterkit with 1 worker (primary + forked worker) | 1       | N/A          |
+| `clusterkit-3`     | clusterkit with 3 workers                          | 3       | Yes (Linux)  |
+| `native-cluster-3` | `cluster.fork` x3, Node.js round-robin             | 3       | No           |
+| `throng-3`         | throng(3) wrapper on cluster                       | 3       | No           |
+| `pm2-3`            | pm2 cluster mode, 3 instances                      | 3       | No           |
+| `pm2-reload-3`     | pm2 cluster + zero-downtime reload                 | 3       | No           |
 
 ## Workloads
 
-| ID | Description |
-|---|---|
-| `hello` | `res.json({hello, pid})` — pure orchestrator overhead |
-| `latency-10ms` | `setTimeout(10ms)` — simulates async I/O |
-| `cpu-io-mix` | 1ms CPU loop + 2ms setTimeout — realistic mix |
-| `list-100` | Paginated list of 100 records (~5KB JSON) from 10k dataset — serialization stress |
-| `aggregate` | Group-by + count + top-5 on 10k records — CPU-bound data processing |
-| `auth-verify` | HMAC-SHA256 + JSON parse on every request — crypto overhead |
-| `error-rate` | 10% of requests return structured 500 errors — error handling path |
-| `upload-echo` | POST with ~1KB JSON body, validate + echo — body parsing overhead |
+| ID             | Description                                                                       |
+| -------------- | --------------------------------------------------------------------------------- |
+| `hello`        | `res.json({hello, pid})` — pure orchestrator overhead                             |
+| `latency-10ms` | `setTimeout(10ms)` — simulates async I/O                                          |
+| `cpu-io-mix`   | 1ms CPU loop + 2ms setTimeout — realistic mix                                     |
+| `list-100`     | Paginated list of 100 records (~5KB JSON) from 10k dataset — serialization stress |
+| `aggregate`    | Group-by + count + top-5 on 10k records — CPU-bound data processing               |
+| `auth-verify`  | HMAC-SHA256 + JSON parse on every request — crypto overhead                       |
+| `error-rate`   | 10% of requests return structured 500 errors — error handling path                |
+| `upload-echo`  | POST with ~1KB JSON body, validate + echo — body parsing overhead                 |
 
 All workload responses include `pid: process.pid` for worker distribution validation.
 The `upload-echo` workload uses POST method; the runner automatically sends a JSON body.
@@ -134,7 +134,7 @@ const port = Number.parseInt(process.env.PORT || "3100", 10);
 
 ```js
 export default function handler(req, res) {
-  res.json({ hello: "world", pid: process.pid })
+  res.json({ hello: "world", pid: process.pid });
 }
 ```
 
@@ -164,11 +164,11 @@ The sampler reads `/proc/[pid]/{status,stat}` from outside the target process tr
 
 ## Reference vs quick mode
 
-| | Reference | Quick |
-|---|---|---|
-| Warmup | 10s | 3s |
-| Measure | 30s | 10s |
-| Repetitions | 3 (median) | 1 |
-| Total time | ~36 min | ~8 min |
+|             | Reference  | Quick  |
+| ----------- | ---------- | ------ |
+| Warmup      | 10s        | 3s     |
+| Measure     | 30s        | 10s    |
+| Repetitions | 3 (median) | 1      |
+| Total time  | ~36 min    | ~8 min |
 
 Use quick mode during development. Use reference mode (Docker) for committable results.

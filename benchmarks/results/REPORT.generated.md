@@ -9,6 +9,6 @@
 ## Target: clusterkit-3
 
 | Health features | Reps | Restore duration (ms) | Boot times median (ms) | Requests during recovery | Workers killed | Timed out |
-|---|---|---|---|---|---|---|
-| off (baseline) | 1 | 3597 | 1026 | 35 | 2/3 | 0 |
-| on | 1 | 3148 | 1165 | 31 | 2/3 | 0 |
+| --------------- | ---- | --------------------- | ---------------------- | ------------------------ | -------------- | --------- |
+| off (baseline)  | 1    | 3597                  | 1026                   | 35                       | 2/3            | 0         |
+| on              | 1    | 3148                  | 1165                   | 31                       | 2/3            | 0         |

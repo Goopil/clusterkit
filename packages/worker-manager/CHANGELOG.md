@@ -14,16 +14,16 @@
 ### Minor Changes
 
 - [#206](https://github.com/Goopil/clusterkit/pull/206) [`ad8291e`](https://github.com/Goopil/clusterkit/commit/ad8291ed3909bb492460d87536ab2f9565c4d834) Thanks [@Goopil](https://github.com/Goopil)! - Add a worker start context to `run(start)`: the callback now receives `{ listen, shutdown }`.
-  
+
   `ctx.listen(server, opts?)` binds any Node-style listen target (express app, raw `http.Server`, Koa, Fastify/NestJS raw
   server) with the right platform flags — `SO_REUSEPORT` + `exclusive` where the kernel balances connections, cluster IPC
   round-robin otherwise — replacing the manual `Orchestrator.getCapabilities()` + `exclusive`/`reusePort` dance. Defaults
   to the `PORT` env var (fallback 3000) on `0.0.0.0` and returns the bound server. `ctx.shutdown(cb)` registers a worker
   shutdown callback, same as `orchestrator.registerOnShutdown(cb)`.
-  
+
   Fully backward compatible: existing `run()` callbacks keep working unchanged, and `registerOnShutdown()` /
   `getCapabilities()` remain available.
-  
+
   ```js
   orchestrator.run(async ({ listen, shutdown }) => {
     const server = listen(app); // PORT || 3000, 0.0.0.0, platform flags handled
@@ -37,8 +37,8 @@
 
 - [#190](https://github.com/Goopil/clusterkit/pull/190) [`7547eaa`](https://github.com/Goopil/clusterkit/commit/7547eaadff8ada5a165e0c5ce975f842c994179a) Thanks [@Goopil](https://github.com/Goopil)! - Add `health.lagSpikeMs`: recycle a worker on a single heartbeat whose event-loop lag exceeds the
   threshold — catches one-off long sync blocks that the sustained-lag policy (`maxEventLoopLagMs`
-  + `lagRecycleBeats`) never sees. Opt-in, default `0` (disabled), requires `health.heartbeatMs > 0`.
-  
+  - `lagRecycleBeats`) never sees. Opt-in, default `0` (disabled), requires `health.heartbeatMs > 0`.
+
   Unknown keys inside a config section (`workers`, `restart`, `shutdown`, `health`) now emit a
   `ClusterKitConfigWarning` instead of being silently ignored, with a "did you mean" suggestion when
   the key exists in another section (e.g. `health.maxRssMb` → `workers.maxRssMb`).
@@ -59,7 +59,7 @@
 ### Minor Changes
 
 - [#178](https://github.com/Goopil/clusterkit/pull/178) [`2a72f1a`](https://github.com/Goopil/clusterkit/commit/2a72f1a2a18af8997185b6198813054d64e0cdf1) Thanks [@Goopil](https://github.com/Goopil)! - feat: emit `worker:draining` at the recycle decision — before the network drain starts — with `{ workerId, pid, reason }`. This is the moment new work should stop being routed to the worker (age-based recycling, RSS/wedged/lag recycles and rolling restarts all converge on it). For TCP the listening socket and established connections are separate, so closing the listen socket in a `worker:draining` handler removes the worker from the `SO_REUSEPORT` group immediately while existing connections keep draining (Linux ≥ 5.10 migrates in-flight connection requests to remaining group members).
-  
+
   feat: add `health.maxEventLoopLagMs` — recycle a worker whose reported event-loop lag exceeded this value (ms) for `health.lagRecycleBeats` (default 3) consecutive beats, through the same bounded drain as the other health policies. Catches "slow but alive" workers that the wedged (heartbeat silence) policy never sees. Opt-in (`0` = disabled), requires `health.heartbeatMs > 0`. `worker:recycle` gains the `"lag"` reason.
 
 ## 2.0.0

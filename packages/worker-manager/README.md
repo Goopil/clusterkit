@@ -9,17 +9,17 @@ For monorepo context and examples catalog, see the [root README](../../README.md
 
 ## Capabilities
 
-| Capability | Details |
-|------------|---------|
-| Worker orchestration | Spawns and supervises workers with `cluster` |
-| Platform capability detection | `Orchestrator.getCapabilities()` reports `platform`, `reusePort` |
-| Crash protection | Exponential restart backoff + circuit breaker (`restart.*`) |
-| Health & recovery | Worker heartbeats, RSS recycling, wedged-worker detection, sustained-lag recycling, fleet health, boot-loop quarantine (`health.*`, `workers.maxRssMb`) |
-| Graceful shutdown | ACK-based worker shutdown, configurable timeouts/signals (`shutdown.*`) |
-| Worker start context | `run(({listen, shutdown}))` — platform-aware server listen + shutdown registration |
-| Lifecycle controls | Worker recycling (`workers.maxAgeMs`), env patching and worker-count override APIs |
-| Observability | Typed events, `getMetrics()`, `getHealth()`, `getFleetHealth()` |
-| Plugin system | `use(plugin)` with install/uninstall lifecycle |
+| Capability                    | Details                                                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker orchestration          | Spawns and supervises workers with `cluster`                                                                                                            |
+| Platform capability detection | `Orchestrator.getCapabilities()` reports `platform`, `reusePort`                                                                                        |
+| Crash protection              | Exponential restart backoff + circuit breaker (`restart.*`)                                                                                             |
+| Health & recovery             | Worker heartbeats, RSS recycling, wedged-worker detection, sustained-lag recycling, fleet health, boot-loop quarantine (`health.*`, `workers.maxRssMb`) |
+| Graceful shutdown             | ACK-based worker shutdown, configurable timeouts/signals (`shutdown.*`)                                                                                 |
+| Worker start context          | `run(({listen, shutdown}))` — platform-aware server listen + shutdown registration                                                                      |
+| Lifecycle controls            | Worker recycling (`workers.maxAgeMs`), env patching and worker-count override APIs                                                                      |
+| Observability                 | Typed events, `getMetrics()`, `getHealth()`, `getFleetHealth()`                                                                                         |
+| Plugin system                 | `use(plugin)` with install/uninstall lifecycle                                                                                                          |
 
 ## Installation
 
@@ -51,12 +51,12 @@ orchestrator.run(async ({ listen, shutdown }) => {
 
 ## Worker count
 
-| Condition                                        | Workers spawned             |
-|--------------------------------------------------|-----------------------------|
-| `workers.count: 'auto'` + `WEB_CONCURRENCY` set | Value of `WEB_CONCURRENCY`  |
-| `workers.count: 'auto'` + SO_REUSEPORT available | `os.availableParallelism()` |
+| Condition                                        | Workers spawned                                      |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| `workers.count: 'auto'` + `WEB_CONCURRENCY` set  | Value of `WEB_CONCURRENCY`                           |
+| `workers.count: 'auto'` + SO_REUSEPORT available | `os.availableParallelism()`                          |
 | `workers.count: 'auto'` + no SO_REUSEPORT        | `os.availableParallelism()` with cluster round-robin |
-| `workers.count: N`                               | Exactly N workers           |
+| `workers.count: N`                               | Exactly N workers                                    |
 
 > **macOS note** — SO_REUSEPORT detection is unreliable on macOS. Use `WEB_CONCURRENCY=4` to force multi-worker mode, or
 > test on Linux with the Docker harness described in the [root README](../../README.md#docker).
@@ -69,23 +69,23 @@ Unknown keys inside a section (`workers`, `restart`, `shutdown`, `health`) are i
 
 ### Top-level (`OrchestratorConfig`)
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `logger` | `Logger \| null` | `null` | pino/winston/console-compatible logger |
-| `workers` | `WorkersConfig` | `{}` | Worker count/process options |
-| `restart` | `RestartConfig` | `{}` | Crash handling + restart policy |
-| `shutdown` | `ShutdownConfig` | `{}` | Shutdown lifecycle options |
-| `health` | `HealthConfig` | `{}` | Worker health monitoring options |
+| Option     | Type             | Default | Description                            |
+| ---------- | ---------------- | ------- | -------------------------------------- |
+| `logger`   | `Logger \| null` | `null`  | pino/winston/console-compatible logger |
+| `workers`  | `WorkersConfig`  | `{}`    | Worker count/process options           |
+| `restart`  | `RestartConfig`  | `{}`    | Crash handling + restart policy        |
+| `shutdown` | `ShutdownConfig` | `{}`    | Shutdown lifecycle options             |
+| `health`   | `HealthConfig`   | `{}`    | Worker health monitoring options       |
 
 ### `workers`
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `count` | `number \| 'auto'` | `'auto'` | Number of workers |
-| `env` | `NodeJS.ProcessEnv` | `undefined` | Extra env vars merged into worker env (security guards apply, see below) |
-| `execArgv` | `string[]` | `undefined` | Node.js args passed to workers (dangerous flags blocked, see below) |
-| `maxAgeMs` | `number` | `0` | Worker recycling interval (`0` disables) |
-| `maxRssMb` | `number` | `0` | Recycle a worker whose RSS exceeds this value in MB, through the bounded drain (`0` disables). RSS is reported by the health heartbeat, so it requires `health.heartbeatMs > 0` |
+| Option     | Type                | Default     | Description                                                                                                                                                                     |
+| ---------- | ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `count`    | `number \| 'auto'`  | `'auto'`    | Number of workers                                                                                                                                                               |
+| `env`      | `NodeJS.ProcessEnv` | `undefined` | Extra env vars merged into worker env (security guards apply, see below)                                                                                                        |
+| `execArgv` | `string[]`          | `undefined` | Node.js args passed to workers (dangerous flags blocked, see below)                                                                                                             |
+| `maxAgeMs` | `number`            | `0`         | Worker recycling interval (`0` disables)                                                                                                                                        |
+| `maxRssMb` | `number`            | `0`         | Recycle a worker whose RSS exceeds this value in MB, through the bounded drain (`0` disables). RSS is reported by the health heartbeat, so it requires `health.heartbeatMs > 0` |
 
 A practical container recipe for `maxRssMb`: budget ≈ 70 % × (cgroup memory limit − primary-process overhead) / workers.
 Leave headroom because RSS includes V8 overhead that `--max-old-space-size` does not control. On Linux the cgroup limit
@@ -107,15 +107,15 @@ is what the container actually gets; `@goopil/clusterkit-sizing` can compute the
 
 ### `restart`
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `crashThreshold` | `number` | `5` | Crash count before tripping circuit breaker |
-| `crashWindowMs` | `number` | `60000` | Sliding window for crash counting |
-| `backoffMs` | `number` | `1000` | Initial restart delay |
-| `maxBackoffMs` | `number` | `30000` | Backoff upper bound |
-| `backoffMultiplier` | `number` | `2` | Exponential backoff multiplier |
-| `stabilityWindowMs` | `number` | `30000` | Crash-free time required to reset backoff (`0` = immediate reset) |
-| `bootFailQuarantine` | `number` | `0` | Consecutive boot failures (worker exits before its first `online`) before the slot is quarantined — the primary stops re-forking it while other workers serve (`0` disables). Remedy: `restartWorkers()` |
+| Option               | Type     | Default | Description                                                                                                                                                                                              |
+| -------------------- | -------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `crashThreshold`     | `number` | `5`     | Crash count before tripping circuit breaker                                                                                                                                                              |
+| `crashWindowMs`      | `number` | `60000` | Sliding window for crash counting                                                                                                                                                                        |
+| `backoffMs`          | `number` | `1000`  | Initial restart delay                                                                                                                                                                                    |
+| `maxBackoffMs`       | `number` | `30000` | Backoff upper bound                                                                                                                                                                                      |
+| `backoffMultiplier`  | `number` | `2`     | Exponential backoff multiplier                                                                                                                                                                           |
+| `stabilityWindowMs`  | `number` | `30000` | Crash-free time required to reset backoff (`0` = immediate reset)                                                                                                                                        |
+| `bootFailQuarantine` | `number` | `0`     | Consecutive boot failures (worker exits before its first `online`) before the slot is quarantined — the primary stops re-forking it while other workers serve (`0` disables). Remedy: `restartWorkers()` |
 
 Restart/backoff is cluster-level, not worker-local. Every non-graceful worker exit is recorded in the crash window and
 queued for replacement unless shutdown is already in progress or the circuit breaker has tripped. Replacements are
@@ -126,24 +126,24 @@ unless `crashThreshold` is reached inside `crashWindowMs`.
 
 ### `shutdown`
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `timeoutMs` | `number` | `12000` | Max graceful shutdown duration before forced kill |
-| `ackTimeoutMs` | `number` | `3000` | Max wait for worker ACK before disconnecting that worker |
-| `messagePrefix` | `string` | `"__wm"` | Internal IPC message prefix |
-| `sigtermDelayMs` | `number` | `2000` | Delay before escalating `SIGTERM -> SIGINT` |
-| `sigintDelayMs` | `number` | `1000` | Delay before escalating `SIGINT -> SIGKILL` |
+| Option           | Type     | Default  | Description                                              |
+| ---------------- | -------- | -------- | -------------------------------------------------------- |
+| `timeoutMs`      | `number` | `12000`  | Max graceful shutdown duration before forced kill        |
+| `ackTimeoutMs`   | `number` | `3000`   | Max wait for worker ACK before disconnecting that worker |
+| `messagePrefix`  | `string` | `"__wm"` | Internal IPC message prefix                              |
+| `sigtermDelayMs` | `number` | `2000`   | Delay before escalating `SIGTERM -> SIGINT`              |
+| `sigintDelayMs`  | `number` | `1000`   | Delay before escalating `SIGINT -> SIGKILL`              |
 
 ### `health`
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `heartbeatMs` | `number` | `0` | Worker health report (RSS, heap, event-loop lag) interval in ms (`0` disables) |
-| `wedgedTimeoutMs` | `number` | `0` | Recycle a worker whose heartbeat has been silent this long (`0` disables). Requires `heartbeatMs > 0` and ≥ 2 × `heartbeatMs` |
-| `degradedAfterMs` | `number` | `0` | Duration `active < target` must persist before `fleet:degraded` fires (`0` disables) |
-| `maxEventLoopLagMs` | `number` | `0` | Recycle a worker whose reported event-loop lag exceeded this value (ms) for `lagRecycleBeats` consecutive beats (`0` disables). Requires `heartbeatMs > 0` |
-| `lagRecycleBeats` | `number` | `3` | Consecutive heartbeats above `maxEventLoopLagMs` before the lag recycle fires (`1` = first beat above the threshold) |
-| `lagSpikeMs` | `number` | `0` | Recycle a worker on a single heartbeat whose event-loop lag exceeds this value (ms) — catches one-off long sync blocks the sustained-lag policy never sees (`0` disables). Requires `heartbeatMs > 0` |
+| Option              | Type     | Default | Description                                                                                                                                                                                           |
+| ------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `heartbeatMs`       | `number` | `0`     | Worker health report (RSS, heap, event-loop lag) interval in ms (`0` disables)                                                                                                                        |
+| `wedgedTimeoutMs`   | `number` | `0`     | Recycle a worker whose heartbeat has been silent this long (`0` disables). Requires `heartbeatMs > 0` and ≥ 2 × `heartbeatMs`                                                                         |
+| `degradedAfterMs`   | `number` | `0`     | Duration `active < target` must persist before `fleet:degraded` fires (`0` disables)                                                                                                                  |
+| `maxEventLoopLagMs` | `number` | `0`     | Recycle a worker whose reported event-loop lag exceeded this value (ms) for `lagRecycleBeats` consecutive beats (`0` disables). Requires `heartbeatMs > 0`                                            |
+| `lagRecycleBeats`   | `number` | `3`     | Consecutive heartbeats above `maxEventLoopLagMs` before the lag recycle fires (`1` = first beat above the threshold)                                                                                  |
+| `lagSpikeMs`        | `number` | `0`     | Recycle a worker on a single heartbeat whose event-loop lag exceeds this value (ms) — catches one-off long sync blocks the sustained-lag policy never sees (`0` disables). Requires `heartbeatMs > 0` |
 
 Workers report RSS, heap, and event-loop beat drift over IPC every `heartbeatMs`; the primary-side monitor feeds four
 opt-in policies: RSS recycling (`workers.maxRssMb`), wedged-worker detection (`health.wedgedTimeoutMs`), sustained
@@ -187,11 +187,11 @@ const fleet = orchestrator.getFleetHealth(); // { target, active, quarantined, b
 orchestrator.isPrimary; // true in the primary (the supervisor), false in forked workers — incl. the app process at count 1
 
 orchestrator.setNotReady(); // mark ready=false (e.g. during rolling deploys)
-orchestrator.setReady();    // restore ready=true (no-op during shutdown)
+orchestrator.setReady(); // restore ready=true (no-op during shutdown)
 
 orchestrator.resetCircuitBreaker(); // after fixing a crash-loop cause; refills missing workers
-orchestrator.restartWorkers(opts);  // rolling-restart workers without dropping connections
-orchestrator.workerCount;           // resolved worker count (number)
+orchestrator.restartWorkers(opts); // rolling-restart workers without dropping connections
+orchestrator.workerCount; // resolved worker count (number)
 
 // restartWorkers opts: { env?: NodeJS.ProcessEnv, filter?: (id: number) => boolean, staggerMs?: number, reason?: string }
 
@@ -309,24 +309,24 @@ Use these with your Kubernetes liveness / readiness probes.
 
 ## Typed events (`OrchestratorEvents`)
 
-| Event | When it fires |
-|-------|---------------|
-| `worker:online` | A worker reaches the cluster online state. |
-| `worker:exit` | A worker exits, including graceful disconnects and crashes. |
-| `worker:crash` | A worker exits non-gracefully and is recorded in the crash window. |
-| `worker:restart` | A replacement worker is forked after restart backoff. |
-| `worker:draining` | A worker was marked for replacement, before the network drain starts — the moment new work should stop being routed to it: `{ workerId, pid, reason }`. |
-| `worker:recycle` | A worker is replaced through the bounded drain. `reason` is `"maxAge"` (default), `"rss"` (`workers.maxRssMb` exceeded), `"wedged"` (heartbeat silent for `health.wedgedTimeoutMs`), or `"lag"` (event-loop lag above `health.maxEventLoopLagMs` for `health.lagRecycleBeats` consecutive beats, or a single beat above `health.lagSpikeMs`). |
-| `worker:health` | A worker reported health (requires `health.heartbeatMs > 0`): `{ workerId, pid, rss, heapUsed, eventLoopLagMs }`. |
-| `worker:wedged` | A worker's heartbeat was silent for `health.wedgedTimeoutMs` — it is recycled through the bounded drain: `{ workerId, pid, silentMs }`. |
-| `worker:quarantined` | A slot was quarantined after `restart.bootFailQuarantine` consecutive boot failures while other workers serve: `{ consecutiveBootFailures }`. |
-| `fleet:degraded` | `active < target` persisted for `health.degradedAfterMs`: `{ target, active }`. |
-| `fleet:recovered` | Capacity restored to target: `{ target, active, degradedDurationMs }`. |
-| `shutdown:start` | Primary shutdown coordination starts for `SIGTERM` or `SIGINT`. |
-| `shutdown:complete` | Primary shutdown has finished — emitted after user shutdown callbacks and plugin `uninstall()`, in every mode. Plugins doing final work must do it in `uninstall()`: their `shutdown:complete` listener is removed before the event fires. |
-| `circuit-breaker:tripped` | Crash count reached `restart.crashThreshold` inside `restart.crashWindowMs`. |
-| `restart:start` | A hot restart cycle begins via `restartWorkers()`. |
-| `restart:complete` | A hot restart cycle finishes — all targeted workers replaced. |
+| Event                     | When it fires                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `worker:online`           | A worker reaches the cluster online state.                                                                                                                                                                                                                                                                                                    |
+| `worker:exit`             | A worker exits, including graceful disconnects and crashes.                                                                                                                                                                                                                                                                                   |
+| `worker:crash`            | A worker exits non-gracefully and is recorded in the crash window.                                                                                                                                                                                                                                                                            |
+| `worker:restart`          | A replacement worker is forked after restart backoff.                                                                                                                                                                                                                                                                                         |
+| `worker:draining`         | A worker was marked for replacement, before the network drain starts — the moment new work should stop being routed to it: `{ workerId, pid, reason }`.                                                                                                                                                                                       |
+| `worker:recycle`          | A worker is replaced through the bounded drain. `reason` is `"maxAge"` (default), `"rss"` (`workers.maxRssMb` exceeded), `"wedged"` (heartbeat silent for `health.wedgedTimeoutMs`), or `"lag"` (event-loop lag above `health.maxEventLoopLagMs` for `health.lagRecycleBeats` consecutive beats, or a single beat above `health.lagSpikeMs`). |
+| `worker:health`           | A worker reported health (requires `health.heartbeatMs > 0`): `{ workerId, pid, rss, heapUsed, eventLoopLagMs }`.                                                                                                                                                                                                                             |
+| `worker:wedged`           | A worker's heartbeat was silent for `health.wedgedTimeoutMs` — it is recycled through the bounded drain: `{ workerId, pid, silentMs }`.                                                                                                                                                                                                       |
+| `worker:quarantined`      | A slot was quarantined after `restart.bootFailQuarantine` consecutive boot failures while other workers serve: `{ consecutiveBootFailures }`.                                                                                                                                                                                                 |
+| `fleet:degraded`          | `active < target` persisted for `health.degradedAfterMs`: `{ target, active }`.                                                                                                                                                                                                                                                               |
+| `fleet:recovered`         | Capacity restored to target: `{ target, active, degradedDurationMs }`.                                                                                                                                                                                                                                                                        |
+| `shutdown:start`          | Primary shutdown coordination starts for `SIGTERM` or `SIGINT`.                                                                                                                                                                                                                                                                               |
+| `shutdown:complete`       | Primary shutdown has finished — emitted after user shutdown callbacks and plugin `uninstall()`, in every mode. Plugins doing final work must do it in `uninstall()`: their `shutdown:complete` listener is removed before the event fires.                                                                                                    |
+| `circuit-breaker:tripped` | Crash count reached `restart.crashThreshold` inside `restart.crashWindowMs`.                                                                                                                                                                                                                                                                  |
+| `restart:start`           | A hot restart cycle begins via `restartWorkers()`.                                                                                                                                                                                                                                                                                            |
+| `restart:complete`        | A hot restart cycle finishes — all targeted workers replaced.                                                                                                                                                                                                                                                                                 |
 
 > **Stop accepting early on `worker:draining`** — for TCP, the listening socket and the established connections are
 > separate: calling `server.close()` in the `worker:draining` handler removes the worker from the `SO_REUSEPORT` group
@@ -371,23 +371,23 @@ never count toward the crash circuit breaker.
 Extend the orchestrator with custom plugins:
 
 ```ts
-import type {OrchestratorPlugin, Orchestrator} from '@goopil/clusterkit';
+import type { OrchestratorPlugin, Orchestrator } from "@goopil/clusterkit";
 
 const myPlugin: OrchestratorPlugin = {
-    name: 'my-plugin',
+  name: "my-plugin",
 
-    async install(orchestrator: Orchestrator) {
-        // Runs on the primary before workers are forked.
-        // Use orchestrator.patchWorkerEnv() or orchestrator.overrideWorkerCount()
-        // to influence worker configuration.
-        orchestrator.on('worker:crash', ({workerId}) => {
-            // send alert, update dashboard, etc.
-        });
-    },
+  async install(orchestrator: Orchestrator) {
+    // Runs on the primary before workers are forked.
+    // Use orchestrator.patchWorkerEnv() or orchestrator.overrideWorkerCount()
+    // to influence worker configuration.
+    orchestrator.on("worker:crash", ({ workerId }) => {
+      // send alert, update dashboard, etc.
+    });
+  },
 
-    async uninstall(orchestrator: Orchestrator) {
-        // cleanup — called automatically during shutdown
-    },
+  async uninstall(orchestrator: Orchestrator) {
+    // cleanup — called automatically during shutdown
+  },
 };
 
 orchestrator.use(myPlugin).run(/* ... */);
@@ -401,8 +401,8 @@ calling `use()` afterwards throws.
 ```ts
 // install(orchestrator, logger, config) receives the ResolvedConfig —
 // read config.workers.count / config.workers.env for the current settings.
-orchestrator.patchWorkerEnv(env)        // merge env vars into workerEnv
-orchestrator.overrideWorkerCount(n)     // override an 'auto' worker count (max 256)
+orchestrator.patchWorkerEnv(env); // merge env vars into workerEnv
+orchestrator.overrideWorkerCount(n); // override an 'auto' worker count (max 256)
 ```
 
 Plugins install **before** the initial fork, so both helpers apply to the whole fleet. They throw if called after

@@ -8,13 +8,13 @@ endpoint on your own HTTP stack in the primary process.
 
 ## Capabilities
 
-| Capability | Details |
-|------------|---------|
-| Orchestration metrics | Tracks active workers, restarts, crashes, and circuit-breaker trips from orchestrator events |
-| Worker metrics aggregation | Uses `prom-client` `AggregatorRegistry` to collect worker default metrics |
-| Cached merged responses | Optional `metricsCacheTtlMs` cache for scrape bursts |
-| Primary/worker-aware behavior | Event listeners only on primary, default process metrics only on workers |
-| Primary-side HTTP server | `serve({ port, host })` binds `GET /metrics` + `GET /healthz` on the primary only (no-op in workers) |
+| Capability                    | Details                                                                                              |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Orchestration metrics         | Tracks active workers, restarts, crashes, and circuit-breaker trips from orchestrator events         |
+| Worker metrics aggregation    | Uses `prom-client` `AggregatorRegistry` to collect worker default metrics                            |
+| Cached merged responses       | Optional `metricsCacheTtlMs` cache for scrape bursts                                                 |
+| Primary/worker-aware behavior | Event listeners only on primary, default process metrics only on workers                             |
+| Primary-side HTTP server      | `serve({ port, host })` binds `GET /metrics` + `GET /healthz` on the primary only (no-op in workers) |
 
 ## Installation
 
@@ -68,13 +68,13 @@ if (orchestrator.isPrimary) {
 
 ## Options (`PrometheusPluginOptions`)
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `prefix` | `string` | `'clusterkit_'` | Metric name prefix |
-| `registry` | `Registry` | `new Registry()` | Registry for orchestration metrics |
-| `defaultMetrics` | `boolean` | `true` | Collect Node.js default process metrics from workers |
-| `metricsCacheTtlMs` | `number` | `1000` | Merged-metrics cache TTL in milliseconds (`0` disables cache) |
-| `labels` | `Record<string, string \| number>` | `{}` | Static labels added to all metrics (`pid` is always included) |
+| Option              | Type                               | Default          | Description                                                   |
+| ------------------- | ---------------------------------- | ---------------- | ------------------------------------------------------------- |
+| `prefix`            | `string`                           | `'clusterkit_'`  | Metric name prefix                                            |
+| `registry`          | `Registry`                         | `new Registry()` | Registry for orchestration metrics                            |
+| `defaultMetrics`    | `boolean`                          | `true`           | Collect Node.js default process metrics from workers          |
+| `metricsCacheTtlMs` | `number`                           | `1000`           | Merged-metrics cache TTL in milliseconds (`0` disables cache) |
+| `labels`            | `Record<string, string \| number>` | `{}`             | Static labels added to all metrics (`pid` is always included) |
 
 ## API (`PrometheusPlugin`)
 

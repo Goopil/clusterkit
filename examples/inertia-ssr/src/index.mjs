@@ -13,7 +13,7 @@ import express from "express";
 // Test with curl:
 //   curl -s -X POST http://127.0.0.1:13714/render \
 //     -H "Content-Type: application/json" \
-//     -d '{"component":"Home","props":{"pid":1,"hostname":"local"},"url":"/"}'
+//     -d '{"component":"HomePage","props":{"pid":1,"hostname":"local"},"url":"/"}'
 
 const SSR_PORT = +(process.env.SSR_PORT || 13714);
 const SSR_HOST = process.env.SSR_HOST || "127.0.0.1";

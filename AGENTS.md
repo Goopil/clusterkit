@@ -214,17 +214,17 @@ scan — no manual coverage step is needed.
 Ten standalone apps in `examples/`, each integrating core + plugins:
 
 | Example           | Port  | Metrics port (worker-side) |
-|-------------------|-------|--------------|
-| express           | 3000  | 9090         |
-| express-otlp      | 3009  | —            |
-| fastify           | 3001  | 9091         |
-| hono              | 3005  | 9092         |
-| koa               | 3006  | 9093         |
-| nestjs-express    | 3007  | —            |
-| nestjs-fastify    | 3008  | —            |
-| inertia-ssr       | 13714 | —            |
-| inertia-ssr-react | 13715 | —            |
-| hot-reload        | 3010  | —            |
+| ----------------- | ----- | -------------------------- |
+| express           | 3000  | 9090                       |
+| express-otlp      | 3009  | —                          |
+| fastify           | 3001  | 9091                       |
+| hono              | 3005  | 9092                       |
+| koa               | 3006  | 9093                       |
+| nestjs-express    | 3007  | —                          |
+| nestjs-fastify    | 3008  | —                          |
+| inertia-ssr       | 13714 | —                          |
+| inertia-ssr-react | 13715 | —                          |
+| hot-reload        | 3010  | —                          |
 
 Metrics ports are bound in the primary process by the Prometheus plugin's `serve()` helper (no-op in workers) — one
 aggregated `/metrics` endpoint per example fleet (decision on issue #95).
