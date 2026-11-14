@@ -49,6 +49,7 @@
       "!**/.pnpm-store",
       "!**/pnpm-lock.yaml",
       "!.worktrees",
+      "!.changeset",
       "!benchmarks/data"
     ]
   }
