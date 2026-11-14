@@ -4,14 +4,14 @@
 
 Only the latest published version of each package receives security fixes:
 
-| Package | Supported |
-| --- | --- |
-| `@goopil/clusterkit` | latest minor |
-| `@goopil/clusterkit-prometheus` | latest minor |
-| `@goopil/clusterkit-sizing` | latest minor |
-| `@goopil/clusterkit-otlp-meter` | latest minor |
+| Package                             | Supported    |
+| ----------------------------------- | ------------ |
+| `@goopil/clusterkit`                | latest minor |
+| `@goopil/clusterkit-prometheus`     | latest minor |
+| `@goopil/clusterkit-sizing`         | latest minor |
+| `@goopil/clusterkit-otlp-meter`     | latest minor |
 | `@goopil/clusterkit-signal-restart` | latest minor |
-| `@goopil/clusterkit-file-watcher` | latest minor |
+| `@goopil/clusterkit-file-watcher`   | latest minor |
 
 ## Reporting a Vulnerability
 

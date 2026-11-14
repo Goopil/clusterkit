@@ -7,14 +7,14 @@ orchestrator before workers are forked.
 
 ## Capabilities
 
-| Capability | Details |
-|------------|---------|
-| cgroup discovery | Reads Linux cgroup v1/v2 limits (`cpu` + `memory`) |
-| Sizing strategies | `balanced`, `cpu-first` |
+| Capability              | Details                                                                                |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| cgroup discovery        | Reads Linux cgroup v1/v2 limits (`cpu` + `memory`)                                     |
+| Sizing strategies       | `balanced`, `cpu-first`                                                                |
 | Worker count automation | Can override worker count when orchestrator is configured with `workers.count: 'auto'` |
-| Heap tuning | Computes and injects `--max-old-space-size` into worker `NODE_OPTIONS` |
-| Safe fallback mode | Optional fallback to OS CPU/memory when no cgroup limits are present |
-| Introspection | Exposes the computed plan via `plugin.sizing` |
+| Heap tuning             | Computes and injects `--max-old-space-size` into worker `NODE_OPTIONS`                 |
+| Safe fallback mode      | Optional fallback to OS CPU/memory when no cgroup limits are present                   |
+| Introspection           | Exposes the computed plan via `plugin.sizing`                                          |
 
 ## Installation
 
@@ -41,18 +41,18 @@ console.log(sizing.sizing);
 
 ## Options (`ContainerSizingOptions`)
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `memoryOverheadFactor` | `number` | `0.80` | Fraction of total memory considered usable |
-| `heapRatio` | `number` | `0.75` | Fraction of per-worker memory used for V8 old-space |
-| `minWorkers` | `number` | `1` | Minimum worker count |
-| `maxWorkers` | `number` | `64` | Maximum worker count |
-| `strategy` | `'balanced' \| 'cpu-first'` | `'balanced'` | Worker/heap sizing strategy |
-| `overrideWorkerCount` | `boolean` | `true` | Applies computed worker count when orchestrator is `workers.count: 'auto'` |
-| `injectNodeOptions` | `boolean` | `true` | Injects computed `--max-old-space-size` into worker `NODE_OPTIONS` |
-| `extraNodeOptions` | `string` | `undefined` | Extra flags appended to `NODE_OPTIONS` |
-| `compileCache` | `boolean \| string` | `false` | Enables Node.js compile caching for workers via `NODE_COMPILE_CACHE`: `true` → `<tmpdir>/clusterkit-compile-cache`, a string is used verbatim as the cache directory |
-| `fallback` | `boolean` | `true` | If no cgroup limits exist, use OS resources (`false` = skip plugin) |
+| Option                 | Type                        | Default      | Description                                                                                                                                                          |
+| ---------------------- | --------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `memoryOverheadFactor` | `number`                    | `0.80`       | Fraction of total memory considered usable                                                                                                                           |
+| `heapRatio`            | `number`                    | `0.75`       | Fraction of per-worker memory used for V8 old-space                                                                                                                  |
+| `minWorkers`           | `number`                    | `1`          | Minimum worker count                                                                                                                                                 |
+| `maxWorkers`           | `number`                    | `64`         | Maximum worker count                                                                                                                                                 |
+| `strategy`             | `'balanced' \| 'cpu-first'` | `'balanced'` | Worker/heap sizing strategy                                                                                                                                          |
+| `overrideWorkerCount`  | `boolean`                   | `true`       | Applies computed worker count when orchestrator is `workers.count: 'auto'`                                                                                           |
+| `injectNodeOptions`    | `boolean`                   | `true`       | Injects computed `--max-old-space-size` into worker `NODE_OPTIONS`                                                                                                   |
+| `extraNodeOptions`     | `string`                    | `undefined`  | Extra flags appended to `NODE_OPTIONS`                                                                                                                               |
+| `compileCache`         | `boolean \| string`         | `false`      | Enables Node.js compile caching for workers via `NODE_COMPILE_CACHE`: `true` → `<tmpdir>/clusterkit-compile-cache`, a string is used verbatim as the cache directory |
+| `fallback`             | `boolean`                   | `true`       | If no cgroup limits exist, use OS resources (`false` = skip plugin)                                                                                                  |
 
 `compileCache` is env-only — `NODE_COMPILE_CACHE` is not a CLI flag, so it never touches `NODE_OPTIONS` (keeping the
 orchestrator's `NODE_OPTIONS` advisory quiet). The cache directory is content-hash keyed and safe to share across
@@ -61,9 +61,9 @@ layer.
 
 ## Strategies
 
-| Strategy | Behavior |
-|----------|----------|
-| `balanced` | `floor(cpu)` workers, reduced when each would get less than 128 MB of V8 heap (default) |
+| Strategy    | Behavior                                                                                                                   |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `balanced`  | `floor(cpu)` workers, reduced when each would get less than 128 MB of V8 heap (default)                                    |
 | `cpu-first` | Always `floor(cpu)` workers; the heap is clamped to the 128 MB viability floor (may over-commit memory, see `constrained`) |
 
 ## Result object (`ContainerSizingPlugin.sizing`)

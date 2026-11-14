@@ -17,7 +17,7 @@ import { createSignalRestartPlugin } from "@goopil/clusterkit-signal-restart";
 const orchestrator = new Orchestrator({ logger: console });
 
 orchestrator
-  .use(createSignalRestartPlugin())        // SIGHUP → rolling restart
+  .use(createSignalRestartPlugin()) // SIGHUP → rolling restart
   .run(async () => {
     // Your server here
   });
@@ -43,11 +43,11 @@ The plugin warns at install time when the configured signal is likely to misbeha
 
 ## Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `signal` | `NodeJS.Signals` | `"SIGHUP"` | Signal to listen for. |
-| `staggerMs` | `number` | `1000` | Delay between draining worker N and starting worker N+1. Passed to `restartWorkers()`. |
-| `reason` | `string` | `"signal:SIGHUP"` | Free-form reason string for `restart:start`/`restart:complete` events. |
+| Option      | Type             | Default           | Description                                                                            |
+| ----------- | ---------------- | ----------------- | -------------------------------------------------------------------------------------- |
+| `signal`    | `NodeJS.Signals` | `"SIGHUP"`        | Signal to listen for.                                                                  |
+| `staggerMs` | `number`         | `1000`            | Delay between draining worker N and starting worker N+1. Passed to `restartWorkers()`. |
+| `reason`    | `string`         | `"signal:SIGHUP"` | Free-form reason string for `restart:start`/`restart:complete` events.                 |
 
 ## API
 
@@ -57,9 +57,9 @@ Factory returning a plugin implementing `OrchestratorPlugin`.
 
 ### `SignalRestartPlugin`
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `name` | `string` | `"signal-restart"` |
+| Property      | Type                | Description                               |
+| ------------- | ------------------- | ----------------------------------------- |
+| `name`        | `string`            | `"signal-restart"`                        |
 | `lastRestart` | `Date \| undefined` | Timestamp of the last successful restart. |
 
 ## Events

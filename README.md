@@ -21,16 +21,16 @@ Native `cluster` hands you fork-and-pray primitives. Process managers like pm2 b
 with a daemon and a CLI. ClusterKit is an **embedded library**: your app stays a plain Node program, and the
 orchestration — bind, balance, supervise, drain — is zero-dependency code you call from `main()`.
 
-|                                | native `cluster`      | pm2 / throng          | ClusterKit                        |
-| ------------------------------ | --------------------- | --------------------- | --------------------------------- |
-| Model                          | manual fork + IPC     | external CLI / daemon | library in your process           |
-| Load balancing                 | accept-on-connection  | proxy or shared port  | kernel-level (`SO_REUSEPORT`)     |
-| Crash policy                   | DIY                   | fixed retry           | exponential backoff + circuit breaker |
-| Graceful shutdown              | DIY                   | basic                 | per-worker ACK, SIGTERM→SIGINT→SIGKILL |
-| Zero-downtime restarts         | DIY                   | `pm2 reload`          | built-in rolling restart, or `kill -HUP` |
-| Container-aware sizing         | no                    | no                    | cgroup v1/v2 plugin (CPU + heap)  |
-| Metrics                        | DIY                   | pm2.io (SaaS)         | Prometheus + OTLP plugins, self-hosted |
-| TypeScript                     | types only            | partial               | written in TypeScript             |
+|                        | native `cluster`     | pm2 / throng          | ClusterKit                               |
+| ---------------------- | -------------------- | --------------------- | ---------------------------------------- |
+| Model                  | manual fork + IPC    | external CLI / daemon | library in your process                  |
+| Load balancing         | accept-on-connection | proxy or shared port  | kernel-level (`SO_REUSEPORT`)            |
+| Crash policy           | DIY                  | fixed retry           | exponential backoff + circuit breaker    |
+| Graceful shutdown      | DIY                  | basic                 | per-worker ACK, SIGTERM→SIGINT→SIGKILL   |
+| Zero-downtime restarts | DIY                  | `pm2 reload`          | built-in rolling restart, or `kill -HUP` |
+| Container-aware sizing | no                   | no                    | cgroup v1/v2 plugin (CPU + heap)         |
+| Metrics                | DIY                  | pm2.io (SaaS)         | Prometheus + OTLP plugins, self-hosted   |
+| TypeScript             | types only           | partial               | written in TypeScript                    |
 
 Head-to-head numbers against native cluster, throng and pm2: [BENCHMARKS.md](./BENCHMARKS.md).
 
@@ -43,13 +43,13 @@ pnpm add @goopil/clusterkit
 Create `server.js`:
 
 ```js
-import {createServer} from 'node:http';
-import {Orchestrator} from '@goopil/clusterkit';
+import { createServer } from "node:http";
+import { Orchestrator } from "@goopil/clusterkit";
 
-const orchestrator = new Orchestrator({logger: console});
+const orchestrator = new Orchestrator({ logger: console });
 
 // This callback runs in every worker process
-orchestrator.run(async ({listen, shutdown}) => {
+orchestrator.run(async ({ listen, shutdown }) => {
   const server = createServer((_req, res) => {
     res.end(`hello from pid ${process.pid}`);
   });
@@ -85,7 +85,7 @@ What you just got:
 **Health checks.** Expose readiness to Kubernetes or any supervisor:
 
 ```ts
-const {ready, live} = orchestrator.getHealth();
+const { ready, live } = orchestrator.getHealth();
 // ready = false during shutdown, after a circuit-breaker trip, or via setNotReady()
 ```
 
@@ -94,7 +94,7 @@ const {ready, live} = orchestrator.getHealth();
 
 ```ts
 const orchestrator = new Orchestrator({
-  shutdown: {timeoutMs: 10_000},
+  shutdown: { timeoutMs: 10_000 },
 });
 ```
 
@@ -110,13 +110,15 @@ pnpm add @goopil/clusterkit-prometheus prom-client
 ```
 
 ```js
-import {createPrometheusPlugin} from '@goopil/clusterkit-prometheus';
+import { createPrometheusPlugin } from "@goopil/clusterkit-prometheus";
 
-const prometheus = createPrometheusPlugin({prefix: 'clusterkit_'});
-orchestrator.use(prometheus).run(async () => { /* your app */ });
+const prometheus = createPrometheusPlugin({ prefix: "clusterkit_" });
+orchestrator.use(prometheus).run(async () => {
+  /* your app */
+});
 
 // Binds in the primary only: GET /metrics + GET /healthz
-await prometheus.serve({port: 9090, host: '127.0.0.1'});
+await prometheus.serve({ port: 9090, host: "127.0.0.1" });
 ```
 
 Options and the full metric list: [plugin README](./packages/plugin-prometheus/README.md).
@@ -124,12 +126,14 @@ Options and the full metric list: [plugin README](./packages/plugin-prometheus/R
 **OpenTelemetry.** Push the same metrics to any OTLP collector:
 
 ```js
-import {createOtlpMeterPlugin} from '@goopil/clusterkit-otlp-meter';
+import { createOtlpMeterPlugin } from "@goopil/clusterkit-otlp-meter";
 
-orchestrator.use(createOtlpMeterPlugin({
-  endpoint: 'http://otel-collector:4318/v1/metrics',
-  serviceName: 'my-app',
-}));
+orchestrator.use(
+  createOtlpMeterPlugin({
+    endpoint: "http://otel-collector:4318/v1/metrics",
+    serviceName: "my-app",
+  }),
+);
 ```
 
 Details: [plugin README](./packages/plugin-otlp-meter/README.md).
@@ -138,10 +142,12 @@ Details: [plugin README](./packages/plugin-otlp-meter/README.md).
 the worker count and each worker's `--max-old-space-size`:
 
 ```js
-import {createContainerSizingPlugin} from '@goopil/clusterkit-sizing';
+import { createContainerSizingPlugin } from "@goopil/clusterkit-sizing";
 
 const sizing = createContainerSizingPlugin();
-orchestrator.use(sizing).run(async () => { /* your app */ });
+orchestrator.use(sizing).run(async () => {
+  /* your app */
+});
 ```
 
 After `run()`, inspect the decision — worker count, memory budget per worker, and the exact `NODE_OPTIONS` injected:
@@ -169,7 +175,7 @@ collector whose Prometheus exporter applies the standard OpenTelemetry name norm
 **Hot restart on signal.** `kill -HUP <pid>` rolls workers without dropping connections:
 
 ```js
-import {createSignalRestartPlugin} from '@goopil/clusterkit-signal-restart';
+import { createSignalRestartPlugin } from "@goopil/clusterkit-signal-restart";
 
 orchestrator.use(createSignalRestartPlugin());
 ```
@@ -179,9 +185,9 @@ Details: [plugin README](./packages/plugin-signal-restart/README.md).
 **Hot restart on file or env change.** Watch source files or `.env` and roll workers:
 
 ```js
-import {createFileWatcherPlugin} from '@goopil/clusterkit-file-watcher';
+import { createFileWatcherPlugin } from "@goopil/clusterkit-file-watcher";
 
-orchestrator.use(createFileWatcherPlugin({watch: ['./src'], envFile: './.env'}));
+orchestrator.use(createFileWatcherPlugin({ watch: ["./src"], envFile: "./.env" }));
 ```
 
 Details: [plugin README](./packages/plugin-file-watcher/README.md).
@@ -192,14 +198,14 @@ worker count before forking. The `OrchestratorPlugin` interface and helpers are 
 
 ## Packages
 
-| Package                                   | Description                                               | Detailed docs |
-|-------------------------------------------|-----------------------------------------------------------|---------------|
-| [`@goopil/clusterkit`](#goopilclusterkit) | Cluster orchestrator — core library                       | [`packages/worker-manager/README.md`](./packages/worker-manager/README.md) |
-| [`@goopil/clusterkit-prometheus`](#goopilclusterkit-prometheus) | Prometheus metrics export plugin                          | [`packages/plugin-prometheus/README.md`](./packages/plugin-prometheus/README.md) |
-| [`@goopil/clusterkit-sizing`](#goopilclusterkit-sizing) | Kubernetes / container-aware CPU and memory sizing plugin | [`packages/plugin-container-sizing/README.md`](./packages/plugin-container-sizing/README.md) |
-| [`@goopil/clusterkit-otlp-meter`](#goopilclusterkit-otlp-meter) | OpenTelemetry OTLP metrics export plugin                  | [`packages/plugin-otlp-meter/README.md`](./packages/plugin-otlp-meter/README.md) |
-| [`@goopil/clusterkit-signal-restart`](#goopilclusterkit-signal-restart) | Signal-based hot restart plugin (SIGHUP → rolling restart) | [`packages/plugin-signal-restart/README.md`](./packages/plugin-signal-restart/README.md) |
-| [`@goopil/clusterkit-file-watcher`](#goopilclusterkit-file-watcher) | File watcher hot restart plugin (file/env changes → rolling restart) | [`packages/plugin-file-watcher/README.md`](./packages/plugin-file-watcher/README.md) |
+| Package                                                                 | Description                                                          | Detailed docs                                                                                |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [`@goopil/clusterkit`](#goopilclusterkit)                               | Cluster orchestrator — core library                                  | [`packages/worker-manager/README.md`](./packages/worker-manager/README.md)                   |
+| [`@goopil/clusterkit-prometheus`](#goopilclusterkit-prometheus)         | Prometheus metrics export plugin                                     | [`packages/plugin-prometheus/README.md`](./packages/plugin-prometheus/README.md)             |
+| [`@goopil/clusterkit-sizing`](#goopilclusterkit-sizing)                 | Kubernetes / container-aware CPU and memory sizing plugin            | [`packages/plugin-container-sizing/README.md`](./packages/plugin-container-sizing/README.md) |
+| [`@goopil/clusterkit-otlp-meter`](#goopilclusterkit-otlp-meter)         | OpenTelemetry OTLP metrics export plugin                             | [`packages/plugin-otlp-meter/README.md`](./packages/plugin-otlp-meter/README.md)             |
+| [`@goopil/clusterkit-signal-restart`](#goopilclusterkit-signal-restart) | Signal-based hot restart plugin (SIGHUP → rolling restart)           | [`packages/plugin-signal-restart/README.md`](./packages/plugin-signal-restart/README.md)     |
+| [`@goopil/clusterkit-file-watcher`](#goopilclusterkit-file-watcher)     | File watcher hot restart plugin (file/env changes → rolling restart) | [`packages/plugin-file-watcher/README.md`](./packages/plugin-file-watcher/README.md)         |
 
 This README is the product tour. Each package README is the detailed reference for its capabilities, options, and API
 surface.
@@ -208,18 +214,18 @@ surface.
 
 Ten ready-to-run examples live in [`examples/`](./examples/).
 
-| Example                      | Port  | Metrics port (primary) | Description |
-|------------------------------|-------|--------------|-------------|
-| `examples/express`           | 3000  | 9090         | Express HTTP server |
-| `examples/express-otlp`      | 3009  | —            | Express + OTLP metrics (push to collector) |
-| `examples/fastify`           | 3001  | 9091         | Fastify HTTP server |
-| `examples/hono`              | 3005  | 9092         | Hono HTTP server |
-| `examples/koa`               | 3006  | 9093         | Koa HTTP server |
-| `examples/nestjs-express`    | 3007  | —            | NestJS (Express adapter) |
-| `examples/nestjs-fastify`    | 3008  | —            | NestJS (Fastify adapter) |
-| `examples/inertia-ssr`       | 13714 | —            | Inertia + Vue 3 SSR renderer |
-| `examples/inertia-ssr-react` | 13715 | —            | Inertia + React 18 SSR renderer |
-| `examples/hot-reload`        | 3010  | —            | Signal-based + file watcher hot restart demo |
+| Example                      | Port  | Metrics port (primary) | Description                                  |
+| ---------------------------- | ----- | ---------------------- | -------------------------------------------- |
+| `examples/express`           | 3000  | 9090                   | Express HTTP server                          |
+| `examples/express-otlp`      | 3009  | —                      | Express + OTLP metrics (push to collector)   |
+| `examples/fastify`           | 3001  | 9091                   | Fastify HTTP server                          |
+| `examples/hono`              | 3005  | 9092                   | Hono HTTP server                             |
+| `examples/koa`               | 3006  | 9093                   | Koa HTTP server                              |
+| `examples/nestjs-express`    | 3007  | —                      | NestJS (Express adapter)                     |
+| `examples/nestjs-fastify`    | 3008  | —                      | NestJS (Fastify adapter)                     |
+| `examples/inertia-ssr`       | 13714 | —                      | Inertia + Vue 3 SSR renderer                 |
+| `examples/inertia-ssr-react` | 13715 | —                      | Inertia + React 18 SSR renderer              |
+| `examples/hot-reload`        | 3010  | —                      | Signal-based + file watcher hot restart demo |
 
 > The metrics port is bound **in the primary process** by the Prometheus plugin's `serve()` helper (a no-op in
 > workers) — one aggregated `/metrics` endpoint for the whole fleet.
@@ -248,11 +254,11 @@ NestJS requires a specific lifecycle — `ctx.listen` handles the socket flags, 
 **Express adapter:**
 
 ```ts
-orchestrator.run(async ({listen, shutdown}) => {
+orchestrator.run(async ({ listen, shutdown }) => {
   // app.init() registers NestJS routes on the Express app without calling listen()
   await app.init();
   // Then bind the raw http.Server (platform flags injected)
-  listen(app.getHttpServer(), {port: 3007, host: '0.0.0.0'});
+  listen(app.getHttpServer(), { port: 3007, host: "0.0.0.0" });
   shutdown(() => app.close());
 });
 ```
@@ -260,12 +266,12 @@ orchestrator.run(async ({listen, shutdown}) => {
 **Fastify adapter:**
 
 ```ts
-orchestrator.run(async ({listen, shutdown}) => {
+orchestrator.run(async ({ listen, shutdown }) => {
   await app.init();
   // app.init() does NOT call fastify.ready() — hook graph must be compiled explicitly
   const fastify = app.getHttpAdapter().getInstance();
   await fastify.ready();
-  listen(fastify.server, {port: 3008, host: '0.0.0.0'});
+  listen(fastify.server, { port: 3008, host: "0.0.0.0" });
   shutdown(() => app.close());
 });
 ```
@@ -306,7 +312,7 @@ curl -s -X POST http://127.0.0.1:13714/render \
 ## Platform support
 
 | Feature                              | Linux | macOS                           |
-|--------------------------------------|-------|---------------------------------|
+| ------------------------------------ | ----- | ------------------------------- |
 | SO_REUSEPORT (kernel load balancing) | Yes   | Unreliable                      |
 | Multi-worker mode                    | Yes   | Requires `WEB_CONCURRENCY`      |
 | Graceful shutdown                    | Yes   | Yes                             |
@@ -349,15 +355,15 @@ run them standalone from their `examples/` directory.
 
 ## Coming from pm2 or throng?
 
-| pm2 / throng                     | ClusterKit                                                        |
-| -------------------------------- | ----------------------------------------------------------------- |
-| `pm2 start app.js -i max`        | `new Orchestrator().run(workerFn)` — worker count from `workers: 'auto'` |
+| pm2 / throng                     | ClusterKit                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| `pm2 start app.js -i max`        | `new Orchestrator().run(workerFn)` — worker count from `workers: 'auto'`       |
 | `pm2 reload all`                 | `orchestrator.restartWorkers()`, or `kill -HUP` with the signal-restart plugin |
-| SIGINT / stop hooks              | `shutdown(callback)` — ACK protocol, SIGTERM → SIGINT → SIGKILL escalation |
-| `ecosystem.config.js`            | the `Orchestrator` config object — typed and validated at startup |
-| `pm2 logs`                       | any logger via `logger:` (console, pino, winston…)                |
-| `pm2 monit` / pm2.io             | `@goopil/clusterkit-prometheus` + the bundled Grafana dashboard   |
-| `WEB_CONCURRENCY` (Heroku-style) | honored by `workers: 'auto'`                                      |
+| SIGINT / stop hooks              | `shutdown(callback)` — ACK protocol, SIGTERM → SIGINT → SIGKILL escalation     |
+| `ecosystem.config.js`            | the `Orchestrator` config object — typed and validated at startup              |
+| `pm2 logs`                       | any logger via `logger:` (console, pino, winston…)                             |
+| `pm2 monit` / pm2.io             | `@goopil/clusterkit-prometheus` + the bundled Grafana dashboard                |
+| `WEB_CONCURRENCY` (Heroku-style) | honored by `workers: 'auto'`                                                   |
 
 ## Benchmarks
 
