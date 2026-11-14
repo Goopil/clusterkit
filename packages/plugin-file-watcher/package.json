@@ -58,13 +58,13 @@
   },
   "peerDependencies": {
     "@goopil/clusterkit": "workspace:^",
-    "chokidar": "^4.0.0 || ^5.0.0"
+    "chokidar": "^4.0.0 || ^5.0.0 || ^6.0.0"
   },
   "devDependencies": {
     "@goopil/clusterkit": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "chokidar": "^5.0.0",
+    "chokidar": "^6.0.0",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
