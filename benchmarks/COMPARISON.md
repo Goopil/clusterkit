@@ -7,7 +7,7 @@
 ## Environments
 
 |                    | macOS                                                         | Linux (Docker)                                                |
-|--------------------|---------------------------------------------------------------|---------------------------------------------------------------|
+| ------------------ | ------------------------------------------------------------- | ------------------------------------------------------------- |
 | **Platform**       | darwin arm64                                                  | linux arm64                                                   |
 | **Node**           | v22.18.0                                                      | v22.23.2                                                      |
 | **CPU**            | Apple M2 Max, 12 cores                                        | 4 cores (Docker `--cpus=4`)                                   |
@@ -26,7 +26,7 @@
 ### Throughput (req/sec)
 
 | Orchestrator         | macOS      | Linux      | Linux vs macOS    |
-|----------------------|------------|------------|-------------------|
+| -------------------- | ---------- | ---------- | ----------------- |
 | single               | 37,334     | 18,544     | -50% (fewer CPUs) |
 | **clusterkit-3**     | **50,006** | **55,482** | +11%              |
 | **native-cluster-3** | **53,520** | **55,862** | +4%               |
@@ -41,7 +41,7 @@ clusterkit adds on top of the same mechanism native-cluster uses.
 ### Latency p99 (ms)
 
 | Orchestrator     | macOS | Linux |
-|------------------|-------|-------|
+| ---------------- | ----- | ----- |
 | single           | 2     | 4     |
 | clusterkit-3     | 8     | 7     |
 | native-cluster-3 | 5     | 6     |
@@ -52,7 +52,7 @@ clusterkit adds on top of the same mechanism native-cluster uses.
 ### Boot time (ms)
 
 | Orchestrator     | macOS | Linux |
-|------------------|-------|-------|
+| ---------------- | ----- | ----- |
 | single           | 2     | 105   |
 | clusterkit-3     | 1     | 208   |
 | native-cluster-3 | 1     | 212   |
@@ -66,7 +66,7 @@ clusterkit adds on top of the same mechanism native-cluster uses.
 ### Shutdown time (ms)
 
 | Orchestrator     | macOS | Linux |
-|------------------|-------|-------|
+| ---------------- | ----- | ----- |
 | single           | 5,001 | 5     |
 | clusterkit-3     | 2,361 | 9     |
 | native-cluster-3 | 5,001 | 1     |
@@ -81,7 +81,7 @@ immediately on SIGTERM from primary), but takes 5,001ms on macOS (SIGKILL timeou
 ### RSS Average (MB)
 
 | Orchestrator     | macOS | Linux  |
-|------------------|-------|--------|
+| ---------------- | ----- | ------ |
 | single           | N/A   | 127 MB |
 | clusterkit-3     | N/A   | 184 MB |
 | native-cluster-3 | N/A   | 183 MB |
@@ -94,7 +94,7 @@ immediately on SIGTERM from primary), but takes 5,001ms on macOS (SIGKILL timeou
 ### CPU Usage
 
 | Orchestrator     | macOS | Linux  |
-|------------------|-------|--------|
+| ---------------- | ----- | ------ |
 | single           | N/A   | 104.1% |
 | clusterkit-3     | N/A   | 93.2%  |
 | native-cluster-3 | N/A   | 94.9%  |
@@ -107,7 +107,7 @@ immediately on SIGTERM from primary), but takes 5,001ms on macOS (SIGKILL timeou
 ### PID Distribution (hello workload, Linux)
 
 | Orchestrator     | Active/Expected | Distribution                       |
-|------------------|-----------------|------------------------------------|
+| ---------------- | --------------- | ---------------------------------- |
 | single           | 1/1             | 100% on worker 16                  |
 | clusterkit-3     | 3/3             | 20% / 46% / 34% (PIDs 30/31/32)    |
 | native-cluster-3 | 3/3             | 31% / 34% / 35% (PIDs 58/59/60)    |
@@ -126,7 +126,7 @@ immediately on SIGTERM from primary), but takes 5,001ms on macOS (SIGKILL timeou
 ### Throughput (req/sec)
 
 | Orchestrator         | macOS      | Linux      | Linux vs macOS |
-|----------------------|------------|------------|----------------|
+| -------------------- | ---------- | ---------- | -------------- |
 | single               | 67,126     | 53,398     | -20%           |
 | **clusterkit-3**     | **51,610** | **54,495** | +6%            |
 | **native-cluster-3** | **54,864** | **54,401** | -1%            |
@@ -142,7 +142,7 @@ inter-process overhead, but it can't scale beyond one core.
 ### Latency p99 (ms)
 
 | Orchestrator     | macOS | Linux |
-|------------------|-------|-------|
+| ---------------- | ----- | ----- |
 | single           | 2     | 3     |
 | clusterkit-3     | 7     | 7     |
 | native-cluster-3 | 5     | 7     |
@@ -153,7 +153,7 @@ inter-process overhead, but it can't scale beyond one core.
 ### Shutdown time (ms)
 
 | Orchestrator     | macOS | Linux |
-|------------------|-------|-------|
+| ---------------- | ----- | ----- |
 | single           | 5,001 | 5,005 |
 | clusterkit-3     | 2,354 | 1,156 |
 | native-cluster-3 | 5,000 | 5,003 |
@@ -171,7 +171,7 @@ inter-process overhead, but it can't scale beyond one core.
 ### Throughput (req/sec)
 
 | Orchestrator         | macOS      | Linux      |
-|----------------------|------------|------------|
+| -------------------- | ---------- | ---------- |
 | single               | 4,362      | 4,153      |
 | **clusterkit-3**     | **12,721** | **11,954** |
 | **native-cluster-3** | **12,809** | **11,751** |
@@ -186,7 +186,7 @@ was 0.7% faster. The SO_REUSEPORT advantage is small but consistent. throng-3 is
 ### Latency p99 (ms)
 
 | Orchestrator     | macOS | Linux |
-|------------------|-------|-------|
+| ---------------- | ----- | ----- |
 | single           | 12    | 14    |
 | clusterkit-3     | 14    | 15    |
 | native-cluster-3 | 13    | 15    |
@@ -197,7 +197,7 @@ was 0.7% faster. The SO_REUSEPORT advantage is small but consistent. throng-3 is
 ### CPU Usage (Linux only)
 
 | Orchestrator     | CPU %                                                          |
-|------------------|----------------------------------------------------------------|
+| ---------------- | -------------------------------------------------------------- |
 | single           | 0% (sampling issue — process exited before sampler could read) |
 | clusterkit-3     | 0.8%                                                           |
 | native-cluster-3 | 0% (same sampling issue)                                       |
@@ -216,7 +216,7 @@ was 0.7% faster. The SO_REUSEPORT advantage is small but consistent. throng-3 is
 ### clusterkit-3 vs native-cluster-3 — the key comparison
 
 | Workload         | macOS (no SO_REUSEPORT)               | Linux (SO_REUSEPORT)                          |
-|------------------|---------------------------------------|-----------------------------------------------|
+| ---------------- | ------------------------------------- | --------------------------------------------- |
 | **hello**        | native 7% faster (53,520 vs 50,006)   | tied (55,862 vs 55,482, 0.7% delta)           |
 | **latency-10ms** | native 6% faster (54,864 vs 51,610)   | **clusterkit 0.2% faster** (54,495 vs 54,401) |
 | **cpu-io-mix**   | native 0.7% faster (12,809 vs 12,721) | **clusterkit 1.7% faster** (11,954 vs 11,751) |
@@ -236,7 +236,7 @@ negligible compared to HTTP parsing + JSON serialization.
 ### Other differentiators
 
 | Feature                 | clusterkit-3               | native-cluster-3  | throng-3 | pm2-3              |
-|-------------------------|----------------------------|-------------------|----------|--------------------|
+| ----------------------- | -------------------------- | ----------------- | -------- | ------------------ |
 | Graceful shutdown (ACK) | 9ms (Linux)                | 1ms (raw SIGTERM) | 9ms      | 222ms              |
 | Memory (Linux RSS)      | 184 MB                     | 183 MB            | 197 MB   | 405 MB             |
 | CPU overhead            | 93.2%                      | 94.9%             | 93.9%    | 146.4%             |
