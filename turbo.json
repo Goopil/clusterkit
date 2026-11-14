@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["WM_IT_MODE", "WM_IT_MESSAGE_PREFIX", "WM_IT_SHUTDOWN_DELAY_MS"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

@@ -8,13 +8,13 @@ transports.
 
 ## Capabilities
 
-| Capability | Details |
-|------------|---------|
-| Orchestration metrics | Tracks active workers, restarts, crashes, and circuit-breaker trips from orchestrator events |
-| Host/process metrics | Optional Node.js process metrics (CPU, memory, GC, event loop) via `@opentelemetry/host-metrics` |
-| OTLP/HTTP export | Push metrics to an OTLP/HTTP collector endpoint (default) |
-| OTLP/gRPC export | Push metrics to an OTLP/gRPC collector endpoint (optional) |
-| Primary/worker-aware behavior | Event listeners only on primary, host metrics on workers |
+| Capability                    | Details                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| Orchestration metrics         | Tracks active workers, restarts, crashes, and circuit-breaker trips from orchestrator events     |
+| Host/process metrics          | Optional Node.js process metrics (CPU, memory, GC, event loop) via `@opentelemetry/host-metrics` |
+| OTLP/HTTP export              | Push metrics to an OTLP/HTTP collector endpoint (default)                                        |
+| OTLP/gRPC export              | Push metrics to an OTLP/gRPC collector endpoint (optional)                                       |
+| Primary/worker-aware behavior | Event listeners only on primary, host metrics on workers                                         |
 
 ## Installation
 
@@ -58,16 +58,16 @@ orchestrator.use(otlp).run(async () => {
 
 ## Options (`OtlpMeterPluginOptions`)
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `endpoint` | `string` | `http://localhost:4318/v1/metrics` (HTTP) or `localhost:4317` (gRPC) | OTLP collector endpoint URL |
-| `headers` | `Record<string, string>` | — | Custom headers attached to every export request (e.g. `Authorization` for authenticated collectors). Applies to `http` only — with `grpc` they are ignored (warning logged); use exporter `metadata` instead |
-| `protocol` | `'http' \| 'grpc'` | `'http'` | OTLP transport protocol |
-| `instrumentation` | `boolean` | `true` | Collect Node.js host/process metrics |
-| `prefix` | `string` | `'clusterkit.'` | Metric name prefix |
-| `attributes` | `Record<string, string \| number \| boolean>` | `{}` | Static resource attributes |
-| `exportIntervalMs` | `number` | `60000` | Export interval in milliseconds (minimum `1000`) |
-| `serviceName` | `string` | `'clusterkit'` | Service name for the OpenTelemetry Resource |
+| Option             | Type                                          | Default                                                              | Description                                                                                                                                                                                                  |
+| ------------------ | --------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `endpoint`         | `string`                                      | `http://localhost:4318/v1/metrics` (HTTP) or `localhost:4317` (gRPC) | OTLP collector endpoint URL                                                                                                                                                                                  |
+| `headers`          | `Record<string, string>`                      | —                                                                    | Custom headers attached to every export request (e.g. `Authorization` for authenticated collectors). Applies to `http` only — with `grpc` they are ignored (warning logged); use exporter `metadata` instead |
+| `protocol`         | `'http' \| 'grpc'`                            | `'http'`                                                             | OTLP transport protocol                                                                                                                                                                                      |
+| `instrumentation`  | `boolean`                                     | `true`                                                               | Collect Node.js host/process metrics                                                                                                                                                                         |
+| `prefix`           | `string`                                      | `'clusterkit.'`                                                      | Metric name prefix                                                                                                                                                                                           |
+| `attributes`       | `Record<string, string \| number \| boolean>` | `{}`                                                                 | Static resource attributes                                                                                                                                                                                   |
+| `exportIntervalMs` | `number`                                      | `60000`                                                              | Export interval in milliseconds (minimum `1000`)                                                                                                                                                             |
+| `serviceName`      | `string`                                      | `'clusterkit'`                                                       | Service name for the OpenTelemetry Resource                                                                                                                                                                  |
 
 ## API (`OtlpMeterPlugin`)
 
