@@ -39,7 +39,7 @@ The plugin supports three independently selectable modes, all of which can be ac
 
 ## Watch paths are literal — no globs
 
-The plugin works with **chokidar v4 and v5 (`^4.0.0 || ^5.0.0`), which removed glob support**: paths in `watch` are matched **literally**. Pass a file or a directory, not a pattern like `src/**/*.ts`:
+The plugin works with **chokidar v4, v5 and v6 (`^4.0.0 || ^5.0.0 || ^6.0.0`), which removed glob support**: paths in `watch` are matched **literally**. Pass a file or a directory, not a pattern like `src/**/*.ts`:
 
 ```js
 createFileWatcherPlugin({
@@ -47,9 +47,9 @@ createFileWatcherPlugin({
 });
 ```
 
-chokidar v4 is hybrid CJS/ESM; v5 is ESM-only, reachable from CommonJS via `require(esm)` on Node ≥ 20.19 (this package already requires Node ≥ 22.12).
+chokidar v4 is hybrid CJS/ESM; v5 and v6 are ESM-only, reachable from CommonJS via `require(esm)` on Node ≥ 20.19 (this package already requires Node ≥ 22.12).
 
-To exclude files inside a watched directory, use `ignore` — it is passed to chokidar's `ignored` option. Note that chokidar v4/v5 match string entries in `ignored` as **literal paths**, not glob patterns; for pattern-based exclusions pass a `RegExp` or a function via `watchOptions.ignored` (see below).
+To exclude files inside a watched directory, use `ignore` — it is passed to chokidar's `ignored` option. Note that chokidar v4/v5/v6 match string entries in `ignored` as **literal paths**, not glob patterns; for pattern-based exclusions pass a `RegExp` or a function via `watchOptions.ignored` (see below).
 
 ### `node_modules` is ignored by default
 
@@ -73,7 +73,7 @@ A `FileWatcherPlugin` instance can be `uninstall()`ed (or shut down with its orc
 
 The plugin restarts on `change`, `add`, **and** `unlink` events. If you watch a directory your application writes into — logs, uploads, caches, tmp files — every new file emits an `add` event and triggers a restart, which may itself write more files and loop.
 
-Watch only source/config paths and exclude runtime directories via `watchOptions.ignored` — string entries in `ignored` are matched as literal paths by chokidar v4/v5, so use RegExps for patterns. An explicit `watchOptions.ignored` replaces the default `node_modules` ignore entirely, so re-add it:
+Watch only source/config paths and exclude runtime directories via `watchOptions.ignored` — string entries in `ignored` are matched as literal paths by chokidar v4/v5/v6, so use RegExps for patterns. An explicit `watchOptions.ignored` replaces the default `node_modules` ignore entirely, so re-add it:
 
 ```js
 createFileWatcherPlugin({
