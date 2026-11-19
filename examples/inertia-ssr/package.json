@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@goopil/clusterkit": "workspace:*",
-    "@inertiajs/vue3": "^3.7.1",
+    "@inertiajs/vue3": "^3.11.0",
     "@vue/server-renderer": "^3.5.45",
     "express": "^5.3.0",
     "vue": "^3.5.45"
